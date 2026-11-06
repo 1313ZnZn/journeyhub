@@ -18,6 +18,8 @@ function localParts(value,zone) {
   const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(value)).map(p=>[p.type,p.value]));
   return {date:parts.year+'-'+parts.month+'-'+parts.day,time:parts.hour+':'+parts.minute};
 }
+const TRANSFER_BUFFER_MINUTES = 10;
+export const transferMinutes = leg => leg.durationMinutes + (leg.estimated ? 0 : TRANSFER_BUFFER_MINUTES);
 // Approximate road distance and transfer time. No live route or traffic data.
 export function estimateTravel(from,to,mode='drive') {
   const coords=[from.lat,from.lng,to.lat,to.lng];
@@ -25,7 +27,7 @@ export function estimateTravel(from,to,mode='drive') {
   const rad=n=>n*Math.PI/180,dLat=rad(to.lat-from.lat),dLng=rad(to.lng-from.lng);
   const a=Math.sin(dLat/2)**2+Math.cos(rad(from.lat))*Math.cos(rad(to.lat))*Math.sin(dLng/2)**2;
   const distance=6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(Math.max(0,1-a)))*1.3;
-  return {mode,distanceKm:Math.round(distance*10)/10,durationMinutes:Math.max(15,Math.ceil((distance/(mode==='walk'?4.5:25)*60+10)/5)*5),estimated:true,basis:'coordinates'};
+  return {mode,distanceKm:Math.round(distance*10)/10,durationMinutes:Math.max(15,Math.ceil((distance/(mode==='walk'?4.5:25)*60+TRANSFER_BUFFER_MINUTES)/5)*5),estimated:true,basis:'coordinates'};
 }
 export function validateInput(value, now = new Date()) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || value.action !== 'plan') fail('INVALID_INPUT','Choose a destination, date and guest count.');

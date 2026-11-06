@@ -8,8 +8,8 @@ const peInput=p=>({city:p.city,date:p.date,days:p.days,guests:p.guests,prompt:St
 const peMoney=minor=>'CNY '+(Number(minor)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 function peEstimateHTML(plan){
  const estimate=plan?.estimate;if(estimate?.currency!=='CNY'||!Number.isFinite(estimate.totalMinor)||estimate.totalMinor<0)return '';
- const budget=Number.isFinite(estimate.budgetCnyMinor)?'<small class="pe-budget-status">Group budget '+peMoney(estimate.budgetCnyMinor)+(estimate.budgetExceeded?' · Over budget':'')+'</small>':'';
- return '<div class="pe-estimate"><span>Activities & dining estimate <small>Entire group · illustrative virtual credits</small>'+(estimate.incomplete?'<small>Some prices unavailable</small>':'')+budget+'</span><strong>'+peMoney(estimate.totalMinor)+'</strong></div>';
+ const budget=Number.isFinite(estimate.budgetCnyMinor)?'<small class="pe-budget-status">Group budget '+peMoney(estimate.budgetCnyMinor)+(estimate.budgetExceeded?' · Over budget':estimate.incomplete?' · Cannot verify':'')+'</small>':'';
+ return '<div class="pe-estimate"><span>Activities & dining estimate <small>Entire group · demo prices · excludes transport and lodging</small>'+(estimate.incomplete?'<small>Known subtotal only · some prices unavailable</small>':'')+budget+'</span><strong>'+peMoney(estimate.totalMinor)+'</strong></div>';
 }
 function peResetPreview(){if(!pe)return;pe.preview=null;pe.revisionToken=null;pe.error='';pe.requestId=null;pe.applyRequestId=null;}
 A.peStart=()=>{
@@ -89,7 +89,10 @@ V['place-plan']=()=>{
  const view=pePlanView();if(!pd.plan)return view;const template=document.createElement('template');template.innerHTML=view.body;
  const title=template.content.querySelector('.tu-title');if(title&&!pd.sample&&pd.historyId){const edit=title.querySelector('.tu-edit');if(edit){edit.dataset.act='peStart';delete edit.dataset.a;edit.setAttribute('aria-label','Edit itinerary');edit.setAttribute('title','Edit itinerary');}}
  const estimate=peEstimateHTML(pd.plan);if(estimate)template.content.querySelector('.tu-title')?.insertAdjacentHTML('afterend',estimate);
- const visibleStops=pd.plan.stops.filter(s=>pd.day==='all'||s.dayIndex===pd.day);template.content.querySelectorAll('.pd-stop').forEach((el,index)=>{const stop=visibleStops[index],cost=pd.plan.estimate?.items?.find(item=>item.stopId===stop?.id);if(cost&&Number.isFinite(cost.totalMinor))el.insertAdjacentHTML('beforeend','<p class="pe-stop-cost">Illustrative group cost <strong>'+(cost.kind==='unavailable'?'Unavailable':peMoney(cost.totalMinor))+'</strong></p>');});
+ const scheduled=new Set(pd.plan.stops.map(s=>s.id));
+ const alternatives=(pd.places||[]).filter(p=>!p.unavailable&&!scheduled.has(p.id)&&!(pd.skipped||[]).includes(p.id)&&!(pd.wanted||[]).includes(p.id));
+ if(!pd.sample&&pd.day==='all'&&alternatives.length)template.content.querySelector('.tu-title')?.insertAdjacentHTML('afterend','<details class="pd-card-details"><summary>Optional places not scheduled ('+alternatives.length+')</summary><ul>'+alternatives.map(p=>'<li>'+esc(p.name)+'</li>').join('')+'</ul></details>');
+ const visibleStops=pd.plan.stops.filter(s=>pd.day==='all'||s.dayIndex===pd.day);template.content.querySelectorAll('.pd-stop').forEach((el,index)=>{const stop=visibleStops[index],cost=pd.plan.estimate?.items?.find(item=>item.stopId===stop?.id);if(cost&&(cost.kind==='unavailable'||Number.isFinite(cost.totalMinor)))el.insertAdjacentHTML('beforeend','<p class="pe-stop-cost">Illustrative group cost <strong>'+(cost.kind==='unavailable'?'Unavailable':peMoney(cost.totalMinor))+'</strong></p>');});
  view.body=template.innerHTML;return view;
 };
 

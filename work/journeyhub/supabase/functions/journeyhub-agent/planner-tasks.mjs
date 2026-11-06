@@ -47,9 +47,9 @@ export async function plannerTaskAction(context){
    const selection=await readSelection(raw.token,context.secret,user.id,now);
    if(selection.sample||selection.ids.some(id=>id.startsWith('jh_sample_')))fail('SAMPLE_TRIP_READ_ONLY','Start a new search to plan your own journey.',409);
    input=validateDiscovery(selection.input,now);
-   const {wanted,skipped}=historyChoices(selection.ids,raw.wanted||[],raw.skipped||[]),selected=wanted.length?wanted:selection.ids.filter(id=>!skipped.includes(id));
-   if(selected.length<input.days)fail('INSUFFICIENT_PLACES','Like at least '+input.days+' places to fill all '+input.days+' days.');
-   if(selected.length>16)fail('INVALID_INPUT','Choose no more than 16 places.');
+   const {wanted,skipped}=historyChoices(selection.ids,raw.wanted||[],raw.skipped||[]),eligible=selection.ids.filter(id=>!skipped.includes(id));
+   if(!eligible.length)fail('INSUFFICIENT_PLACES','Keep at least one place available to plan.');
+   if(wanted.length>16)fail('INVALID_INPUT','Choose no more than 16 places.');
    // Persist the server-validated selection so a resumed task is not broken by
    // its original browser token expiring while the worker is still running.
    payload={action:'discover_plan',token:raw.token,wanted,skipped,selection};

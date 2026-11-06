@@ -34,18 +34,19 @@ export const searchHistoryId=async(search,token)=>search.historyId?historyId(sea
 // A new schedule policy creates a new version; older immutable history stays readable.
 export const revisionHistoryId=(root,wanted,skipped)=>stableHistoryId('itinerary:daily-coverage-v2:'+root+':'+JSON.stringify([[...wanted].sort(),[...skipped].sort()]));
 export async function getHistory(rpc,userId,id,required=true){const row=await rpc('journeyhub_trip_history_get',{p_user_id:userId,p_id:historyId(id)});if(!row&&required)fail('HISTORY_NOT_FOUND','This saved trip is unavailable for your account.',404);return row;}
-export async function saveHistory({rpc,userId,id,input,placeIds,wanted=[],skipped=[],plan=null,parentId=null}){
-  input=historyInput(input);placeIds=historyIds(placeIds);const choices=historyChoices(placeIds,wanted,skipped),selected=choices.wanted.length?choices.wanted:placeIds.filter(id=>!choices.skipped.includes(id)),structure=historyPlan(plan,input,selected);
+export async function saveHistory({rpc,userId,id,input,placeIds,wanted=[],skipped=[],plan=null,parentId=null,allowOptional=false}){
+  input=historyInput(input);placeIds=historyIds(placeIds);const choices=historyChoices(placeIds,wanted,skipped),selected=!allowOptional&&choices.wanted.length?choices.wanted:placeIds.filter(id=>!choices.skipped.includes(id)),structure=historyPlan(plan,input,selected);
+  if(allowOptional&&structure&&choices.wanted.some(id=>!structure.stops.some(stop=>stop.id===id)))fail('INVALID_INPUT','The itinerary omitted a must-visit place.');
   const row=await rpc('journeyhub_trip_history_save',{p_user_id:userId,p_id:historyId(id),p_input:input,p_place_ids:placeIds,p_wanted:choices.wanted,p_skipped:choices.skipped,p_plan:structure,p_parent_id:parentId?historyId(parentId):null});
   if(!row||row.id!==id)fail('HISTORY_UNAVAILABLE','Your trip could not be saved. Please retry saving.',503);return row;
 }
-export async function saveSearchAndPlan({rpc,userId,search,token,wanted=[],skipped=[],plan=null,onSaved=null}){
+export async function saveSearchAndPlan({rpc,userId,search,token,wanted=[],skipped=[],plan=null,onSaved=null,allowOptional=false}){
   const root=await searchHistoryId(search,token),input=historyInput(search.input),placeIds=historyIds(search.ids);historyChoices(placeIds,wanted,skipped);
   await saveHistory({rpc,userId,id:root,input,placeIds});
   const choices=historyChoices(placeIds,wanted,skipped),updated=await rpc('journeyhub_trip_history_choices',{p_user_id:userId,p_id:root,p_wanted:choices.wanted,p_skipped:choices.skipped});
   if(!updated?.id)fail('HISTORY_UNAVAILABLE','Your choices could not be saved. Please retry.',503);
   if(!plan)return root;
-  const id=await revisionHistoryId(root,wanted,skipped),row=await saveHistory({rpc,userId,id,input,placeIds,wanted,skipped,plan,parentId:root});if(onSaved)await onSaved(row);return id;
+  const id=await revisionHistoryId(root,wanted,skipped),row=await saveHistory({rpc,userId,id,input,placeIds,wanted,skipped,plan,parentId:root,allowOptional});if(onSaved)await onSaved(row);return id;
 }
 export async function safelySave(operation){try{return {historyId:await operation()};}catch(error){
   // A competing request may have occupied these dates after the preflight.

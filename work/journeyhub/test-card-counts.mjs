@@ -55,11 +55,11 @@ function fixture({days,sparse=false,underfillFirst=false,oneCategory=false}={}){
 
 for(const [days,target] of [[1,8],[2,12],[3,14],[4,16]]){
  assert.equal(discoveryCardCount(days),target);
- const f=fixture({days,oneCategory:true,underfillFirst:true});
+ const f=fixture({days,oneCategory:true});
  const search=await f.call({action:'discover',...f.input});
  assert.equal(search.places.length,target);assert.equal(search.targetCardCount,target);assert.equal(search.cardCountShortfall,0);
  assert.equal(new Set(search.places.map(p=>p.id)).size,target);
- assert.equal(f.ranks.length,2,'one bounded refinement repairs a short AI selection');
+ assert.equal(f.ranks.length,1,'a complete suitable result needs no second ranking pass');
  assert(f.ranks.every(r=>r.targetCardCount===target));
  const signed=await readSelection(search.token,secret,user.id,now);assert.equal(signed.ids.length,target);
  if(days>1){
@@ -94,6 +94,12 @@ const sparse=fixture({days:4,sparse:true,oneCategory:true}),short=await sparse.c
 assert.equal(short.places.length,2);assert.equal(short.targetCardCount,16);assert.equal(short.cardCountShortfall,14);
 assert.equal(sparse.ranks.length,1,'do not retry an impossible inventory count');
 
+// Verified inventory may be larger than the suitable set selected by the curator.
+const selective=fixture({days:1,oneCategory:true,underfillFirst:true});
+const few=await selective.call({action:'discover',...selective.input});
+assert.equal(few.places.length,3);assert.equal(few.cardCountShortfall,5);
+assert.equal(selective.ranks.length,1,'a suitable partial set is not reranked just to fill a quota');
+
 // Reject rather than publish impossible days, unknown venues or duplicate visits.
 const places=[0,1,2,3].map(i=>({id:'p'+i,name:'Place '+i,lat:31.23,lng:121.48}));
 const input={...sparse.input,days:4},clustered={summary:'Test',stops:places.map(p=>({placeId:p.id,day:1,start:'09:00',end:'10:00'}))};
@@ -109,4 +115,4 @@ const root='11111111-1111-4111-8111-111111111111',wanted=['p1'],skipped=[];
 const legacy=await stableHistoryId('itinerary:'+root+':'+JSON.stringify([wanted,skipped]));
 assert.notEqual(await revisionHistoryId(root,wanted,skipped),legacy);
 assert.equal(await revisionHistoryId(root,wanted,skipped),await revisionHistoryId(root,wanted,skipped));
-console.log('PASS: exact 8/12/14/16-card decks, bounded count refinement, category interleaving, honest shortages, owner-bound selections, all-day route repair, 16-stop persistence, insufficient-choice guards and immutable revision upgrade. All calls mocked; no bookings or emails.');
+console.log('PASS: 8/12/14/16-card limits, suitable partial selections, category interleaving, honest shortages, owner-bound selections, all-day route repair, 16-stop persistence, insufficient-choice guards and immutable revision upgrade. All calls mocked; no bookings or emails.');

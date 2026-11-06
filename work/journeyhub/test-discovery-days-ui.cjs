@@ -24,13 +24,17 @@ const {JSDOM}=require('jsdom'),{webcrypto}=require('node:crypto');
   }
   assert.equal(t.previewToasts.length,0,'full target results do not add explanatory text');
   response={places:[place(0),place(1)],targetCardCount:16,cardCountShortfall:14,token:'signed-fixture',expires:Date.now()+3600000};
-  await t.A.jpRequirements();assert.equal(t.previewToasts.length,1);assert.match(t.previewToasts[0],/Found 2 matching places out of 16 requested/);
+  await t.A.jpRequirements();assert.equal(t.previewToasts.length,1);assert.match(t.previewToasts[0],/Found 2 matching places/);
   t.V['ai-picks']();t.V['ai-picks']();assert.equal(t.previewToasts.length,1,'rendering never repeats the shortage toast');
   const places=Array.from({length:16},(_,i)=>place(i)),input={...t.ag.prefs,days:4};
-  t.seed(input,places,['place_0','place_1'],['place_2','place_3']);let before=calls.length;
-  await t.A.pdFinish();assert.equal(calls.length,before,'too few liked places never starts generation');assert.match(t.pd.error,/at least 4 places/);assert(!t.pd.busy);
-  t.A.jpPick('place_4','want');assert.equal(t.pd.error,'','editing the shortlist clears the outdated guard');
-  t.seed(input,places,[],places.slice(0,13).map(p=>p.id));before=calls.length;await t.A.pdFinish();assert.equal(calls.length,before,'skipped places cannot be re-added to fill days');
+  t.seed(input,places,['place_0'],['place_2']);let before=calls.length;
+  assert.match(t.V['ai-picks']().body,/unreviewed places optional/);
+  response={plan:{days:4,agent:{checked:true},stops:[{...places[0],dayIndex:1}]}};
+  await t.A.pdFinish();assert.equal(calls.length,before+1,'one must-visit can produce a plan with free days');assert.equal(t.state.route,'place-plan');
+  t.seed(input,places,[],places.map(p=>p.id));before=calls.length;await t.A.pdFinish();
+  assert.equal(calls.length,before,'all skipped places cannot be re-added');assert.match(t.pd.error,/at least one place/);
+  t.seed(input,places,['place_0'],['place_2']);response={plan:{days:4,agent:{checked:true},stops:[{...places[2],dayIndex:1}]}};
+  await t.A.pdFinish();assert.equal(t.pd.plan,null);assert.match(t.pd.error,/shortlist/);
   // A malformed response with all stops on day 1 never becomes a successful plan.
   t.seed(input,places,places.map(p=>p.id));response={plan:{days:4,stops:places.map(p=>({...p,dayIndex:1}))}};
   await t.A.pdFinish();assert.equal(t.state.route,'ai-picks');assert.equal(t.pd.plan,null);assert.match(t.pd.error,/every day/);
@@ -41,5 +45,5 @@ const {JSDOM}=require('jsdom'),{webcrypto}=require('node:crypto');
   // server selection rules; every explicit Skip remains on the request.
   t.seed({...input,days:2},places,[],['place_0']);response={plan:{days:2,stops:[{...places[1],dayIndex:1},{...places[2],dayIndex:2}]}};
   await t.A.pdFinish();assert.equal(t.state.route,'place-plan');assert.deepEqual(calls.at(-1).skipped,['place_0']);assert.deepEqual(calls.at(-1).wanted,[]);
-  dom.window.close();console.log('PASS: 8/12/14/16 cards preserved, days payload, insufficient shortlist guards, Skip preservation, incomplete response rejection, and complete four-day plans. No real network calls.');
+  dom.window.close();console.log('PASS: 8/12/14/16 cards preserved, days payload, must-visit and free day support, Skip preservation, incomplete response rejection, and complete four-day plans. No real network calls.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

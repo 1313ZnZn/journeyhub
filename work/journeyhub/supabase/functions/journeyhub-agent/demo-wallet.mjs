@@ -57,12 +57,12 @@ export function demoPrice(place,stop={}){
 async function metadata(id,{env,fetcher}){
  try{
   if(isAmap(id))return await amapDetails(id,env('AMAP_WEB_SERVICE_KEY'),fetcher);
-  const key=env('GOOGLE_PLACES_API_KEY');if(!key)return null;
+  const key=env('GOOGLE_PLACES_API_KEY');if(!key){console.warn('demo_place_lookup_failed',{reason:'missing_key'});return null;}
   const response=await fetcher('https://places.googleapis.com/v1/places/'+encodeURIComponent(id)+'?languageCode=en',{headers:{'X-Goog-Api-Key':key,'X-Goog-FieldMask':'id,displayName,primaryType'},signal:AbortSignal.timeout(12000),redirect:'error'});
-  if(!response.ok){await response.body?.cancel();return null;}
-  const p=await response.json();if(p.id!==id)return null;
+  if(!response.ok){console.warn('demo_place_lookup_failed',{reason:'http_error',status:response.status});await response.body?.cancel();return null;}
+  const p=await response.json();if(p.id!==id){console.warn('demo_place_lookup_failed',{reason:'id_mismatch'});return null;}
   return {name:p.displayName?.text||'',kind:p.primaryType||''};
- }catch{return null;}
+ }catch(error){console.warn('demo_place_lookup_failed',{reason:'exception',name:error?.name||'Error'});return null;}
 }
 function source(value){
  if(!!value.historyId===!!value.runId)fail('INVALID_INPUT','Choose one saved itinerary for the demo.');
@@ -92,7 +92,9 @@ export async function demoAction(context){
      const id=stop.id||stop.sessionId;
      // Catalog price/session identity is verified again inside the booking RPC.
      const place=args.p_source_type==='run'?{kind:stop.kind||'tourist attraction',name:stop.title||''}:await metadata(id,context);
-     const price=demoPrice(place,stop),label=({ticket:'Attraction visit',restaurant:'Restaurant reservation',cafe:'Cafe visit',free:'Free visit',unavailable:'Visit'})[price.kind];
+     const price=demoPrice(place,stop);
+     if(price.kind==='unavailable')console.warn('demo_quote_unclassified',{reason:!place?'lookup_failed':place.unavailable?'place_unavailable':'unmatched_kind',kind:place?.kind||null});
+     const label=({ticket:'Attraction visit',restaurant:'Restaurant reservation',cafe:'Cafe visit',free:'Free visit',unavailable:'Visit'})[price.kind];
      // Never persist Google venue content in the private demo catalog. The
      // traveler sees freshly hydrated venue names; staff sees a clear demo label.
      const name=isAmap(id)&&typeof place?.name==='string'&&!/[\u3400-\u9fff]/u.test(place.name)?place.name:'';

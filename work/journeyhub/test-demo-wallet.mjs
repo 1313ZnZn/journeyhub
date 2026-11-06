@@ -25,7 +25,11 @@ const rpc=async(name,args)=>{
 };
 const fetcher=async(url,init)=>{network.push(url);assert.match(url,/^https:\/\/places\.googleapis\.com\/v1\/places\//);assert.equal(init.redirect,'error');assert.equal(init.headers['X-Goog-FieldMask'],'id,displayName,primaryType');if(url.includes('failed')&&!providerRecovered)return Response.json({}, {status:503});const id=url.match(/places\/([^?]+)/)[1];return Response.json({id,primaryType:id.endsWith('museum')?'museum':id.endsWith('failed')?'park':'restaurant',displayName:{text:'A venue'}});};
 const base={user,rpc,fetcher,env:n=>n==='GOOGLE_PLACES_API_KEY'?'test-key':'',now:new Date('2026-11-04')};
+const warnings=[],originalWarn=console.warn;console.warn=(...entry)=>warnings.push(entry);
 const result=await demoAction({...base,value:{action:'demo_quote',historyId:sourceId,userId:'another-account',items:[{unitMinor:1}],amountMinor:1}});
+console.warn=originalWarn;
+assert(warnings.some(([name,info])=>name==='demo_quote_unclassified'&&info.reason==='lookup_failed'),'unclassified stops leave a diagnostic log');
+assert(warnings.some(([name,info])=>name==='demo_place_lookup_failed'&&info.status===503),'failed lookups log the provider status');
 assert.equal(result.wallet.balanceMinor,20000);assert.equal(lastItems[0].unitMinor,4000);assert.equal(lastItems[1].unitMinor,5000);assert.equal(lastItems[2].kind,'unavailable');
 assert(!calls.some(c=>/book$|topup$|care_confirm/.test(c.name)),'review must never charge or confirm');
 providerRecovered=true;

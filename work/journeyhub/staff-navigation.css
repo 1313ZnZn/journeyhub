@@ -1,0 +1,5 @@
+.bar .sn-entry{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;margin-left:auto;padding:9px 12px;min-height:38px;border:1px solid var(--line);border-radius:14px;background:var(--surface,#22232e);color:var(--ink);font-family:inherit;font-size:12px;font-weight:600;line-height:1.2;cursor:pointer;white-space:nowrap}
+.bar .sn-entry:hover{border-color:var(--forest);color:var(--forest)}
+.bar .sn-entry:focus-visible{outline:2px solid var(--forest);outline-offset:3px}
+.bar .sn-account{flex-shrink:0}
+@media(max-width:420px){.bar .sn-entry{padding:8px;font-size:11px}.bar .sn-entry svg{display:none}.bar:has(.sn-entry){gap:7px}.bar:has(.sn-entry) .wordmark{font-size:22px}}

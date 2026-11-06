@@ -1,0 +1,5 @@
+const assert=require('node:assert/strict');
+(async()=>{const {createCareWorker}=await import('./supabase/functions/journeyhub-care/worker.mjs');let claims=0;const secret='fixture-worker-secret-01234567890123456789';const handler=createCareWorker({env:()=>undefined,rpc:async name=>{if(name==='journeyhub_agent_worker_config')return {worker_secret:secret};if(name==='journeyhub_care_due'){claims++;return [];}throw Error('unexpected RPC');}});
+assert.equal((await handler(new Request('https://fixture',{method:'POST'}))).status,401);
+assert.equal((await handler(new Request('https://fixture',{method:'POST',headers:{Authorization:'Bearer '+secret+'wrong'}}))).status,401);assert.equal(claims,0);
+const response=await handler(new Request('https://fixture',{method:'POST',headers:{Authorization:'Bearer '+secret}}));assert.deepEqual(await response.json(),{checked:0,failed:0});assert.equal(claims,1);console.log('PASS care worker: authenticated scheduling, unauthorized callers cannot claim work');})();

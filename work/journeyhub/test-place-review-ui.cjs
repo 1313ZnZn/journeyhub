@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{JSDOM}=require('jsdom');
+const dom=new JSDOM('<main></main>',{runScripts:'outside-only'}),w=dom.window;
+w.eval(`const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));`+fs.readFileSync(path.join(__dirname,'place-reviews.js'),'utf8')+';window.reviewHTML=pdReviewHTML;');
+const place={kind:'restaurant',reason:'Matches your interest in local food.',review:{text:'The noodles were excellent.',author:'A guest',authorURL:'https://www.google.com/maps/contrib/123',source:'Google Maps',url:'https://www.google.com/maps/reviews/123',rating:5,excerpt:false}};
+const render=p=>{w.document.querySelector('main').innerHTML=w.reviewHTML(p);return w.document.querySelector('main');};
+let el=render(place);assert.equal(el.querySelector('blockquote').textContent,'“The noodles were excellent.”');assert.equal(el.querySelector('figcaption').textContent,'A guest · Google Maps · Selected 4–5★');assert.equal(el.querySelectorAll('a').length,2);
+el=render({...place,review:{...place.review,authorPhotoURL:'https://lh3.googleusercontent.com/photo'}});assert.equal(el.querySelector('img').getAttribute('src'),'https://lh3.googleusercontent.com/photo');
+el=render({...place,review:{...place.review,excerpt:true,translated:true}});assert(el.textContent.includes('excellent.…'));assert(el.textContent.includes('Translated'));
+el=render({...place,source:'Amap',review:null});assert(!el.querySelector('blockquote'));assert.equal(el.querySelector('.pd-match').textContent,'Why it fits Matches your interest in local food.');
+el=render({...place,review:{...place.review,rating:2}});assert(!el.querySelector('blockquote'),'low rating must not be promoted as praise');
+el=render({...place,kind:'museum'});assert.equal(el.textContent,'','restaurant treatment does not clutter other place cards');
+el=render({...place,review:{...place.review,url:'https://www.google.com.evil.example/review'}});assert(!el.querySelector('blockquote'),'unknown source cannot masquerade as Google review');
+el=render({...place,review:{...place.review,text:'<img src=x onerror=alert(1)>',author:'<script>bad()</script>',authorURL:'javascript:bad()'}});assert(!el.querySelector('img,script'));assert.equal(el.querySelectorAll('a').length,1);assert(el.textContent.includes('<script>bad()</script>'),'provider text remains plain text');
+el=render({...place,reason:'',review:null});assert.equal(el.textContent,'','no invented fallback quote');
+dom.window.close();console.log('PASS: sourced restaurant quote, author/source attribution, excerpts/translation label, honest missing-review fallback and safe provider text/links. No network.');

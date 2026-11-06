@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict');
+(async()=>{
+  const {addRoadRoutes}=await import('./supabase/functions/journeyhub-agent/roads.mjs');
+  const base=()=>({days:3,transport:'drive',stops:[{id:'a',dayIndex:1,start:'09:00',end:'10:00'},{id:'b',dayIndex:1,start:'10:15',end:'11:00'},{id:'c',dayIndex:1,start:'12:00',end:'13:00'},{id:'d',dayIndex:2,start:'09:00',end:'10:00'},{id:'e',dayIndex:3,start:'09:00',end:'10:00'},{id:'f',dayIndex:3,start:'12:00',end:'13:00'}]});
+  const calls=[];const fetcher=async(url,init)=>{assert.equal(url,'https://routes.googleapis.com/directions/v2:computeRoutes');const body=JSON.parse(init.body);calls.push(body);if(body.origin.placeId==='e')return new Response('',{status:403});return Response.json({routes:[{distanceMeters:4200,duration:'1800s',polyline:{encodedPolyline:'_p~iF~ps|U_ulLnnqC_mqNvxq`@'},legs:[{distanceMeters:2000,duration:'1200s'},{distanceMeters:2200,duration:'600s'}]}]});};
+  const plan=await addRoadRoutes(base(),'fixture-only-key',fetcher);assert.equal(calls.length,2);assert.equal(calls[0].intermediates[0].placeId,'b');assert.equal(calls[0].routingPreference,'TRAFFIC_UNAWARE');assert.equal(plan.roadRoutes[0].status,'ready');assert.equal(plan.stops[1].travel.source,'Google Routes');assert.equal(plan.stops[1].travelConflict,true);assert.equal(plan.stops[2].travelConflict,false);assert.equal(plan.roadRoutes[1].status,'single_stop');assert.equal(plan.roadRoutes[2].status,'unavailable');assert(!plan.roadRoutes[2].encodedPolyline);
+  const missing=await addRoadRoutes(base(),'',()=>{throw Error('must not fetch');});assert.equal(missing.roadRoutes[0].status,'unavailable');
+  const walk=base();walk.transport='walk';await addRoadRoutes(walk,'fixture',async(url,init)=>{const b=JSON.parse(init.body);assert.equal(b.travelMode,'WALK');assert(!('routingPreference' in b));return Response.json({routes:[]});});
+  assert(walk.roadRoutes.every(r=>r.status!=='ready'));
+  console.log('PASS: daily Google Routes requests, fixed stop order, verified-place IDs, road distance/duration, time conflicts, single-stop days, walking mode and explicit failure without invented lines. All API responses mocked.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

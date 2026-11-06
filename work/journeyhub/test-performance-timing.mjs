@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {requestTiming} from './supabase/functions/journeyhub-agent/timing.mjs';
+import {createAgentHandler} from './supabase/functions/journeyhub-agent/handler.mjs';
+let now=0;const records=[];const timing=requestTiming({clock:()=>now,log:x=>records.push(x)});
+timing.action('discover');await timing.measure('plan_details',async()=>{now+=25});await assert.rejects(timing.measure('plan_details',async()=>{now+=15;throw Error('secret failure')}));
+await timing.measure('user secret',async()=>{now+=5});assert.equal(timing.finish(503),45);timing.finish(503);assert.equal(records.length,1);assert.deepEqual(records[0].stages,[{stage:'plan_details',calls:2,durationMs:40}]);assert(!JSON.stringify(records).includes('secret'));
+const quiet=requestTiming({log(){throw Error('telemetry failed')}});assert.doesNotThrow(()=>quiet.finish(200));
+const logs=[],handler=createAgentHandler({authenticate:async()=>({id:'private-owner'}),rpc:async()=>({items:[],nextCursor:null}),logMetric:r=>logs.push(r)});
+const response=await handler(new Request('https://fixture/agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'history_list',prompt:'private request',token:'private token'})}));
+assert.equal(response.status,200);assert.match(response.headers.get('server-timing'),/^workflow;dur=\d+$/);assert.equal(logs.length,1);assert.equal(logs[0].action,'history_list');assert(!JSON.stringify(logs).includes('private'));assert(logs[0].stages.some(s=>s.stage==='database'));console.log('PASS: request/stage timing on success and errors; bounded static fields; no prompts/IDs/tokens/error messages; logging cannot fail requests.');

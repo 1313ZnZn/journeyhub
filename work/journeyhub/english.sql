@@ -1,0 +1,15 @@
+-- English-only public catalog. Preserve IDs, reservations, prices and inventory.
+BEGIN;
+UPDATE journey_hub.venues SET name='The Bund waterfront',area='Huangpu' WHERE venue_id='sh-bund-venue';
+UPDATE journey_hub.experiences SET name='Bund Heritage Walk',languages='Mandarin, English',details=details||'{"en":"Bund Heritage Walk","does":["Walk along the Bund and discover the architecture on both sides of the Huangpu River.","Photograph the Pudong skyline and explore the waterfront.","This sample outdoor walking route does not include attraction tickets."]}'::jsonb WHERE experience_id='sh-bund';
+UPDATE journey_hub.venues SET name='Yuyuan neighborhood',area='Old City' WHERE venue_id='sh-oldtown-venue';
+UPDATE journey_hub.experiences SET name='Old City Food Walk',languages='Mandarin, English',details=details||'{"en":"Old City Food Walk","does":["Explore the lanes around Yuyuan on foot.","Discover Shanghai food traditions, including soup dumplings.","Food and Yuyuan Garden admission are not included in the sample price."]}'::jsonb WHERE experience_id='sh-oldtown';
+UPDATE journey_hub.venues SET name='Old City tea studio (sample)',area='Huangpu' WHERE venue_id='sh-tea-venue';
+UPDATE journey_hub.experiences SET name='Jiangnan Tea Workshop',languages='Mandarin, English',details=details||'{"en":"Jiangnan Tea Workshop","does":["Explore tea aromas and traditional brewing utensils.","Practice brewing and learn about Jiangnan tea culture.","The studio and host are examples; a partner must confirm the actual venue."]}'::jsonb WHERE experience_id='sh-tea';
+UPDATE journey_hub.venues SET name='Marina Bay waterfront',area='Marina Bay' WHERE venue_id='sg-marina-venue';
+UPDATE journey_hub.experiences SET name='Marina Bay Skyline Walk',languages='Mandarin, English',details=details||'{"en":"Marina Bay Skyline Walk","does":["Explore the public waterfront paths around Marina Bay.","Discover Singapore waterfront architecture and public spaces.","This outdoor sample route does not include observation-deck tickets or a guaranteed light show."]}'::jsonb WHERE experience_id='sg-marina';
+UPDATE journey_hub.venues SET name='Chinatown',area='Chinatown' WHERE venue_id='sg-chinatown-venue';
+UPDATE journey_hub.experiences SET name='Chinatown Food & Heritage',languages='Mandarin, English',details=details||'{"en":"Chinatown Food & Heritage","does":["Explore Chinatown streets and shophouse architecture.","Discover hawker-center culture and choose local dishes.","Food is not included in the sample price. Stall choices depend on opening hours."]}'::jsonb WHERE experience_id='sg-chinatown';
+UPDATE journey_hub.venues SET name='Kampong Gelam',area='Kampong Gelam' WHERE venue_id='sg-kampong-venue';
+UPDATE journey_hub.experiences SET name='Kampong Gelam Culture Walk',languages='Mandarin, English',details=details||'{"en":"Kampong Gelam Culture Walk","does":["Explore Kampong Gelam and the lanes around Haji Lane.","Discover the neighborhood through its streets and architecture.","Religious sites are viewed from outside. Entry and visitor etiquette depend on local rules."]}'::jsonb WHERE experience_id='sg-kampong';
+COMMIT;

@@ -1,0 +1,8 @@
+.pd-place-card .pd-review{margin:10px 0 0;text-align:left}
+.pd-review blockquote{margin:0;color:#edf3ec;font-size:13px;line-height:1.5;font-weight:400;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.pd-review figcaption{margin-top:5px;font-size:10px;line-height:1.5;color:#d6e1d9;overflow-wrap:anywhere}
+.pd-review a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.pd-review figcaption img{display:inline-block;width:16px;height:16px;border-radius:50%;vertical-align:middle;object-fit:cover;margin-right:5px}
+.pd-place-card .jp-card-copy p.pd-match{margin-top:10px;font-size:13px;line-height:1.5;color:#e6eee6;-webkit-line-clamp:2}
+.pd-match>span{color:#cfdfa9;font-weight:650;margin-right:4px}
+.pd-place-card:has(.pd-review) .jp-card-shade,.pd-place-card:has(.pd-match) .jp-card-shade{background:linear-gradient(180deg,#091e2000 20%,#0c241e55 45%,#0b221cf5 100%)}

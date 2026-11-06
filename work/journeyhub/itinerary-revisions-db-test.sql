@@ -1,0 +1,31 @@
+BEGIN;
+CREATE FUNCTION pg_temp.revision_assert(ok boolean,label text)RETURNS void LANGUAGE plpgsql AS $$BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'TEST FAILED: %',label;END IF;END$$;
+DO $$
+DECLARE u uuid:=gen_random_uuid();other uuid:=gen_random_uuid();root uuid:=gen_random_uuid();hid uuid:=gen_random_uuid();rid uuid:=gen_random_uuid();inp jsonb;plan jsonb;candidate jsonb;out jsonb;original_at timestamptz;failed boolean;
+BEGIN
+ INSERT INTO auth.users(id,email,email_confirmed_at,raw_user_meta_data)VALUES(u,'edit-fixture-'||u||'@example.invalid',now(),'{}'),(other,'edit-fixture-'||other||'@example.invalid',now(),'{}');
+ inp:=jsonb_build_object('city','Shanghai','date',current_date+10,'guests',2,'prompt','','days',1,'dayStart','09:00','dayEnd','21:00','transport','walk','budgetCurrency','USD','budgetAmount',100,'budgetScope','person','budgetCnyMinor',140000,'budgetThb',7000,'preferredExperienceIds','[]'::jsonb,'excludedExperienceIds','[]'::jsonb);
+ plan:='{"summary":"Fixture","stops":[{"id":"edit_place_one","dayIndex":1,"start":"09:00","end":"10:00","reason":"Fixture"}]}'::jsonb;
+ PERFORM pg_temp.revision_assert(journey_hub.trip_history_payload_valid(inp,ARRAY['edit_place_one','edit_place_two'],'{}','{}',plan),'canonical per-person currency budget accepted');
+ PERFORM pg_temp.revision_assert(NOT journey_hub.trip_history_payload_valid(jsonb_set(inp,'{budgetCnyMinor}','1'),ARRAY['edit_place_one'],'{}','{}',plan),'forged canonical budget rejected');
+ PERFORM pg_temp.revision_assert(journey_hub.agent_trip_input(inp)#>>'{budgetCnyMinor}'='140000' AND journey_hub.agent_trip_input(inp)#>>'{budgetCurrency}'='USD','catalog run retains raw budget preferences');
+ PERFORM pg_temp.revision_assert(journey_hub.agent_trip_input(jsonb_set(inp,'{budgetThb}','1'))#>>'{budgetThb}'='7000','catalog budget recomputed from authoritative raw prefs');
+ PERFORM pg_temp.revision_assert(NOT(journey_hub.agent_trip_input(inp-ARRAY['budgetCurrency','budgetAmount','budgetScope','budgetCnyMinor'])?'budgetCnyMinor'),'legacy normalized run input preserved');
+ INSERT INTO journey_hub.trip_history(id,user_id,input,place_ids)VALUES(root,u,inp,ARRAY['edit_place_one','edit_place_two']);
+ INSERT INTO journey_hub.trip_history(id,user_id,parent_id,input,place_ids,plan)VALUES(hid,u,root,inp,ARRAY['edit_place_one','edit_place_two'],plan)RETURNING updated_at INTO original_at;
+ PERFORM public.journeyhub_care_confirm(u,'history',hid);
+ candidate:=jsonb_set(plan,'{stops,0,id}','"edit_place_two"');
+ out:=public.journeyhub_trip_history_revise(u,hid,original_at,inp,candidate,rid);
+ PERFORM pg_temp.revision_assert(out->>'id'=hid::text AND out#>>'{plan,stops,0,id}'='edit_place_two','same identity, replaced stop saved');
+ PERFORM pg_temp.revision_assert(out->'wanted'='["edit_place_two"]'::jsonb AND out->'skipped'='["edit_place_one"]'::jsonb,'choices saved with plan');
+ PERFORM pg_temp.revision_assert((SELECT count(*)=1 AND bool_and(before_plan=plan) FROM journey_hub.trip_history_revisions WHERE user_id=u),'original revision retained');
+ PERFORM pg_temp.revision_assert((SELECT c.plan=candidate AND c.revision=2 FROM journey_hub.trip_care c WHERE c.user_id=u),'companion reads new plan without old proposal');
+ PERFORM pg_temp.revision_assert(public.journeyhub_trip_history_revise(u,hid,original_at,inp,candidate,rid)=out,'lost-response retry is idempotent');
+ failed:=false;BEGIN PERFORM public.journeyhub_trip_history_revise(u,hid,original_at,inp,plan,gen_random_uuid());EXCEPTION WHEN OTHERS THEN failed:=SQLERRM='EDIT_STALE';END;PERFORM pg_temp.revision_assert(failed,'concurrent old preview rejected');
+ failed:=false;BEGIN PERFORM public.journeyhub_trip_history_revise(other,hid,original_at,inp,candidate,gen_random_uuid());EXCEPTION WHEN OTHERS THEN failed:=SQLERRM='EDIT_NOT_FOUND';END;PERFORM pg_temp.revision_assert(failed,'other account isolated');
+ failed:=false;BEGIN PERFORM public.journeyhub_trip_history_revise(u,hid,original_at,inp,plan,rid);EXCEPTION WHEN OTHERS THEN failed:=SQLERRM='EDIT_REQUEST_REUSED';END;PERFORM pg_temp.revision_assert(failed,'request cannot change payload');
+ PERFORM pg_temp.revision_assert(NOT has_function_privilege('authenticated','public.journeyhub_trip_history_revise(uuid,uuid,timestamptz,jsonb,jsonb,uuid)','EXECUTE'),'browser cannot spoof owner');
+ PERFORM pg_temp.revision_assert(NOT EXISTS(SELECT 1 FROM journey_hub.bookings b JOIN journey_hub.travelers t USING(traveler_id) WHERE t.auth_user_id=u),'edits do not book');
+END $$;
+SELECT 'PASS: budget normalization, stable Calendar identity, audit versions, choices, companion freshness, idempotency, stale preview, account isolation, no reservations' AS result;
+ROLLBACK;

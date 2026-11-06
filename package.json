@@ -1,0 +1,12 @@
+{
+  "name": "journeyhub-workspace",
+  "private": true,
+  "scripts": {
+    "setup": "npm ci --prefix work/journeyhub",
+    "build": "node work/journeyhub/build.cjs",
+    "test": "node work/journeyhub/test-calendar-weather.mjs && node work/journeyhub/test-calendar-weather-backend.mjs && node work/journeyhub/test-weather-generation.cjs && node work/journeyhub/test-calendar-ui.cjs"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {searchQueries,mergeCandidates,selectCurated} from './supabase/functions/journeyhub-agent/curation.mjs';
+import {amapRecord} from './supabase/functions/journeyhub-agent/amap.mjs';
+import {discoveryAction} from './supabase/functions/journeyhub-agent/discovery.mjs';
+const labels=['Local food','Italian food','Matcha','Museums','History'];
+const queries=searchQueries({queries:labels.map(category=>({category,query:category}))});
+const batches=queries.map((q,i)=>({category:q.category,places:[{id:'p'+i,name:q.category,lat:31.23,lng:121.48}]}));
+const records=mergeCandidates([...batches,{category:'Local food',places:[batches[0].places[0]]}]);
+assert.equal(records.length,5);
+assert.equal(selectCurated({places:records.map(p=>({id:p.id,name:p.name,category:p.categories[0]}))},records,queries).missingCategories.length,0);
+assert.throws(()=>selectCurated({places:[{id:'invented'}]},records,queries));
+assert.throws(()=>selectCurated({places:[{id:'p3',category:'Matcha'}]},records,queries));
+assert.deepEqual(selectCurated({places:[{id:'p3'}]},records,queries).missingCategories,['Local food','Italian food','Matcha','History']);
+const photo=amapRecord({id:'B123',name:'Museum',location:'121.48,31.23',photos:[{url:'http://store.is.autonavi.com/real.jpg'},{url:'https://evil.example/false.jpg'},{url:'https://store.is.autonavi.com/next.jpg'}]});
+assert.equal(photo.photo.url,'https://store.is.autonavi.com/real.jpg');assert.deepEqual(photo.photo.alternatives,['https://store.is.autonavi.com/next.jpg']);
+let ai=0;const searched=[];
+const result=await discoveryAction({value:{action:'discover',city:'Shanghai',date:'2026-11-05',prompt:'Local food, Italian restaurants, matcha, museums and historic places',guests:2,days:2,dayStart:'09:00',dayEnd:'20:00',transport:'drive'},user:{id:'fixture-owner'},env:n=>({DEEPSEEK_API_KEY:'fixture',GOOGLE_PLACES_API_KEY:'fixture'}[n]),secret:'fixture-secret',now:new Date('2026-11-03'),rpc:async()=>null,fetcher:async(url,init)=>{
+ if(url.includes('deepseek'))return Response.json({choices:[{message:{content:JSON.stringify(ai++?{places:records.map(p=>({id:p.id,name:p.name,category:p.categories[0],reason:'Requested interest'}))}:{queries})}}]});
+ const body=JSON.parse(init.body);searched.push(body.textQuery);const i=searched.length-1;return Response.json({places:[{id:'p'+i,displayName:{text:labels[i]},location:{latitude:31.23,longitude:121.48},formattedAddress:'Fixture address'}]});
+}});
+assert.equal(searched.length,5);assert.equal(result.places.length,5);assert.deepEqual(result.missingCategories,[]);assert.deepEqual(result.places.map(p=>p.category),labels);assert(result.places.every(p=>p.bookable===false));
+console.log('PASS: five independent interest searches, category coverage, deduplication, verified ID/category checks, English names and safe HTTPS photo alternatives. No live calls.');

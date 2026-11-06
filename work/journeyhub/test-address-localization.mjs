@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import {englishAddress,addressTranslationPrompt} from './supabase/functions/journeyhub-agent/address-localization.mjs';
+
+const address='上海市 黄浦区 南京西路325号(人民广场地铁站1号口步行200米)';
+const translated='325 West Nanjing Road, Huangpu District, Shanghai (200 m from Exit 1 of People’s Square Station)';
+assert.equal(englishAddress(address,translated),translated);
+assert.equal(englishAddress('325 West Nanjing Road, Shanghai','Fake new location'),'325 West Nanjing Road, Shanghai');
+assert.equal(englishAddress('上海市黄浦区南京西路３２５号','325 West Nanjing Road, Huangpu District, Shanghai'),'325 West Nanjing Road, Huangpu District, Shanghai');
+assert.equal(englishAddress('',translated),'');
+assert.equal(englishAddress('Street address not supplied',translated),'');
+assert.equal(englishAddress(address,''),'');
+assert.equal(englishAddress(address,address),'');
+assert.equal(englishAddress(address,translated+' 200001'),'');
+assert.equal(englishAddress(address,translated.replace('325','326')),'');
+assert.equal(englishAddress(address,'West Nanjing Road, Shanghai'),'');
+assert.equal(englishAddress(address,'https://example.test/325/1/200'),'');
+assert.equal(englishAddress(address,'<b>'+translated+'</b>'),'');
+assert.equal(englishAddress(address,'上海 '+translated),'');
+assert.equal(englishAddress('上海市徐汇区龙腾大道','Longteng Avenue, Xuhui District, Shanghai'),'Longteng Avenue, Xuhui District, Shanghai');
+assert.equal(englishAddress('Rue René, Paris'), 'Rue René, Paris');
+assert.match(addressTranslationPrompt,/ONLY the supplied address/);
+console.log('PASS: provider English addresses preserved; grounded translation presentation accepts Latin text and unchanged source numbers; missing, Chinese, fabricated numbers and unsafe outputs fall back without inventing addresses. No provider calls.');

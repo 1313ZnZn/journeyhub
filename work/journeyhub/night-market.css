@@ -1,0 +1,179 @@
+/* Style C / Night Market. Presentation only: keep routes, forms and media intact. */
+:root,:root[data-theme="light"],:root[data-theme="dark"]{
+ color-scheme:dark;
+ --bg:#0b0c10;--ground:#121318;--surface:#202128;--surface-2:#191a21;--surface-3:#292b36;
+ --ink:#ececf5;--ink-2:#b7b8cb;--ink-3:#9b9db3;--muted:#9b9db3;--line:#30323e;--line-strong:#454857;
+ --forest:#c5ff48;--forest-ink:#152006;--deep:#20143f;--deep-2:#2a1d50;--deep-line:#504068;--on-deep:#eeebff;--on-deep-2:#bfb5da;
+ --mint:#202a19;--mint-ink:#c5ff48;--marigold:#e6bf70;--on-marigold:#251b0b;
+ --warn-bg:#302617;--warn-line:#65502a;--warn-ink:#f0c87b;--warn-ink-2:#dfcaa4;
+ --info-bg:#20243a;--info-ink:#b7c5f3;--danger:#ff9b9e;
+ --shadow:rgba(0,0,0,.48);--scrim:rgba(0,0,0,.68);
+}
+.stage{background:radial-gradient(ellipse at 20% 0,#20203a,transparent 50%),#0b0c10}
+.device,.screen,.bar,.foot{background:var(--ground);color:var(--ink)}
+.device{border-color:#292b35!important;box-shadow:0 28px 80px #0008}
+.tabbar{background:#202128;border-color:#292b36;box-shadow:0 -4px 24px #0005}
+.tab{color:#a5a6bd}.tab[aria-current=page]{color:var(--forest)}
+.tab[aria-current=page] .tab-pill{background:#26301d;box-shadow:0 0 14px #c5ff4812}
+.btn-primary,.jl-send{background:var(--forest);color:var(--forest-ink);box-shadow:0 5px 18px #c5ff481a}
+.btn-primary:hover,.jl-send:hover{background:#d2ff73}
+.btn-soft{background:#202a19;color:var(--forest)}
+.input,input:not([type=checkbox]):not([type=radio]),textarea,select{color:var(--ink);border-color:var(--line);background:var(--surface)}
+input::placeholder,textarea::placeholder{color:#9194aa;opacity:1}
+:focus-visible{outline-color:#c5ff48}
+.card,.list,.pcard,.xcard,.sheet-card,.sheet,.modal{border-color:var(--line);background:var(--surface)}
+#app[data-role=traveler] .card,#app[data-role=traveler] .list,#app[data-role=traveler] .pcard{border-color:var(--line);box-shadow:0 6px 18px #0004}
+.card.deep{background:var(--deep);border-color:#6a7841!important;color:var(--on-deep)}
+.avatar{background:var(--forest);color:var(--forest-ink)}
+/* Journey composer */
+.screen:has(.jl-home){background:var(--ground)}
+.jl-home{--jl-accent:#c5ff48;--jl-wash:#1d2b24;--jl-pop:#e6bf70;background:radial-gradient(ellipse at 50% 12%,#0a1b15 0,transparent 55%),#121318}
+.jl-home[data-mood="1"]{--jl-accent:#c5ff48;--jl-wash:#2c2142;--jl-pop:#c0a2fa}
+.jl-home[data-mood="2"]{--jl-accent:#c5ff48;--jl-wash:#352b24;--jl-pop:#f0c87b}
+.jl-ticket{background:#1d1e28;border-color:#353845;color:#c5ff48;box-shadow:0 12px 28px #0007}
+.jl-cloud{background:#20232b}.jl-orbit:before{border-color:#687c4f66}.jl-orbit:after{border-color:#17211d}
+.jl-ticket:before{border-color:#637146}.jl-ticket:after{background:repeating-linear-gradient(90deg,#889766 0 2px,transparent 2px 4px)}
+.jl-copy>small{color:#a8b78e}.jl-copy h1{color:#d4ff8b}.jl-copy p{color:#a3ac9b}
+.jl-composer{background:#1e1f27;border-color:#343640;box-shadow:0 12px 28px #0006}
+.jl-composer:focus-within{border-color:#9bc943;box-shadow:0 0 0 3px #c5ff4814,0 12px 28px #0006}
+.jl-composer textarea#ag-prompt{color:#a3a7b8;background:transparent}.jl-composer textarea#ag-prompt::placeholder{color:#8f94a8}
+.jl-context{color:#a1ad9c;background:transparent}
+.jl-suggestions button{background:#1b1e25;border-color:#30333e;color:#aeb5b3;box-shadow:0 4px 12px #0004}
+.jl-suggestions button:hover,.jl-suggestions button[aria-pressed=true]{background:#26331b;border-color:#829b42;color:#d2ff7c}
+.jl-details>summary{color:#a1ac9d}.jl-details[open]{border-color:#30343a}.jl-details[open]>summary{color:#d4e6bf}
+.jl-library-card{background:#0c1414;border-color:#344634;color:#d1f394;box-shadow:0 6px 16px #0005}
+.jl-library-icon{background:#1c2225}.jl-library-card small{color:#a3ad9a}
+.jl-memory-card{background:#211c30;border-color:#40334d;color:#d8c8f1}.jl-memory-card small{color:#b4a5c7}
+.jh-home-planner,.jh-home-below{background:var(--ground)}.jh-home-intro{background:radial-gradient(ellipse at 95% 0,#241b39,transparent 70%)}
+.jh-home-planner textarea{background:var(--surface)!important}.jh-vibe-chips button{background:var(--surface)}
+.jh-destination-cards button[aria-pressed=true]{box-shadow:0 0 0 3px #b7ea42,0 8px 20px #0005}
+/* Explore, shop, account chrome */
+.ix-citybar button[aria-pressed=true]{background:#c5ff48;border-color:#c5ff48;color:#17210b}
+.ix-categories button[aria-pressed=true]{background:#26331b;color:#d2ff7c}
+.ix-quick i,.ix-quick button:nth-child(2) i,.ix-quick button:nth-child(3) i,.ix-quick button:nth-child(4) i{background:#24222f;border-color:#383641;color:#bdc2d4}
+.ix-store,.ix-carousel .xcard{background:var(--surface);border-color:var(--line);box-shadow:0 8px 22px #0004}
+.ix-resume{background:#211a35;color:#d5c6f2}.ix-preview-label{background:#302617;color:#efcf8c}
+.ix-search,.ix-search input{background:var(--surface);color:var(--ink)}
+.ix-segments{background:#0e1015}.ix-segments button[aria-pressed=true]{background:#24242f;color:#d4ff8b}
+/* History */
+.th-card,.th-related button,.th-empty{background:var(--surface);border-color:var(--line);color:var(--ink)}
+.th-card-icon{background:#2b2041;color:#cbbbeb}.th-prompt{color:#b8b9cc}.th-trip-date,.th-saved-date,.th-related small,.th-history-note,.th-card-arrow{color:#a2a2b7}
+.th-state{background:#292936;color:#c2bdd7}.th-state.planned{background:#26311c;color:#c6ec95}.th-state.sample{background:#322246;color:#d4b8f0}
+.th-related{background:var(--line);border-color:var(--line)}.th-empty h2{color:var(--ink)}.th-empty p{color:var(--ink-2)}
+.th-save-status{background:#0e1715;color:#b7cfaa}.th-save-status.unsaved,.th-error,.th-live,.th-unavailable{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-ink)}
+.th-save-status.saving{background:#282331;color:#c3b4d5}.th-sample{background:#21192f;border-color:#40324d;color:#c8b8dd}
+/* Swipe deck: leave images and photo shading unchanged. */
+.jp-deck-back,.jp-swipe-page .jp-deck[data-remaining] .jp-deck-back-1{background:#29312a;border-color:#46513b}
+.jp-swipe-page .jp-deck[data-remaining] .jp-deck-back-2{background:#26242f;border-color:#393747}
+.jp-swipe-card{border-color:#52613e;box-shadow:0 12px 30px #0008}
+.jp-choice.want{color:#d1ff7b}.jp-choice.want>svg{background:#c5ff48;color:#152006;border-color:#c5ff48}
+.jp-choice.skip{color:#a7b29c}.jp-choice.skip>svg{background:#22232b;color:#a7b29c;border-color:#343641}
+.jp-swipe-heading,.jp-swipe-actions>p,.pd-place-address,.pd-attribution,.jp-small-note{color:#a1a6ba}
+.pd-place-address a,.pd-stop a{color:#c8eb98}.jp-picks-complete>span{background:#24311d;color:#c5ff48}
+.jp-shortlist{background:#1b1d24;border-color:#343641}.jp-shortlist strong{color:#d5edb8}.jp-shortlist span{color:#b1b4c3}
+/* Maps retain native imagery and provider controls; only surrounding UI changes. */
+.tu-sheet{background:#1b1c24;box-shadow:0 -8px 35px #0007}.tu-sheet-scroll{background:#191b22}
+.tu-handle span{background:#555869}.tu-edit{background:#11171b;color:#b5c4b3}
+.tu-tabs{background:#0d1014;border:1px solid #313540}.tu-tabs button{color:#a7acc0}.tu-tabs button[aria-pressed=true]{background:#24242f;color:#d5ff8b;box-shadow:0 2px 6px #0005}
+.tu-sheet .pm-legend button{background:#0e1116;color:#b8bed2}.tu-sheet .pm-legend button[data-a="all"][aria-pressed=true]{background:#c5ff48;color:#17210b}
+.tu-trip .pd-stop,.tu-trip .pd-stop.pm-selected,.jp-timeline-stop,.pd-stop{background:#20212a;border-color:#353644;color:var(--ink);box-shadow:0 8px 18px #0004}
+.tu-stop-time,.jp-stop-time,.jp-stop-main strong{color:#d0f395}.tu-duration{background:#27321f;color:#c5e89e}
+.tu-day-section>h2>span,.tu-stop-time>small,.tu-place-kind,.tu-trip .pd-stop .tu-stop-address,.tu-trip .pd-stop>.tu-hours-note,.tu-place-credits,.jp-day-heading small,.jp-itinerary-meta{color:#a4a8ba}
+.tu-trip .pd-stop .tu-stop-reason,.jp-stop-reason,.jp-stop-main p{color:#bbc0cb}
+.tu-stop-footer,.tu-trip .pd-stop .tu-opening-hours{border-color:#333640}
+.tu-trip .pd-stop .tu-stop-footer>a,.tu-stop-footer>button,.tu-opening-hours>summary,.jp-stop-actions button{color:#c6e99a}
+.tu-trip .pd-transfer.tu-transfer,.pd-transfer,.jr-leg{color:#a9b5a1;border-color:#47533b;background:#1b231d}
+.tu-transfer small{color:#a3ad9e}.tu-transfer-dot{background:#94ac69;border-color:#1b231d}
+.tu-trip .pd-stop .pm-warning,.pd-error{background:var(--warn-bg);color:var(--warn-ink)}
+/* Travel memories */
+.jm-stats>div,.jm-stats>button,.jm-badge{background:var(--surface)!important;border-color:var(--line)!important;box-shadow:0 6px 18px #0004}
+.jm-stats b{color:#d1ff80!important}.jm-stats small,.jm-intro p,.jm-local-note,.jm-day-head small{color:#a4a7bb}
+.jm-tabs,.jm-map-tools{background:#101217}.jm-tabs button,.jm-map-tools button{color:#aeb1c4}
+.jm-tabs button[aria-pressed=true],.jm-map-tools button[aria-pressed=true]{background:#c5ff48;color:#152006}
+.jm-toolbar button,.jm-toolbar a{background:#20212a;color:#c5c3dc;border-color:#363642}
+.jm-toolbar button:first-child{background:#242f1b;color:#d0f892}
+.jm-note,.jm-form input:not([type=checkbox]):not([type=radio]),.jm-form textarea,.jm-form select,.jm-photo-info{background:#20212a;color:var(--ink);border-color:#3b3c49}
+.jm-note::placeholder{color:#979aac}.jm-stop-info,.jm-stop-info p,.jm-stop-info small{color:var(--ink-2)}
+.jm-visited{background:#20212a;border-color:#59604c}.jm-visited[aria-pressed=true]{background:#c5ff48;color:#152006}
+.jm-progress{color:#c5ddaa}.jm-progress progress::-webkit-progress-bar{background:#282b34}.jm-progress progress::-webkit-progress-value{background:#b9ed46}
+.jm-chip{background:#25311d;color:#d4f3a9}.jm-empty{background:var(--surface);border-color:var(--line)}.jm-empty strong,.jm-empty h2,.jm-empty h3,.jm-photo-info h2,.jm-photo-info strong{color:var(--ink)}
+.jm-badge strong{color:var(--ink)}.jm-badge small{color:var(--ink-3)}.jm-badge-medal{background:#302642;color:#e1c784}.jm-badge.locked{background:#191b22}.jm-badge.locked strong{color:#a4a6b9}
+.jm-start-card,.jm-journey-entry,.jm-plan-entry{background:#231b35!important;color:#dacbf2;border-color:#443652}.jm-start-card small,.jm-journey-entry small,.jm-plan-entry small{color:#b4a6c7}
+.jm-poster{background:#0b241b;color:#d5efae}.jm-poster-title h1,.jm-poster-title h2,.jm-poster-stats b{color:#d6f2b5}
+/* Use explicit semantic colors for form, warning and task states. */
+.fx-option{background:var(--surface);border-color:var(--line)}.fx-option[aria-pressed=true]{background:#202a19;border-color:#9fc94a}.fx-code{background:#2c2b39;color:#c7bedc}.fx-option[aria-pressed=true] .fx-code{background:#c5ff48;color:#152006}.fx-example{background:#1c1f27}
+.jp-progress-steps li{background:var(--surface);border-color:var(--line)}.jp-step-symbol{background:#30313d;color:#b3b6c9}.jp-progress-steps .done{color:#c5e5a4}.jp-progress-steps .done .jp-step-symbol,.jp-progress-steps .current .jp-step-symbol{background:#c5ff48;color:#152006}.jp-progress-steps .current b{color:#d6f6ad}.jp-progress-steps small,.jp-working>p,.jp-working>small,.jp-progress-details{color:var(--ink-2)}
+.jp-connecting{background:#231c35;border-color:#43334e}.jp-connecting p{color:#c4b8d8}
+/* Preserve photograph labels and scannable codes (never invert media). */
+.ix-hero,.ix-plan-cover,.jp-card-copy,.jm-trip-title,.jm-album{color:#fff}
+.ix-hero h1,.ix-plan-cover h1,.jp-card-copy h1,.jm-trip-title h1,.jm-album h3{color:#fff}
+img[alt="Check-in QR code"]{background:#fff;padding:8px;border-radius:10px}
+@media(prefers-reduced-motion:reduce){.jl-composer,.jl-send{transition:none}}
+.tu-trip .pd-stop{border-top-color:var(--stop-color,#b9ed46)}
+/* Theme the app-owned world illustration without altering external maps. */
+.jm-world svg rect[fill="#f5f6f1"]{fill:#191b25}
+.jm-world svg g[stroke="#acb8aa"]{stroke:#3b3c4d}
+.jm-world svg path[fill="#e5e9e1"]{fill:#303242;stroke:#47495c}
+.jm-world svg text[fill="#869282"]{fill:#abaec4}
+/* Shared visual rhythm: consistent gutters, touch targets and card baselines. */
+:root{--ui-gutter:20px;--ui-card-radius:20px;--ui-control-radius:14px}
+#app[data-role=traveler] .bar{padding-inline:var(--ui-gutter)}
+.jl-home{padding-inline:var(--ui-gutter);justify-content:flex-start}
+.jl-copy{width:100%;max-width:450px}
+.jl-copy h1{font-size:clamp(30px,8.2vw,36px);line-height:1.16;letter-spacing:-1.1px}
+.jl-composer,.jl-home-library,.jl-details,.jl-suggestions{max-width:450px}
+.jl-composer{border-radius:24px;padding:16px}
+.jl-compose-bottom{gap:12px}.jl-send{flex-basis:48px;width:48px;height:48px;border-radius:16px}
+.jl-suggestions{gap:8px;margin-top:16px}.jl-suggestions button{min-height:44px;padding:10px 12px;border-radius:var(--ui-control-radius);font-size:14px}
+.jl-library-card{padding:16px;border-radius:var(--ui-card-radius);gap:12px}.jl-library-icon{width:40px;height:40px;flex-basis:40px}
+.jl-home-library{gap:12px;margin-top:20px}.jl-library-copy{gap:4px}.jl-library-card>svg{width:20px;height:20px}
+.ix-citybar{padding-inline:var(--ui-gutter);gap:8px}.ix-citybar button{min-height:44px;line-height:1.3}
+.ix-hero{margin-inline:var(--ui-gutter);border-radius:24px}.ix-hero-text{left:20px;right:20px}
+.ix-search{margin-inline:var(--ui-gutter);border-radius:16px;min-height:48px}.ix-search input,.jc-search input{font-size:16px}
+.ix-home-content{padding-inline:var(--ui-gutter);gap:24px}.ix-section-top{align-items:center;gap:12px;min-height:44px;margin-bottom:12px}
+.ix-section-top h2{font-size:20px;line-height:1.25;letter-spacing:-.4px}.ix-section-top button{min-height:44px;flex-shrink:0;font-size:12px}
+.ix-quick button{font-size:12px;line-height:1.35;gap:8px}.ix-quick i{width:44px;height:44px;border-radius:14px}
+.ix-categories{gap:8px}.ix-categories button{min-height:40px;padding:9px 12px;font-size:12px;line-height:1.4}
+.ix-carousel{gap:12px;margin-inline:calc(-1 * var(--ui-gutter));padding-inline:var(--ui-gutter)}
+.ix-carousel .xcard{display:flex;flex-direction:column;border-radius:var(--ui-card-radius)}
+.ix-carousel .ix-card-image{flex-shrink:0;width:100%}.ix-carousel .ix-card-b{flex:1;display:flex;flex-direction:column;gap:8px;padding:16px}
+.ix-carousel .ix-card-b .h3{font-size:16px;line-height:1.4;min-height:2.8em}.ix-carousel .ix-card-b .row-between{margin-top:auto;gap:8px;flex-wrap:wrap}
+.ix-tag{font-size:11px;line-height:1.4}.ix-card-b .price{font-size:14px}.ix-card-image .ix-fav{width:40px;height:40px}
+.ix-store{border-radius:var(--ui-card-radius);padding:16px;gap:12px;text-align:left}.ix-store strong{font-size:16px;line-height:1.4}.ix-sub{font-size:13px;line-height:1.5}.ix-note{font-size:12px;line-height:1.5}
+.jc-page{padding-inline:var(--ui-gutter)}.jc-citybar{padding-inline:0}.jc-categories{margin-inline:calc(-1 * var(--ui-gutter));padding-inline:var(--ui-gutter)}
+.jc-grid,.pgrid{gap:16px 12px}.pcard{border-radius:var(--ui-card-radius)}.pcard-img{height:auto;aspect-ratio:4/3}
+.pcard-b{padding:12px;gap:6px}.pcard-foot{min-height:48px;align-items:center;flex-wrap:wrap;row-gap:8px}.pcard-b .h3{line-height:1.4}
+.th-card{padding:16px;border-radius:var(--ui-card-radius);gap:12px}.th-card-icon{width:40px;height:40px;flex-basis:40px;border-radius:13px}
+.tu-title,.tu-sheet>.pm-legend{padding-inline:var(--ui-gutter)}.tu-tabs{margin-inline:var(--ui-gutter)}.tu-sheet-scroll{padding-inline:var(--ui-gutter)}
+.tu-day-section>h2{margin-inline:0!important}.tu-trip .pd-stop{border-radius:var(--ui-card-radius)}.tu-stop-head img,.tu-photo-placeholder{width:68px;height:68px}
+.tu-stop-footer{gap:8px 12px}.tu-stop-footer>button,.tu-trip .pd-stop .tu-stop-footer>a{min-height:44px}
+.tabbar .tab{min-height:48px;line-height:1.3;font-size:11px;gap:4px}.tabbar .tab-pill{width:40px;height:30px;display:grid;place-items:center}.tabbar .tab-pill>svg{width:22px;height:22px}
+@media(max-width:370px){:root{--ui-gutter:16px}.jl-context{font-size:14px}.jl-library-card strong{font-size:16px}.ix-section-top h2{font-size:18px}.ix-section-top button{font-size:11px}}
+
+/* Focused discovery and a single, full-width itinerary scroll surface. */
+.screen:has(.pd-simple-picks){container-type:normal;overflow-y:auto}
+.pd-simple-picks.jp-swipe-page{padding:16px 22px 24px;gap:10px}
+.pd-simple-picks .jp-deck[data-remaining] .jp-swipe-card{height:clamp(270px,calc(100dvh - 300px),540px);max-height:none}
+.pd-simple-picks .jp-card-copy h1{font-size:28px!important;line-height:1.15;margin:0}
+.pd-simple-picks .jp-swipe-actions{justify-content:space-evenly;padding:0;min-height:70px}
+.pd-simple-picks .jp-choice{font-size:15px;min-width:100px;min-height:70px}
+.pd-card-credit{font-size:11px;color:var(--ink-3);text-align:center;line-height:1.4}
+.pd-card-details{font-size:14px;line-height:1.6;color:var(--ink-3)}
+.pd-card-details summary{min-height:38px;cursor:pointer;text-align:center}
+.pd-card-details button{display:block;min-height:44px;color:var(--forest)}
+.pd-card-details small{display:block}
+.pd-photo-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:radial-gradient(ellipse at top,#384830,#19251f);color:#bdc9b4;font-size:13px}
+.pd-place-card>img.pd-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.pd-place-card>img[hidden]{display:none}
+.screen:has(.tu-trip){overflow-y:auto;overflow-x:hidden;touch-action:pan-y}
+.tu-trip.pd-plan{height:auto;min-height:0;overflow:visible;background:var(--surface);padding-bottom:24px}
+.tu-trip>.pm-map-shell{position:relative;inset:auto;height:clamp(190px,30dvh,300px);touch-action:pan-y}
+.tu-trip .pm-map{height:100%;min-height:0;touch-action:pan-y}
+.tu-trip.tu-expanded>.pm-map-shell{display:none}
+.tu-trip .tu-sheet,.tu-trip.tu-expanded .tu-sheet{position:relative;inset:auto;display:block;transition:none;border-radius:22px 22px 0 0;min-height:0}
+.tu-trip .tu-sheet-scroll{overflow:visible;overscroll-behavior:auto;min-height:0;padding-bottom:28px}
+.tu-trip .tu-handle{height:44px;touch-action:manipulation;cursor:pointer;font-size:14px;color:var(--forest);font-weight:650}
+.tu-trip .tu-title h1{font-size:26px}.tu-trip .tu-title small{display:none}
+.tu-trip .tu-title p{font-size:14px}.tu-trip .tu-tabs button{font-size:15px;min-height:44px}
+.tu-trip .tu-sheet>.pm-legend{padding-top:12px;padding-bottom:12px}.tu-trip .pm-legend button{font-size:14px;min-height:44px}
+@media(max-height:700px){.pd-simple-picks.jp-swipe-page{padding-top:10px}.pd-simple-picks .jp-deck[data-remaining] .jp-swipe-card{height:clamp(230px,calc(100dvh - 290px),400px)}}

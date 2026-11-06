@@ -1,0 +1,23 @@
+.cal-event-action{justify-content:space-between;gap:12px;flex-wrap:wrap}
+.cal-event-action .cm-manage-btn,.cm-history-actions .cm-manage-btn{color:var(--ink-3);font-size:14px;font-weight:500;text-align:left;padding-left:0}
+.cal-event-action>button:last-child{margin-left:auto}
+.cal-tools{flex-wrap:wrap}
+.cal-tools button{flex-basis:calc(50% - 10px)}
+.cal-tools button[data-a=calendar-removed]{flex-basis:100%;min-height:42px;background:transparent;border-color:transparent;color:var(--ink-3)}
+.cm-confirm h2{margin:0;color:var(--ink);font-size:23px;line-height:1.25}
+.cm-confirm>strong{font-size:17px;line-height:1.45;overflow-wrap:anywhere}
+.cm-confirm>p{margin:0;color:var(--ink-2);font-size:16px;line-height:1.55}
+.cm-confirm-actions{display:flex;gap:10px;margin-top:8px}
+.cm-confirm-actions button{flex:1;min-width:0;min-height:48px;font-size:15px;padding:12px 10px}
+.cm-confirm .cm-danger{background:#64313a;color:#ffe6ea;border:1px solid #92505b}
+.cm-confirm button:disabled{opacity:.55;cursor:wait}
+.cm-confirm button:focus-visible{outline:2px solid var(--forest);outline-offset:3px}
+.cm-history-row{min-width:0}
+.cm-history-row .th-card{width:100%;margin-bottom:0}
+.cm-run-row .ag-run{width:100%;margin-bottom:0}
+.cm-history-actions{display:flex;justify-content:flex-end;padding:0 10px}
+.cm-history-actions .cm-manage-btn{min-height:42px;border:0;background:transparent;font-family:inherit;cursor:pointer}
+.cm-history-actions .cm-manage-btn:disabled{opacity:.5;cursor:wait}
+.cm-removed>.cal-event-meta{margin:0 0 20px}
+.cm-removed-card>.cal-tag{margin-bottom:9px}
+@media(max-width:360px){.cal-event-action{gap:5px}.cal-event-action button{font-size:14px}.cal-event-action .cm-manage-btn{font-size:13px}.cm-confirm-actions{gap:8px}}

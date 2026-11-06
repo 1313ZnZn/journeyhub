@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {createAmapTransport} from './supabase/functions/journeyhub-agent/amap.mjs';
+let clock=10000,starts=[],calls=0;
+const request=createAmapTransport({now:()=>clock,wait:async ms=>{clock+=ms;},random:()=>0,fetcher:async()=>{starts.push(clock);calls++;return Response.json({status:'1',pois:[]});}});
+await Promise.all(Array.from({length:7},(_,i)=>request('/v3/place/detail',{id:'B'+i},'fixture')));
+assert.equal(calls,7);for(let i=1;i<starts.length;i++)assert.ok(starts[i]-starts[i-1]>=1200);
+let attempts=0,waits=[];
+const retry=createAmapTransport({now:()=>100000,wait:async ms=>waits.push(ms),random:()=>0,fetcher:async()=>Response.json(++attempts<3?{status:'0',infocode:'10021'}:{status:'1',pois:[{id:'verified'}]})});
+assert.equal((await retry('/v3/place/detail',{},'fixture')).pois[0].id,'verified');assert.equal(attempts,3);assert.ok(waits.includes(1500)&&waits.includes(3000));
+attempts=0;const limited=createAmapTransport({wait:async()=>{},fetcher:async()=>{attempts++;return Response.json({status:'0',infocode:'10021'});}});
+await assert.rejects(limited('/v3/place/detail',{},'fixture'),e=>e.code==='AMAP_RATE_LIMITED'&&e.status===429&&!e.message.includes('key'));assert.equal(attempts,3);
+attempts=0;const config=createAmapTransport({wait:async()=>{},fetcher:async()=>{attempts++;return Response.json({status:'0',infocode:'10009'});}});
+await assert.rejects(config('/v3/place/detail',{},'fixture'),/10009/);assert.equal(attempts,1);
+let bad=true;const recovery=createAmapTransport({wait:async()=>{},fetcher:async()=>{if(bad)throw Error('network');return Response.json({status:'1'});}});
+await assert.rejects(recovery('/v3/place/detail',{},'fixture'));bad=false;assert.equal((await recovery('/v3/place/detail',{},'fixture')).status,'1');
+console.log('PASS: seven simultaneous requests paced, 10021 bounded recovery, retry exhaustion, no credential-error retry, queue recovery after failure.');

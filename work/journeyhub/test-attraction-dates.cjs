@@ -1,0 +1,27 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const source=['attraction-policies.js','attraction-details.js'].map(name=>fs.readFileSync(__dirname+'/'+name,'utf8')).join('\n');
+const api=vm.runInNewContext(source+'\n;({attractionGuide,guideHours,providerVisitHours})',{cvEnglish:value=>typeof value==='string'?value:''});
+function guide(name,date,city='Shanghai') { return api.attractionGuide({name},{city,date}); }
+const summer=guide('Yu Garden','2026-07-06');
+assert.equal(summer.price('2026-07-06'),'CNY 30 per adult');
+assert.equal(summer.price('2026-11-05'),'CNY 40 per adult');
+assert.match(api.guideHours(summer,'2026-07-06'),/Closed/);
+assert.match(api.guideHours(summer,'2026-10-05'),/Holiday hours/);
+assert.equal(guide('Yu Garden Mall','2026-11-05'),null);
+assert.equal(guide('Yu Garden','2026-11-05','Singapore'),null);
+assert.equal(api.attractionGuide({name:'Yu Garden',source:'Amap',originalName:'豫园商城'},{city:'Shanghai',date:'2026-11-05'}),null);
+assert.match(guide('Rockbund','2026-11-05').price,/outdoor district/);
+assert.match(guide('Rockbund Art Museum','2026-11-05').price,/exhibition/);
+assert.equal(guide('Shanghai Museum','2026-11-05'),null);
+assert.equal(guide("Shanghai Museum (People's Square)",'2027-11-15'),null);
+assert.match(guide("Shanghai Museum (People's Square)",'2026-11-05').price,/CNY 74/);
+assert.match(api.guideHours(guide('Shanghai Natural History Museum','2026-11-07'),'2026-11-07'),/20:00/);
+const stop={openingHours:['Mon–Fri 09:00–17:00','2026-11-05–2026-11-06 10:00–15:00','Saturday: Closed','Sunday: Open 24 hours'],venueDetails:{hoursDate:'2026-11-04',todayHours:'08:00–14:00'}};
+assert.equal(api.providerVisitHours(stop,'2026-11-05').specific,'10:00–15:00');
+assert.equal(api.providerVisitHours(stop,'2026-11-07').specific,'');
+assert.equal(api.providerVisitHours(stop,'2026-11-07').regular,'Closed');
+assert.equal(api.providerVisitHours(stop,'2026-11-08').regular,'Open 24 hours');
+assert.equal(api.providerVisitHours(stop,'2026-11-04').specific,'08:00–14:00');
+console.log('PASS: date exceptions, local weekdays, holiday/overnight schedules, seasonal prices, branch identity and notice expiry.');

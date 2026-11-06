@@ -1,0 +1,14 @@
+.cal-inline-map{margin-top:22px;border:1px solid var(--line);border-radius:19px;overflow:hidden;background:var(--surface)}
+.cal-map-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px}
+.cal-map-heading h3{font-size:18px;margin:0}
+.cal-map-heading>span{font-size:13px;color:var(--ink-3)}
+.cal-map-shell{position:relative;background:#21262b;isolation:isolate}
+.cal-map-canvas{height:300px;width:100%;touch-action:pan-y}
+.cal-map-status{position:absolute;inset:auto 12px 12px;margin:0;z-index:3;padding:11px 13px;border-radius:11px;background:var(--surface);box-shadow:0 3px 18px #0004;color:var(--ink-2);font-size:14px;line-height:1.5;pointer-events:none}
+.cal-map-status[hidden]{display:none}
+.cal-map-fit{position:absolute;z-index:3;top:12px;right:12px;display:grid;place-items:center;width:42px;height:42px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--forest);cursor:pointer;box-shadow:0 3px 12px #0003}
+.cal-map-footer{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;gap:12px}
+.cal-map-footer small{font-size:12px;color:var(--ink-3)}
+.cal-map-footer button{min-height:40px;padding:7px 0;color:var(--forest);background:none;border:0;font-size:13px;font-family:inherit;cursor:pointer}
+.cal-schedule .cv-highlight{outline:2px solid var(--forest);outline-offset:3px}
+@media(min-width:650px){.cal-map-canvas{height:340px}}

@@ -1,0 +1,14 @@
+**/node_modules/
+outputs/
+.env
+.env.*
+!.env.example
+**/config.local.js
+**/supabase/.temp/
+**/supabase/.branches/
+*.log
+**/test-fixtures.json
+**/test-fixtures.sql
+**/*remote-baseline*
+**/*history-seed*
+.DS_Store

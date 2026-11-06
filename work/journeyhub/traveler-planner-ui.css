@@ -1,0 +1,11 @@
+/* Keep the existing generation view; only show factual tool activity. */
+.ptu-working .ptu-current{font-size:14px;line-height:1.55;color:var(--ink-2);max-width:32ch;margin:18px auto 0}
+.ptu-working .ptu-log{width:100%;max-width:350px;margin:18px auto 0;text-align:left;color:var(--ink-3);font-size:13px;line-height:1.5}
+.ptu-log summary{cursor:pointer;text-align:center;padding:8px}
+.ptu-log ol{margin:8px 0;padding-left:24px;max-height:170px;overflow:auto}
+.ptu-log li{padding:5px 0}
+.ptu-home{padding-top:0;padding-bottom:12px}
+.ptu-resume{display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;background:var(--surface);color:var(--ink-2);border:1px solid var(--line);border-radius:18px;font-size:14px;text-align:left}
+.ptu-resume span{flex:1}.ptu-resume>svg:first-child{color:var(--accent)}
+.ptu-retry{padding:0 20px 12px;text-align:center}
+.ptu-steps{width:100%;max-width:370px;text-align:left;margin:24px auto 0}.ptu-steps h2{font-size:15px;line-height:1.4;font-weight:700;margin:0 0 12px;color:var(--ink-2)}.ptu-steps ol{list-style:none;padding:0;margin:0;display:grid;gap:13px}.ptu-steps li{display:flex;align-items:flex-start;gap:11px;font-size:15px;line-height:1.5;color:var(--ink-2)}.ptu-steps .is-current{color:var(--ink)}.ptu-step-icon{display:grid;place-items:center;width:23px;height:23px;flex:none;border-radius:8px;background:var(--mint);color:var(--forest)}.ptu-step-icon i{width:7px;height:7px;border-radius:50%;background:var(--forest);animation:ptu-step-pulse 1.5s ease-in-out infinite}@keyframes ptu-step-pulse{50%{opacity:.3}}@media(prefers-reduced-motion:reduce){.ptu-step-icon i{animation:none}}

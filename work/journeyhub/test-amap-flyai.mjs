@@ -1,0 +1,37 @@
+import {scheduleVerifiedStops,validateFreePlan} from './supabase/functions/journeyhub-agent/discovery.mjs';
+import assert from 'node:assert/strict';
+import {amapBusiness} from './supabase/functions/journeyhub-agent/amap-business.mjs';
+import {amapRecord,amapDetails,addAmapRoutes} from './supabase/functions/journeyhub-agent/amap.mjs';
+import {amapBrowserConfig,amapBrowserProxy} from './supabase/functions/journeyhub-agent/amap-browser.mjs';
+import {searchFlyai,flyaiURL} from './supabase/functions/journeyhub-agent/flyai.mjs';
+import {presentCare} from './supabase/functions/journeyhub-agent/care.mjs';
+const raw={id:'B00155FXB3',name:'外滩',location:'121.492127,31.233516',typecode:'110000'};
+const p=amapRecord(raw);assert.equal(p.id,'amap_B00155FXB3');assert.equal(p.coordinateSystem,'GCJ-02');assert.equal(amapRecord({...raw,location:'103.8,1.3'}),null);
+const business={opentime_week:'周一至周五 09:00-17:00（法定节假日除外）',opentime_today:'10:00-16:00',tel:'021-12345678',rating:'4.6',cost:'128'};
+const fresh=await amapDetails(p.id,'server',async url=>{
+ const request=new URL(url);assert.equal(request.pathname,'/v5/place/detail');assert.equal(request.searchParams.get('show_fields'),'business,photos');
+ return Response.json({status:'1',pois:[{...raw,business}]});
+});
+assert.equal(fresh.id,p.id);assert.deepEqual(fresh.openingHours,['Mon–Fri 09:00-17:00(except public holidays)']);
+assert.equal(fresh.venueDetails.rating,4.6);assert.equal(fresh.venueDetails.averageSpendCny,128);
+assert.equal(amapBusiness({business},new Date('2026-11-04T17:30:00Z')).venueDetails.hoursDate,'2026-11-05');
+assert.deepEqual(amapBusiness({business:{opentime_today:'09:00-17:00'}}).openingHours,[]);
+assert.deepEqual(amapBusiness({business:{opentime_week:'施工期间仅限预约 09:00-17:00'}}).openingHours,[]);
+const holiday=amapBusiness({business:{opentime_week:'周一至周日 10:30-22:00 2026-10-01至2026-10-07 10:30-23:00',opentime_today:'10:30-22:00 10:30-23:00 10:30-23:00'}});
+assert.deepEqual(holiday.openingHours,['Mon–Sun 10:30-22:00','2026-10-01–2026-10-07 10:30-23:00']);
+assert.equal(holiday.venueDetails.todayHours,null);
+assert.equal(amapBusiness({business:{opentime_today:'10:00-12:00 14:00-20:00'}}).venueDetails.todayHours,'10:00-12:00, 14:00-20:00');
+await assert.rejects(amapDetails(p.id,'server',async()=>Response.json({status:'0',infocode:'10009'})),/10009/);
+const plan={days:1,transport:'walk',stops:[{...p,dayIndex:1,start:'09:00',end:'10:00'},{...p,id:'amap_B002',lat:31.24,dayIndex:1,start:'10:05',end:'11:00'}]};
+await addAmapRoutes(plan,'server',async url=>{assert.match(url,/restapi.amap.com/);return Response.json({status:'1',route:{paths:[{distance:'1003',duration:'900',steps:[{polyline:'121.492127,31.233516;121.492127,31.24'}]}]}})});
+assert.equal(plan.roadRoutes[0].status,'ready');assert.equal(plan.stops[1].travelConflict,true);assert.equal(plan.roadRoutes[0].path.length,2);
+const env=n=>({AMAP_JS_KEY:'browser',AMAP_WEB_SERVICE_KEY:'server',AMAP_SECURITY_JS_CODE:'private-code',SUPABASE_URL:'https://test.supabase.co',FLYAI_API_KEY:'private-flyai'}[n]);
+const config=amapBrowserConfig(env,'secret');assert.ok(!JSON.stringify(config).includes('private-code'));assert.ok(!JSON.stringify(config).includes('server'));
+let fetched=false;const proxy=await amapBrowserProxy(new Request(config.serviceHost+'/v3/place/text'),env,'secret',async()=>{fetched=true;});assert.equal(proxy.status,400);assert.equal(fetched,false);
+const response=await amapBrowserProxy(new Request(config.serviceHost+'/v3/log/init?key=attacker'),env,'secret',async url=>{const u=new URL(url);assert.equal(u.searchParams.get('key'),'browser');assert.equal(u.searchParams.get('jscode'),'private-code');return new Response('ok');});assert.equal(response.status,200);
+assert.equal(flyaiURL('https://feizhu.com.evil.test/a'),'');assert.equal(flyaiURL('javascript:alert(1)'),'');
+let calls=0;const search=await searchFlyai({id:p.id,name:'上海博物馆',kind:'museum',city:'Shanghai',date:'2026-12-01'},env,async(url,options)=>{calls++;assert.equal(url,'https://flyai.open.fliggy.com/mcp');assert.equal(JSON.parse(options.body).params.name,'fliggy_fast_search');return Response.json({result:{content:[{type:'text',text:JSON.stringify({status:0,data:{itemList:[{info:{title:'上海博物馆门票',jumpUrl:'https://router.feizhu.com/ws/test',price:'60'}},{info:{title:'Bad',jumpUrl:'https://evil.test',price:'0'}}]}})}]}})});assert.equal(calls,1);assert.equal(search.offers.length,1);assert.equal(search.offers[0].currency,'CNY');assert.equal(search.status,'ready');
+const row={id:'trip',sourceType:'history',sourceId:'history',status:'active',input:{city:'Shanghai',date:'2026-12-01',days:1},plan:{stops:[{id:p.id,dayIndex:1,start:'09:00',end:'10:00'}]},checks:[{id:p.id,status:'unknown',supplier:search}]};const care=presentCare(row,new Date('2026-11-03'));assert.equal(care.bookings[0].status,'needs_action');assert.equal(care.bookings[0].supplier.offers.length,1);assert.match(care.stops[0].directionsURL,/amap.com/);
+console.log('PASS: Amap coordinates, details, routes, proxy path/key boundaries; FlyAI signed search, safe links, explicit unbooked offers and persisted rendering.');
+
+const inputs={city:'Shanghai',date:'2026-11-10',days:1,transport:'walk',dayStart:'09:00',dayEnd:'18:00'};const records=plan.stops;const draft={summary:'Walk',stops:records.map((p,i)=>({placeId:p.id,day:1,start:'09:00',end:'17:00'}))};const repaired=validateFreePlan(scheduleVerifiedStops(draft,records,inputs),records,inputs);assert.equal(repaired.stops.length,2);assert.ok(repaired.stops[1].start>repaired.stops[0].end);assert.throws(()=>validateFreePlan(scheduleVerifiedStops({stops:[{placeId:'invented',day:1,start:'09:00',end:'10:00'}]},records,inputs),records,inputs));console.log('PASS deterministic time repair preserves verified IDs and enforces travel gaps.');

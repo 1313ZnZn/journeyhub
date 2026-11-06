@@ -1,0 +1,67 @@
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),{webcrypto}=require('node:crypto'),{JSDOM}=require('jsdom');
+const copy=v=>JSON.parse(JSON.stringify(v)),delay=ms=>new Promise(r=>setTimeout(r,ms));
+const until=async(test,label)=>{for(let i=0;i<100;i++){if(test())return;await delay(5);}throw Error('Timeout: '+label);};
+const items=[{stopId:'museum',kind:'ticket',unitMinor:4000,quantity:1,totalMinor:4000,dayIndex:1,date:'2026-12-31',start:'09:00',end:'10:30'},{stopId:'table',kind:'restaurant',unitMinor:5000,quantity:1,totalMinor:5000,dayIndex:1,date:'2026-12-31',start:'12:00',end:'13:00'},{stopId:'park',kind:'free',unitMinor:0,quantity:1,totalMinor:0,dayIndex:1,date:'2026-12-31',start:'14:00',end:'15:00'},{stopId:'unknown',kind:'unavailable',unitMinor:0,quantity:1,totalMinor:0,dayIndex:1,date:'2026-12-31',start:'16:00',end:'17:00'}];
+function cloud(){
+ const wallets={},quotes={},receipts={},posts=[];let loseBook=false,hold=null,badBook=false;
+ const wallet=owner=>wallets[owner]||=( {demo:true,currency:'CNY',balanceMinor:0,ledger:[],bookings:[]} );
+ const quote=(owner,id)=>quotes[owner+':'+id]||=( {id:'quote-'+owner,sourceType:'history',sourceId:id,revision:'one',expiresAt:'2026-12-30T23:59:00Z',status:'quoted',currency:'CNY',items:copy(items),totalMinor:9000,demo:true} );
+ const request=async(owner,p)=>{
+  posts.push({owner,...copy(p)});assert(owner,'No unauthenticated calls');assert(!('userId'in p)&&!('items'in p)&&!('price'in p),'frontend never chooses owner or price');
+  if(hold&&p.action==='demo_state')return hold;
+  const account=wallet(owner),respond=extra=>Response.json({wallet:copy(account),...copy(extra||{})});
+  if(p.action==='demo_state')return respond();
+  if(p.action==='demo_quote')return respond({quote:copy(quote(owner,p.historyId))});
+  const key=owner+':'+p.requestId;if(receipts[key])return Response.json(copy(receipts[key]));
+  if(p.action==='demo_topup'){account.balanceMinor+=p.amountMinor;account.ledger.unshift({id:'credit-'+key,kind:'topup',amountMinor:p.amountMinor,balanceAfterMinor:account.balanceMinor,createdAt:'2026-11-04T09:00:00Z',demo:true});}
+  else if(p.action==='demo_book'){
+   if(badBook)return respond({quote:{id:'wrong',status:'booked'},bookings:[]});
+   const q=quote(owner,'plan-one');assert.equal(p.quoteId,q.id);if(account.balanceMinor<q.totalMinor)return Response.json({error:{code:'DEMO_INSUFFICIENT_FUNDS',message:'Insufficient demo balance'}},{status:409});
+   if(q.status!=='booked'){
+    q.status='booked';account.balanceMinor-=q.totalMinor;account.bookings=q.items.map((item,i)=>({...item,id:'booking-'+i,quoteId:q.id,sourceType:'history',sourceId:'plan-one',amountMinor:item.totalMinor,currency:'CNY',reference:'DEMO-'+i,status:item.kind==='free'?'not_required':item.kind==='unavailable'?'unavailable':'simulated_confirmed',createdAt:'2026-11-04T09:05:00Z',demo:true}));account.ledger.unshift({id:'payment',kind:'payment',amountMinor:-q.totalMinor,balanceAfterMinor:account.balanceMinor,createdAt:'2026-11-04T09:05:00Z',quoteId:q.id,demo:true});
+   }
+   const result={wallet:copy(account),quote:copy(q),bookings:copy(account.bookings),demo:true};receipts[key]=result;if(loseBook){loseBook=false;throw Error('Network interrupted. Retry to check your saved demo.');}return Response.json(result);
+  }else if(p.action==='demo_cancel'){
+   const b=account.bookings.find(b=>b.id===p.bookingId);assert(b);if(b.status==='simulated_confirmed'){b.status='cancelled';account.balanceMinor+=b.amountMinor;account.ledger.unshift({id:'refund-'+b.id,kind:'refund',amountMinor:b.amountMinor,balanceAfterMinor:account.balanceMinor,bookingId:b.id,createdAt:'2026-11-04T09:10:00Z',demo:true});}
+  }else throw Error('Unexpected action '+p.action);
+  receipts[key]={wallet:copy(account),demo:true};return respond();
+ };
+ return {wallet,quote,posts,request,setLostBook:v=>loseBook=v,setBadBook:v=>badBook=v,holdState:p=>hold=p};
+}
+function boot(backend,owner='alice',storage={}){
+ const dom=new JSDOM('<main id="app"></main>',{url:'https://fixture.example',runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window;
+ Object.assign(w,{Response,AbortController});Object.defineProperty(w,'crypto',{value:webcrypto});for(const [key,value]of Object.entries(storage))w.sessionStorage.setItem(key,value);
+ w.owner=owner;w.fetch=(_,init)=>backend.request(w.owner,JSON.parse(init.body));
+ w.eval(`
+ const A={calRefresh:async()=>{}},V={me:()=>({body:'<div class="content"><h2>Me</h2></div>'}),journey:()=>({body:'Composer'}),'place-plan':()=>({body:'<div class="pd-plan"><div class="tu-sheet-scroll"><div class="tc-confirm">Old confirmation</div></div></div>'}),orders:()=>({body:'<section>'+dwDayHTML({manageKind:'history',manageId:'plan-one',date:'2026-12-31',stops:pd.plan.stops})+pd.plan.stops.map(s=>dwStopHTML({manageKind:'history',manageId:'plan-one',date:'2026-12-31'},s)).join('')+'</section>'})},TAB_OF={};
+ let jhUser=window.owner?{id:window.owner}:null,state={route:'journey',params:{}},pd={owner:window.owner,historyId:'plan-one',sample:false,plan:{stops:[{id:'museum',name:'Shanghai History Museum',start:'09:00',end:'10:30'},{id:'table',name:'Mercato Italian Restaurant',start:'12:00',end:'13:00'},{id:'park',name:'Riverside Park',start:'14:00',end:'15:00'},{id:'unknown',name:'Unverified venue',start:'16:00',end:'17:00'}]},places:[]},ag={owner:window.owner,runs:[]},tc={owner:window.owner,trips:[]},cal={owner:window.owner,details:{}},login=null;
+ const jhConfig={url:'https://fixture.supabase.co',publishableKey:'public'},sb={auth:{getSession:async()=>({data:{session:window.owner?{user:{id:window.owner},access_token:window.owner}:null},error:null})}};
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),ic=()=>'',agErrorText=e=>e.message,agPlan=r=>r?.plan,calReadableName=s=>!!s&&!/\\p{Script=Han}/u.test(s),tcEditing=()=>false,tcLoad=async()=>{},tcStore=()=>{},toast=()=>{};
+ function bar(o){return '<header><h1>'+o.title+'</h1>'+(o.right||'')+'</header>';}
+ function go(route,params={}){state.route=route;state.params=params;render();}
+ function openLogin(role,next){login={role,next};}
+ function calSelect(date){state.params.date=date;render();}
+ function render(){const v=V[state.route]();document.querySelector('#app').innerHTML=(v.bar||'')+v.body;if(v.after)Promise.resolve().then(v.after);}
+ `+fs.readFileSync(path.join(__dirname,'demo-wallet.js'),'utf8')+`
+ window.DEMO={A,V,go,render,load:dwLoad,dayHTML:dwDayHTML,stopHTML:dwStopHTML,get dw(){return dw},get state(){return state},get login(){return login},get pd(){return pd},setOwner(owner){window.owner=owner;jhUser=owner?{id:owner}:null;pd.owner=owner;tc.owner=owner;tc.trips=[];ag.owner=owner;cal.owner=owner;dwScope();}};`);
+ const f=w.DEMO;return {w,f,app:()=>w.document.querySelector('#app'),storage:()=>Object.fromEntries(Array.from({length:w.sessionStorage.length},(_,i)=>{const k=w.sessionStorage.key(i);return [k,w.sessionStorage.getItem(k)];})),close:()=>w.close()};
+}
+(async()=>{
+ const backend=cloud(),guest=boot(backend,null);guest.f.go('demo-wallet');assert(guest.app().textContent.includes('Sign in'));assert.equal(backend.posts.length,0);guest.f.A.dwWallet();assert.equal(guest.f.login.next.route,'demo-wallet');guest.close();
+ const h=boot(backend),{f,app}=h;f.go('me');assert(app().querySelector('[data-act="dwWallet"]'),'visible Me wallet entry');f.go('orders');await until(()=>f.dw.loaded,'calendar wallet loaded');assert(backend.posts.every(p=>p.action==='demo_state'),'viewing calendar never quotes or buys');
+ f.go('place-plan');assert(app().querySelector('[data-act="dwReview"]'),'plan offers demo review');assert(!app().querySelector('.tc-confirm'),'old confirmation replaced');assert.equal(backend.posts.filter(p=>p.action==='demo_quote').length,0);
+ const unclassified=backend.quote('alice','plan-one');unclassified.items=items.map(i=>({...i,kind:'unavailable',unitMinor:0,totalMinor:0}));unclassified.totalMinor=0;
+ f.A.dwReview('history','plan-one');await until(()=>f.dw.quotes['history:plan-one']?.quote,'unknown quote loaded');assert(app().querySelector('[data-act="dwBook"]').disabled,'all unknown stops cannot appear booked with zero debit');await f.A.dwBook();assert.equal(backend.posts.filter(p=>p.action==='demo_book').length,0);
+ unclassified.items=copy(items);unclassified.totalMinor=9000;f.A.dwRefreshQuote();await until(()=>f.dw.quotes['history:plan-one']?.quote?.totalMinor===9000,'valid quote loaded');assert(app().textContent.includes('CNY 90.00'));assert(app().textContent.includes('Check venue'));assert(app().textContent.includes('No demo charge'));assert(!app().textContent.includes('No booking needed'));assert(app().querySelector('[data-act="dwBook"]').disabled);assert.equal(backend.posts.filter(p=>p.action==='demo_book').length,0);
+ f.A.dwWallet();await f.A.dwTopup('10000');assert.equal(f.dw.wallet.balanceMinor,10000);assert(app().textContent.includes('CNY 100.00'));assert(app().textContent.includes('Demo credits added'));f.A.dwReview('history','plan-one');assert(!app().querySelector('[data-act="dwBook"]').disabled);
+ backend.setBadBook(true);await f.A.dwBook();assert.equal(f.dw.quotes['history:plan-one'].quote.status,'quoted','malformed reply cannot claim success');assert(app().textContent.includes('incomplete'));backend.setBadBook(false);
+ backend.setLostBook(true);await f.A.dwBook();assert.equal(backend.wallet('alice').balanceMinor,1000,'first network-lost response may already be committed');assert.equal(f.dw.quotes['history:plan-one'].quote.status,'quoted','failed response does not claim reservation');const firstBook=backend.posts.filter(p=>p.action==='demo_book').at(-1);await f.A.dwBook();const secondBook=backend.posts.filter(p=>p.action==='demo_book').at(-1);assert.equal(secondBook.requestId,firstBook.requestId,'ambiguous retries retain request id');assert.equal(f.dw.wallet.balanceMinor,1000);assert.equal(backend.wallet('alice').ledger.filter(l=>l.kind==='payment').length,1);assert(app().textContent.includes('Ticket reserved'));assert(app().textContent.includes('Table reserved'));assert(app().textContent.includes('Not simulated · Check with venue'));assert(app().textContent.includes('No wallet charge · Check venue requirements'));
+ const currentMuseum=f.dw.wallet.bookings.find(b=>b.stopId==='museum');f.dw.wallet.bookings.unshift({...copy(currentMuseum),id:'old-cancelled-museum',status:'cancelled'});assert(f.stopHTML({manageKind:'history',manageId:'plan-one',date:'2026-12-31'},f.pd.plan.stops[0]).includes('Ticket reserved'),'active rebooking wins over an older cancelled wallet receipt');f.dw.wallet.bookings.shift();
+ const writes=backend.posts.filter(p=>p.action==='demo_book').length;f.render();await f.load(true);assert.equal(backend.posts.filter(p=>p.action==='demo_book').length,writes,'refresh cannot charge');f.A.dwCalendar();assert.equal(f.state.route,'orders');assert(app().textContent.includes('Ticket reserved'));assert(app().textContent.includes('Table reserved'));
+ f.pd.plan.stops[0].start='10:00';f.render();assert(app().textContent.includes('Schedule changed · Review reservation'));assert(app().textContent.includes('1 schedule review'));f.pd.plan.stops[0].start='09:00';
+ f.A.dwWallet();f.A.dwAskCancel('booking-0');assert(app().querySelector('[data-act="dwCancel"]'));await f.A.dwCancel('booking-0');assert.equal(f.dw.wallet.balanceMinor,5000);assert(app().textContent.includes('Cancelled'));assert(app().textContent.includes('Demo credits returned'));const cancelled=backend.posts.filter(p=>p.action==='demo_cancel').length;await f.A.dwCancel('booking-0');assert.equal(backend.posts.filter(p=>p.action==='demo_cancel').length,cancelled,'already-cancelled control cannot resubmit');
+ const reopened=boot(backend,'alice',h.storage());reopened.f.go('demo-wallet');await until(()=>reopened.f.dw.loaded,'wallet after refresh');assert.equal(reopened.f.dw.wallet.balanceMinor,5000);assert(reopened.app().textContent.includes('Cancelled'));reopened.close();
+ let refreshResolve;const beforeRefresh=copy(backend.wallet('alice'));backend.holdState(new Promise(r=>refreshResolve=r));const staleRefresh=f.load(true);await delay(0);await f.A.dwTopup('10000');assert.equal(f.dw.wallet.balanceMinor,15000);refreshResolve(Response.json({wallet:beforeRefresh}));await staleRefresh;assert.equal(f.dw.wallet.balanceMinor,15000,'stale read cannot overwrite a completed mutation');assert.equal(f.dw.loading,false,'superseded refresh still clears its loading flag');backend.holdState(null);
+ let resolve;backend.holdState(new Promise(r=>resolve=r));const pending=f.load(true);await delay(0);f.setOwner('bob');f.go('me');resolve(Response.json({wallet:copy(backend.wallet('alice'))}));await pending;assert.equal(f.dw.wallet,null,'late old-owner response ignored');backend.holdState(null);f.A.dwWallet();await until(()=>f.dw.loaded,'Bob wallet');assert.equal(f.dw.wallet.balanceMinor,0);assert.equal(f.dw.wallet.bookings.length,0);assert(!app().textContent.includes('Mercato'));h.close();
+ console.log('PASS: demo wallet entry, read-only views, quote review, virtual top-up, explicit confirmation, lost-response idempotency, malformed success rejection, Calendar status/time mismatch, cancellation/refund, persistence and owner isolation. All API calls mocked.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

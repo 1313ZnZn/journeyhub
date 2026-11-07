@@ -128,7 +128,8 @@
     if(!wide?.matches)return dkWelcome();
     // A remembered session continues straight in; without one, the entry asks for email and password.
     const t=traveler(),staff=me();
-    const entry=(kind,cls,icon,title,sub)=>'<button type="button" class="gh-entry '+cls+'" data-act="'+((kind==='traveler'?t:staff)?'dkContinue':'dkSignIn')+'" data-a="'+kind+'"><span class="gh-entry-icon" aria-hidden="true">'+icon+'</span><span class="gh-entry-text"><span class="gh-entry-title">'+title+'</span><span class="gh-entry-sub">'+sub+'</span></span><span class="gh-entry-stub" aria-hidden="true">'+ic('right',22)+'</span></button>';
+    // Each ticket: an entrance wrapper, a float layer that sways with the carriage, and the button that tilts toward the pointer.
+    const entry=(kind,cls,icon,title,sub)=>'<div class="gh-ticket" style="--i:'+(kind==='traveler'?0:1)+'"><div class="gh-float"><button type="button" class="gh-entry '+cls+'" data-act="'+((kind==='traveler'?t:staff)?'dkContinue':'dkSignIn')+'" data-a="'+kind+'"><span class="gh-sheen" aria-hidden="true"></span><span class="gh-entry-icon" aria-hidden="true">'+icon+'</span><span class="gh-entry-text"><span class="gh-entry-title">'+title+'</span><span class="gh-entry-sub">'+sub+'</span></span><span class="gh-entry-stub" aria-hidden="true">'+ic('right',22)+'</span></button></div></div>';
     return {
       body:'<div class="gh"><main class="gh-hero"><div class="gh-stage" aria-hidden="true"><video class="gh-video" src="./media/golden-hour.mp4" poster="./media/golden-hour.jpg" muted loop playsinline preload="auto"></video></div><div class="gh-shade"></div>'+
         '<header class="gh-nav"><span class="gh-brand">'+mark(30)+'Journey Hub</span></header>'+
@@ -138,9 +139,17 @@
         entry('staff','gh-entry-staff',ic('grid',24),staff?'Staff workspace':'Staff sign in',staff?'Continue as '+esc(staff.name):'Use your assigned email and password')+
         '</div></section></main></div>',
       after(){
-        const video=app.querySelector('.gh-video');if(!video)return;
-        video.muted=true;
-        if(calm?.matches)video.pause();else video.play()?.catch?.(()=>{});
+        const video=app.querySelector('.gh-video');
+        if(video){video.muted=true;if(calm?.matches)video.pause();else video.play()?.catch?.(()=>{});}
+        // Tickets lean toward the pointer, as if lifted off the table.
+        const panel=app.querySelector('.gh-panel');if(!panel||calm?.matches)return;
+        const tickets=[...panel.querySelectorAll('.gh-entry')];
+        panel.addEventListener('pointermove',e=>{
+          if(e.pointerType!=='mouse')return;
+          for(const el of tickets){const r=el.getBoundingClientRect(),dx=Math.max(-1,Math.min(1,(e.clientX-(r.left+r.width/2))/r.width)),dy=Math.max(-1,Math.min(1,(e.clientY-(r.top+r.height/2))/r.height));
+            el.classList.add('is-tilting');el.style.setProperty('--ry',(dx*7).toFixed(2)+'deg');el.style.setProperty('--rx',(-dy*9).toFixed(2)+'deg');}
+        });
+        panel.addEventListener('pointerleave',()=>{for(const el of tickets){el.classList.remove('is-tilting');el.style.removeProperty('--rx');el.style.removeProperty('--ry');}});
       }
     };
   };

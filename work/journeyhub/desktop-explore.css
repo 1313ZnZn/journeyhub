@@ -225,10 +225,36 @@
  .gh-switch:focus-visible{outline:2px solid var(--brass-ink);outline-offset:2px}
  .gh-entries{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
  .gh-entry{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) 56px;align-items:center;gap:16px;min-height:96px;padding:0 0 0 18px;border:0;border-radius:18px;font-family:var(--font);text-align:left;cursor:pointer;transition:background .15s,transform .15s}
- .gh-entry:active{transform:translateY(1px)}
  .gh-entry:focus-visible{outline:3px solid var(--brass-ink);outline-offset:3px}
- .gh-entry:before,.gh-entry:after{content:'';position:absolute;right:47px;width:18px;height:18px;border-radius:50%;background:var(--linen)}
- .gh-entry:before{top:-9px}.gh-entry:after{bottom:-9px}
+
+ /* Floating tickets: they rise in, sway with the moving carriage, catch passing light
+    and lean toward the pointer */
+ .gh-panel{background:rgba(251,245,234,.66)!important;-webkit-backdrop-filter:blur(20px) saturate(1.25);backdrop-filter:blur(20px) saturate(1.25);border:1px solid rgba(255,255,255,.55);box-shadow:0 34px 70px -30px rgba(18,10,6,.6),0 1px 0 rgba(255,255,255,.5) inset!important;animation:ghPanelIn 1s cubic-bezier(.2,.8,.2,1) .15s both}
+ @keyframes ghPanelIn{from{opacity:0;transform:translate(-50%,46px)}to{opacity:1;transform:translate(-50%,0)}}
+ .gh-ticket{min-width:0;animation:ghTicketIn .9s cubic-bezier(.2,1.15,.35,1) both;animation-delay:calc(.45s + var(--i)*.14s)}
+ @keyframes ghTicketIn{from{opacity:0;transform:translateY(30px) rotate(calc(-2deg + var(--i)*4deg))}to{opacity:1;transform:none}}
+ /* The carriage rocks gently, with a small jolt at each rail joint; the two tickets are out of step */
+ .gh-float{transform-origin:50% 100%;filter:drop-shadow(0 18px 18px rgba(18,10,6,.3));animation:ghSway 4.6s ease-in-out infinite;animation-delay:calc(var(--i)*-1.9s)}
+ @keyframes ghSway{0%,100%{transform:translate3d(0,0,0) rotate(0deg)}22%{transform:translate3d(0,-4px,0) rotate(-.35deg)}25%{transform:translate3d(0,-1px,0) rotate(-.25deg)}52%{transform:translate3d(0,-6px,0) rotate(.4deg)}74%{transform:translate3d(0,-2px,0) rotate(.15deg)}77%{transform:translate3d(0,1px,0) rotate(.05deg)}}
+ /* Real punched holes at the perforation, so the film shows through */
+ .gh-entry{overflow:hidden;transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) translateY(var(--lift,0px));transition:transform .45s cubic-bezier(.2,.8,.2,1),background .2s;
+  -webkit-mask:radial-gradient(circle 9px at calc(100% - 56px) 0,#0000 96%,#000) top/100% 51% no-repeat,radial-gradient(circle 9px at calc(100% - 56px) 100%,#0000 96%,#000) bottom/100% 51% no-repeat;
+  mask:radial-gradient(circle 9px at calc(100% - 56px) 0,#0000 96%,#000) top/100% 51% no-repeat,radial-gradient(circle 9px at calc(100% - 56px) 100%,#0000 96%,#000) bottom/100% 51% no-repeat}
+ .gh-ticket,.gh-float{width:100%}
+ .gh-entry{width:100%;box-sizing:border-box}
+ .gh-entry.is-tilting{transition:transform .14s linear,background .2s}
+ .gh-entry:hover{--lift:-7px}
+ .gh-entry:active{--lift:-2px}
+ .gh-entry>:not(.gh-sheen){position:relative;z-index:1}
+ /* Sunlight from the window sweeps across each ticket now and then */
+ .gh-sheen{position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(105deg,transparent 38%,rgba(255,226,170,.26) 48%,rgba(255,244,220,.12) 53%,transparent 62%) 160% 0/260% 100% no-repeat;animation:ghSheen 7s ease-in-out infinite;animation-delay:calc(1.4s + var(--i)*1.6s)}
+ .gh-entry-staff .gh-sheen{background-image:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.7) 49%,rgba(255,255,255,.25) 53%,transparent 62%)}
+ @keyframes ghSheen{0%,58%{background-position:160% 0}100%{background-position:-70% 0}}
+ /* On hover the stub starts to tear away and the arrow leans on */
+ .gh-entry-stub{transition:transform .4s cubic-bezier(.2,.8,.2,1)}
+ .gh-entry-stub svg{transition:transform .3s}
+ .gh-entry:hover .gh-entry-stub{transform:translateX(5px) rotate(2.5deg)}
+ .gh-entry:hover .gh-entry-stub svg{transform:translateX(3px)}
  .gh-entry-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:16px}
  .gh-entry-text{display:flex;flex-direction:column;gap:4px;min-width:0}
  .gh-entry-title{font-family:var(--font);font-size:22px;font-weight:800;line-height:1.1;letter-spacing:-.4px}
@@ -258,5 +284,7 @@
 @media(min-width:1024px) and (prefers-reduced-motion:reduce){
  .dx-fog svg,#app *,.dk-palette,.dk-palette *{animation:none!important}
  #app :is(button.card,.pcard,.xcard,.th-card,.jl-library-card,.ix-resume,.ub-staff-entry,.fx-option):hover{transform:none}
- .gh-entry{transition:none}
+ .gh-entry,.gh-entry-stub,.gh-entry-stub svg{transition:none}
+ .gh-panel,.gh-ticket,.gh-float,.gh-sheen{animation:none!important}
+ .gh-panel{transform:translateX(-50%)}
 }

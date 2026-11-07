@@ -4,7 +4,9 @@
  #app .fc-page .jp-swipe-heading{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:rgba(244,240,250,.66)}
  #app .fc-page .jp-shortlist{justify-self:center;min-width:280px;font-size:13px;border-radius:999px;padding:10px 22px}
  #app .fc-page :is(.jp-small-note,.ix-note){text-align:center}
- .fc{display:grid;justify-items:center;gap:18px}
+ .fc{display:grid;grid-template-columns:minmax(0,1fr) 300px;justify-items:center;align-items:start;gap:18px 24px}
+ .fc>*{grid-column:1}
+ .fc>.fc-tray{grid-column:2;grid-row:1/span 4;position:sticky;top:12px;align-self:start}
 
  /* The fan: cards rotate about a pivot far below the centre card */
  .fc-stage{position:relative;width:100%;height:540px;overflow:hidden;border-radius:30px;outline:none;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none}
@@ -53,13 +55,42 @@
  .fc-tools{display:flex;gap:18px}
  .fc-tools .btn-text{display:inline-flex;align-items:center;gap:6px}
 
+ /* Picks tray: one slot per place the trip allows, grouped by day */
+ .fc-tray{display:grid;gap:12px;width:100%;padding:16px 20px;border:1px solid rgba(255,255,255,.12);border-radius:24px;background:linear-gradient(160deg,rgba(38,36,52,.66),rgba(18,18,26,.58));-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px)}
+ .fc-tray-head{display:grid;gap:4px}
+ .fc-tray-head strong{color:var(--ink);font-size:16px;font-weight:800}
+ .fc-tray-head strong b{color:var(--forest);font-size:20px}
+ .fc-tray-head span{color:var(--ink-3);font-size:13px}
+ .fc-days{display:grid;gap:14px}
+ .fc-day{display:grid;gap:6px}
+ .fc-day small{color:rgba(244,240,250,.66);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+ .fc-slots{display:flex;flex-wrap:wrap;gap:6px}
+ .fc-slot{position:relative;display:grid;place-items:center;width:56px;height:78px;padding:0;overflow:hidden;border:1.5px dashed rgba(255,255,255,.22);border-radius:14px;background:rgba(255,255,255,.03);color:var(--ink-3)}
+ .fc-slot.is-kept{border:1.5px solid var(--forest);background:linear-gradient(180deg,#2a1d4f,#9a4f7e 55%,#f4a66f);color:#fff;cursor:pointer;box-shadow:0 8px 20px rgba(0,0,0,.35)}
+ .fc-slot.is-kept img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+ .fc-slot.is-kept>span{position:absolute;left:5px;right:5px;bottom:5px;z-index:1;font-size:10px;font-weight:700;line-height:1.15;text-align:left;text-shadow:0 1px 6px rgba(0,0,0,.8);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+ .fc-slot.is-kept:after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(8,8,16,.8))}
+ .fc-slot.is-kept>i{position:absolute;top:4px;right:4px;z-index:2;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:rgba(14,14,20,.7);opacity:0;transition:opacity .2s}
+ .fc-slot.is-kept:is(:hover,:focus-visible)>i{opacity:1}
+ .fc-slot.is-kept:hover{border-color:#ff9b9e}
+ .fc-slot.is-new{animation:fcLand .5s .55s cubic-bezier(.2,1.4,.4,1) both}
+ @keyframes fcLand{from{transform:scale(.9)}50%{transform:scale(1.08)}to{transform:none}}
+
+ /* Pull the centred card up to keep it */
+ .fc-pull{position:absolute;top:14px;left:50%;z-index:2;display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:rgba(14,14,20,.55);color:#fff;font-size:11px;font-weight:700;white-space:nowrap;transform:translateX(-50%);opacity:.85;transition:background .2s,color .2s}
+ .fc-card.is-pulling{transition:none!important;cursor:grabbing}
+ .fc-card.is-ready{border-color:var(--forest);box-shadow:0 0 0 2px var(--forest),0 0 70px rgba(197,255,72,.3)}
+ .fc-card.is-ready .fc-pull{background:var(--forest);color:var(--forest-ink)}
+
  /* A chosen card leaves the fan: up into the shortlist, or down and away */
  .fc-flight{overflow:hidden;border-radius:26px}
  .fc-flight[data-vote=want]{box-shadow:0 0 0 2px var(--forest),0 0 70px rgba(197,255,72,.35)}
  .fc-flight .fc-peek{display:none}
 }
 @media(min-width:1024px) and (max-width:1280px){
- .fc-card{--w:260px;--h:370px}
+ .fc-card{--w:250px;--h:356px}
+ .fc{grid-template-columns:minmax(0,1fr) 248px}
+ .fc-slot{width:46px;height:64px}
  .fc-stage{height:490px}
 }
 @media(min-width:1024px) and (prefers-reduced-motion:reduce){

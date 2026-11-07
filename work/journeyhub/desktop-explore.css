@@ -159,6 +159,14 @@
  #app .tu-trip .tu-tabs button[aria-pressed=true]{background:var(--forest);color:var(--forest-ink);font-weight:750;box-shadow:0 6px 18px rgba(197,255,72,.18)}
  @media(max-width:1280px){#app .tu-trip.pd-plan{grid-template-columns:minmax(0,1fr) minmax(400px,1fr);gap:20px}}
 
+ /* Calendar: month and the day's route map together in the left column */
+ #app[data-route=orders] .cal-page>.cal-side{grid-column:1;grid-row:1/span 30;position:static;display:grid;gap:16px;align-content:start;min-width:0}
+ #app[data-route=orders] .cal-side>.cal-month{position:static}
+ #app[data-route=orders] .cal-side>.cal-inline-map{margin:0;padding:16px;border:1px solid var(--dx-glass-line);border-radius:26px;background:var(--dx-glass);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);box-shadow:var(--dx-glass-shadow)}
+ #app[data-route=orders] .cal-side .cal-map-shell{border-radius:18px;overflow:hidden}
+ #app[data-route=orders] .cal-side .cal-map-canvas{height:300px}
+ @media(max-width:1239px){#app[data-route=orders] .cal-page>.cal-side{grid-row:auto;position:static}}
+
  /* Page-specific carry-overs from the previous desktop theme */
  #app .th-heading :is(h1,h2,.h1,.h2){display:none}
  #app .cv-payment{align-items:flex-end}

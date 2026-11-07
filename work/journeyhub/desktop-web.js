@@ -172,6 +172,19 @@
     const email=mode==='traveler'&&jhUser?.email||'';if(email&&ui.loginDraft&&!ui.loginDraft.email){ui.loginDraft.email=email;render();}
   };
 
+  // Calendar: the selected day's route map sits under the month, in the left column.
+  const dkOrders=V.orders;
+  V.orders=function(){
+    const view=dkOrders.apply(this,arguments);
+    if(!wide?.matches||!view?.body||!view.body.includes('cal-inline-map'))return view;
+    const t=document.createElement('template');t.innerHTML=view.body;
+    const page=t.content.querySelector('.cal-page'),month=page?.querySelector(':scope>.cal-month'),map=t.content.querySelector('.cal-inline-map');
+    if(!page||!month||!map)return view;
+    const side=document.createElement('div');side.className='cal-side';
+    month.replaceWith(side);side.append(month,map);
+    view.body=t.innerHTML;return view;
+  };
+
   new MutationObserver(dkSync).observe(app,{childList:true});
   wide?.addEventListener?.('change',()=>{dkClose();render();});
   dkSync();

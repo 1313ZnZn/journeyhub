@@ -48,7 +48,7 @@
     return '<div class="fc-info" aria-live="polite"><p>'+esc(e.details?.summary||e.details?.en||e.does?.[0]||e.venue||'')+'</p><p class="fc-addr">'+ic('pin',15)+esc(e.venue||e.city)+'</p></div>';
   }
   // Kept places sit in slots, one per place the trip allows, grouped by day.
-  let freshId=null;
+  let freshId=null,doneAttrs='';
   function keptInfo(id){
     if(live()){const p=pd.places.find(x=>x.id===id);return p?{name:p.name,img:pdPhotoState(p).urls[0]||''}:null;}
     const e=EXPS[id];return e?{name:e.name,img:ixPhoto(e)}:null;
@@ -65,8 +65,10 @@
     // Places kept before the trip got shorter still show, past the last slot.
     const extra=kept.slice(n).map(()=>slot()).join('');
     freshId=null;
+    const busy=live()&&pd.busy;
+    const done=doneAttrs?'<button type="button" class="fc-done" '+doneAttrs+(busy?' disabled':'')+'>'+ic('check',18)+'<span>'+(kept.length?'Done · plan '+plural(kept.length,'place'):'Done')+'</span></button>':'';
     return '<div class="fc-tray" aria-label="Your picks"><div class="fc-tray-head"><strong>Your picks <b>'+kept.length+'</b> / '+cap+'</strong><span>'+esc(jhPickLimitText(cap))+(perDay.length>1?' About '+Math.round(cap/perDay.length)+' a day.':'')+'</span></div>'+
-      '<div class="fc-days">'+groups+(extra?'<div class="fc-day"><small>Over the limit</small><div class="fc-slots">'+extra+'</div></div>':'')+'</div></div>';
+      '<div class="fc-days">'+groups+(extra?'<div class="fc-day"><small>Over the limit</small><div class="fc-slots">'+extra+'</div></div>':'')+'</div>'+done+'</div>';
   }
   function fanHTML(items){
     const f=currentIndex(items),item=items[f];
@@ -185,6 +187,8 @@
     const view=fcPicks.apply(this,arguments);
     if(!wide?.matches||!view?.body||!view.body.includes('jp-swipe-card'))return view;
     const items=deck();if(!items.length)return view;
+    // The header's Done action is repeated as the tray's main button.
+    const doneMatch=view.bar?.match(/<button class="btn-text" (data-act="[^"]+"(?: data-a="[^"]+")?)/);doneAttrs=doneMatch?doneMatch[1]:'';
     const root=document.createElement('template');root.innerHTML=view.body;
     const swipe=root.content.querySelector('.jp-deck');if(!swipe)return view;
     const slot=document.createElement('div');slot.innerHTML=fanHTML(items);

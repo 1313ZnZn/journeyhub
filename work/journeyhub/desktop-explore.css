@@ -10,6 +10,7 @@
   --dx-hair:rgba(255,255,255,.1);
   --dx-ease:cubic-bezier(.16,.84,.24,1);
   --dx-nav:72px;
+  --dx-serif:"Instrument Serif","Iowan Old Style",Georgia,serif;
  }
  html,body{background:var(--dx-ground)}
  .stage{position:relative;background:var(--dx-ground)!important}
@@ -166,6 +167,22 @@
  #app[data-route=orders] .cal-side .cal-map-shell{border-radius:18px;overflow:hidden}
  #app[data-route=orders] .cal-side .cal-map-canvas{height:300px}
  @media(max-width:1239px){#app[data-route=orders] .cal-page>.cal-side{grid-row:auto;position:static}}
+
+ /* Type: page and section headlines use the landing page's Instrument Serif;
+    body copy, controls, cards, numbers and the timetable stay in Plus Jakarta Sans */
+ #app[data-shell=on]>.bar :is(.bar-title,h1.h1){font-family:var(--dx-serif);font-size:60px;font-weight:400;line-height:1;letter-spacing:-.01em}
+ #app .screen .h1,#app .screen .content>h1{font-family:var(--dx-serif);font-weight:400;letter-spacing:-.01em;line-height:1.05}
+ #app .jl-home>.jl-copy h1{font-family:var(--dx-serif);font-size:clamp(60px,5.6vw,88px);font-weight:400;line-height:1;letter-spacing:-.01em}
+ #app .tu-trip .tu-title :is(h1,h2){font-family:var(--dx-serif);font-size:36px;font-weight:400;letter-spacing:-.005em}
+ #app .cal-month h2{font-family:var(--dx-serif);font-size:36px;font-weight:400;letter-spacing:-.005em}
+ #app .cal-agenda-head h2{font-family:var(--dx-serif);font-size:46px;font-weight:400;letter-spacing:-.005em}
+ #app .ex-section-head h2{font-family:var(--dx-serif);font-size:40px;font-weight:400;letter-spacing:-.005em}
+ #app .ex-label-item strong{font-family:var(--dx-serif);font-size:42px;font-weight:400;letter-spacing:0}
+ #app .fc-tray-head strong{font-family:var(--dx-serif);font-size:24px;font-weight:400}
+ #app .tu-day-section>h2{font-family:var(--dx-serif);font-size:30px;font-weight:400;letter-spacing:0}
+ #app .tu-day-section>h2>span{font-family:var(--font)}
+ #app .cal-map-heading h3{font-family:var(--dx-serif);font-size:24px;font-weight:400}
+ #app .fc-tray-head strong b{font-family:var(--font);font-size:18px;font-weight:800}
 
  /* Page-specific carry-overs from the previous desktop theme */
  #app .th-heading :is(h1,h2,.h1,.h2){display:none}

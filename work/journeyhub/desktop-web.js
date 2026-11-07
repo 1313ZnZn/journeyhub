@@ -126,15 +126,14 @@
   const dkWelcome=V.welcome;
   V.welcome=()=>{
     if(!wide?.matches)return dkWelcome();
-    const t=traveler(),s=me();
-    const entry=(kind,cls,icon,title,sub)=>'<button type="button" class="gh-entry '+cls+'" data-act="role" data-a="'+kind+'"><span class="gh-entry-icon" aria-hidden="true">'+icon+'</span><span class="gh-entry-text"><span class="gh-entry-title">'+title+'</span><span class="gh-entry-sub">'+sub+'</span></span><span class="gh-entry-stub" aria-hidden="true">'+ic('right',22)+'</span></button>';
+    const entry=(kind,cls,icon,title,sub)=>'<button type="button" class="gh-entry '+cls+'" data-act="dkSignIn" data-a="'+kind+'"><span class="gh-entry-icon" aria-hidden="true">'+icon+'</span><span class="gh-entry-text"><span class="gh-entry-title">'+title+'</span><span class="gh-entry-sub">'+sub+'</span></span><span class="gh-entry-stub" aria-hidden="true">'+ic('right',22)+'</span></button>';
     return {
       body:'<div class="gh"><main class="gh-hero"><div class="gh-stage" aria-hidden="true"><video class="gh-video" src="./media/golden-hour.mp4" poster="./media/golden-hour.jpg" muted loop playsinline preload="auto"></video></div><div class="gh-shade"></div>'+
         '<header class="gh-nav"><span class="gh-brand">'+mark(30)+'Journey Hub</span></header>'+
         '<div class="gh-sky"><h1>Explore Bangkok,<br>Shanghai <em>and</em> Singapore</h1><p>Workshops, food walks and local stores, combined into one day, with purchases delivered to your hotel.</p></div>'+
         '<section class="gh-panel" aria-labelledby="gh-entry-q"><div class="gh-panel-head"><h2 id="gh-entry-q">How will you use Journey Hub?</h2><p>Concept prototype · stores, prices and people are illustrative</p></div><div class="gh-entries">'+
-        entry('traveler','gh-entry-traveler',ic('explore',26),'I\'m traveling',t?'Signed in as '+esc(t.name):'Sign in, or browse as a guest')+
-        entry('staff','gh-entry-staff',ic('grid',24),'Staff sign in',s?'Signed in as '+esc(s.name):'Use your assigned email and password')+
+        entry('traveler','gh-entry-traveler',ic('explore',26),'I\'m traveling','Sign in with your email and password')+
+        entry('staff','gh-entry-staff',ic('grid',24),'Staff sign in','Use your assigned email and password')+
         '</div></section></main></div>',
       after(){
         const video=app.querySelector('.gh-video');if(!video)return;
@@ -155,6 +154,15 @@
       state.role=null;state.route='welcome';state.params={};state.hist=[];render();
     }
     return result;
+  };
+
+  // Both landing entries go to the email and password form first, then into the app.
+  // The traveler form still offers Continue as guest.
+  A.dkSignIn=mode=>{
+    mode=mode==='staff'?'staff':'traveler';
+    state.hist=[];state.role=mode;state.guestOk=false;
+    openLogin(mode,{route:mode==='staff'?'s-today':'journey'});
+    const email=mode==='traveler'&&jhUser?.email||'';if(email&&ui.loginDraft&&!ui.loginDraft.email){ui.loginDraft.email=email;render();}
   };
 
   new MutationObserver(dkSync).observe(app,{childList:true});

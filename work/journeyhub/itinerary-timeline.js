@@ -27,6 +27,19 @@
   function reset(){tl={original:null,draft:null,order:null,historyId:null};}
   const dirty=()=>!!(tl.draft&&pd.plan===tl.draft);
 
+  // Until the server checks real roads, a changed day is joined in its new order by a
+  // provisional line through its visits, so the map still reads as one route.
+  function encodePolyline(points){
+    let out='',pl=0,pg=0;const enc=v=>{v=v<0?~(v<<1):v<<1;let s='';while(v>=0x20){s+=String.fromCharCode((0x20|(v&0x1f))+63);v>>=5;}return s+String.fromCharCode(v+63);};
+    for(const p of points){const la=Math.round(p.lat*1e5),lg=Math.round(p.lng*1e5);out+=enc(la-pl)+enc(lg-pg);pl=la;pg=lg;}return out;
+  }
+  function provisionalRoute(day,stops){
+    const located=stops.filter(s=>[s.lat,s.lng].every(Number.isFinite));
+    if(located.length<2)return {day,status:located.length?'single_stop':'empty',legs:[]};
+    const km=located.slice(1).reduce((n,s,i)=>{const a=located[i],r=x=>x*Math.PI/180,h=Math.sin(r(s.lat-a.lat)/2)**2+Math.cos(r(a.lat))*Math.cos(r(s.lat))*Math.sin(r(s.lng-a.lng)/2)**2;return n+6371*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h))*1.3;},0);
+    const amap=located.every(s=>String(s.id).startsWith('amap_'));
+    return {day,status:'ready',provisional:true,source:amap?'Amap':'Estimate',distanceMeters:Math.round(km*1000),legs:[],path:located.map(s=>[s.lng,s.lat]),encodedPolyline:encodePolyline(located)};
+  }
   // Rebuild the draft plan from an ordered list of {id,dayIndex}.
   function reflow(order,base=tl.original){
     const w=window_(),mode=base.transport||pd.input?.transport||'drive',byId=new Map(base.stops.map(s=>[s.id,s]));
@@ -43,7 +56,7 @@
     }
     // Saved road shapes stay only for days whose order is unchanged.
     const sameDay=day=>JSON.stringify(base.stops.filter(s=>s.dayIndex===day).map(s=>s.id))===JSON.stringify(stops.filter(s=>s.dayIndex===day).map(s=>s.id));
-    const roadRoutes=Array.from({length:base.days},(_,i)=>i+1).map(day=>sameDay(day)?(base.roadRoutes||[]).find(r=>r.day===day)||{day,status:'pending',legs:[]}:{day,status:'pending',legs:[]});
+    const roadRoutes=Array.from({length:base.days},(_,i)=>i+1).map(day=>sameDay(day)&&(base.roadRoutes||[]).find(r=>r.day===day)||provisionalRoute(day,stops.filter(s=>s.dayIndex===day)));
     let estimate=base.estimate;
     if(estimate?.items){
       const items=estimate.items.filter(i=>stops.some(s=>s.id===i.stopId)),known=items.filter(i=>Number.isFinite(i.totalMinor));
@@ -197,8 +210,10 @@
           (can?'<button type="button" class="tl-del" data-act="tlRemove" data-a="'+esc(s.id)+'" aria-label="Remove '+esc(s.name)+'">'+ic('x',12)+'</button>':'')+'</div>';}).join('')+
         (late?'<span class="tl-late" style="top:'+height+'px">Runs past '+esc(pd.input?.dayEnd||'21:00')+'</span>':'')+'</div></div>';
     }).join('');
-    const note=!can?'Save this trip to edit it.':dirty()?'Unsaved changes. Times are estimates until you confirm.':'Drag a visit to change the order or move it to another day. Use × to remove it.';
-    return '<section class="tl" aria-label="Itinerary timeline"><p class="tl-note">'+ic('sliders',15)+'<span>'+esc(note)+'</span>'+(dirty()?'<button type="button" class="btn-text" data-act="tlDiscard">Discard changes</button>':'')+'</p><div class="tl-grid" style="--days:'+plan.days+'">'+axis+cols+'</div></section>';
+    const note=!can?'Save this trip to edit it.':dirty()?'Unsaved changes. Confirm to check real routes and update Overview.':'Drag a visit to change the order or move it to another day. Use × to remove it.';
+    const busy=typeof pe!=='undefined'&&pe?.busy,late=dirty()&&tl.overflow?.size,error=dirty()&&typeof pe!=='undefined'&&pe?.error;
+    const actions=dirty()?'<button type="button" class="btn-text" data-act="tlDiscard"'+(busy?' disabled':'')+'>Discard</button><button type="button" class="tl-confirm" data-act="tlConfirm"'+(busy||late?' disabled':'')+'>'+ic('check',16)+(busy?(pe.phase==='apply'?'Saving…':'Checking routes…'):'Confirm changes')+'</button>':'';
+    return '<section class="tl" aria-label="Timetable"><p class="tl-note">'+ic('sliders',15)+'<span>'+esc(note)+'</span>'+actions+'</p>'+(error?'<p class="tl-error" role="alert">'+esc(pe.error)+'</p>':'')+'<div class="tl-grid" style="--days:'+plan.days+'">'+axis+cols+'</div></section>';
   }
   function careActive(){return typeof tc!=='undefined'&&tc.trips?.some(t=>t.sourceType==='history'&&t.sourceId===pd.historyId&&['active','paused'].includes(t.status));}
   function barHTML(){
@@ -231,6 +246,9 @@
     if(!view?.body)return view;
     const t=document.createElement('template');t.innerHTML=view.body;const root=t.content.querySelector('.tu-trip');if(!root)return view;
     t.content.querySelectorAll('.dw-agent-invite,.tc-confirm,.pe-estimate').forEach(el=>el.remove());
+    const tab=t.content.querySelector('.tu-tabs [data-a="itinerary"]');if(tab)tab.textContent='Timetable';
+    // The day chips above the map follow the draft route while editing.
+    if(draft&&typeof pmHTML==='function'){const m=document.createElement('template');m.innerHTML=pmHTML(draft);const legend=m.content.querySelector('.pm-legend'),old=t.content.querySelector('.pm-legend');if(legend&&old)old.replaceWith(legend);}
     t.content.querySelector('.tu-sheet-scroll')?.insertAdjacentHTML('afterbegin',timelineHTML(pd.plan));
     root.insertAdjacentHTML('beforeend',barHTML());
     if(draft)root.classList.add('tl-editing');

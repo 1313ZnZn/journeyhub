@@ -12,3 +12,4 @@ outputs/
 **/*remote-baseline*
 **/*history-seed*
 .DS_Store
+.vercel/

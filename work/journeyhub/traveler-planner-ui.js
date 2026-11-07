@@ -113,7 +113,9 @@ A.ptuEdit=()=>{const task=ptuCurrent(ptu)&&ptu.task;if(!task||pd.busy)return;if(
 A.ptuCheck=()=>{ptu.failures=0;return ptuPoll();};
 function ptuTaskEntry(){
   const task=ptuCurrent(ptu)&&ptu.task;if(!task||task.status==='completed'&&pd.plannerTaskId===task.id)return '';
-  const label=ptuActive(task)?'Your agent is working':task.status==='completed'?(task.kind==='discover_plan'?'Your itinerary is ready':'Your places are ready'):'Your agent needs attention';
+  // Only running or finished work is offered on the start page; a stopped task does not linger as a warning.
+  if(!ptuActive(task)&&task.status!=='completed')return '';
+  const label=ptuActive(task)?'Your agent is working':task.kind==='discover_plan'?'Your itinerary is ready':'Your places are ready';
   return '<button class="ptu-resume" data-act="ptuOpen">'+ic('sparkle',18)+'<span>'+label+'</span>'+ic('right',16)+'</button>';
 }
 const ptuJourney=V.journey;

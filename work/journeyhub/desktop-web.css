@@ -7,14 +7,14 @@
  #app.device:after{display:none}
  #app[data-shell=on]{grid-template-columns:256px minmax(0,1fr)}
  #app[data-shell=on]>.bar,#app[data-shell=on]>.screen,#app[data-shell=on]>.foot{grid-column:2}
- #app>.bar{grid-row:1;--page-pad:calc(max(0px,(100% - 1240px)/2) + 44px);padding:26px var(--page-pad) 14px;background:transparent}
+ #app>.bar{grid-row:1;--page-pad:calc(max(0px,(100% - 1450px)/2) + 44px);padding:26px var(--page-pad) 14px;background:transparent}
  #app>.bar .bar-title{font-size:30px;font-weight:800;letter-spacing:-.9px}
  #app>.screen{grid-row:2;background:transparent;scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent;--page-pad:44px}
  #app>.screen::-webkit-scrollbar{display:block;width:10px}
  #app>.screen::-webkit-scrollbar-thumb{background:var(--line);border:3px solid transparent;border-radius:9px;background-clip:padding-box}
- #app>.screen>*{box-sizing:border-box;width:100%;max-width:1240px;margin-inline:auto}
+ #app>.screen>*{box-sizing:border-box;width:100%;max-width:1450px;margin-inline:auto}
  #app>.screen>.content,#app>.screen>main.content{padding:12px var(--page-pad) 56px;gap:24px}
- #app>.foot{grid-row:3;--page-pad:calc(max(0px,(100% - 1240px)/2) + 44px);padding:16px var(--page-pad);flex-direction:row;justify-content:flex-end;align-items:center;background:color-mix(in srgb,var(--surface) 82%,transparent);backdrop-filter:blur(14px)}
+ #app>.foot{grid-row:3;--page-pad:calc(max(0px,(100% - 1450px)/2) + 44px);padding:16px var(--page-pad);flex-direction:row;justify-content:flex-end;align-items:center;background:color-mix(in srgb,var(--surface) 82%,transparent);backdrop-filter:blur(14px)}
  #app>.foot>*{margin:0}
  #app>.foot .btn{width:auto;min-width:220px}
 
@@ -41,7 +41,7 @@
 
 @media(min-width:1024px){
  /* Calendar: month stays beside the day's schedule */
- #app[data-route=orders] .cal-page{display:grid;grid-template-columns:minmax(360px,430px) minmax(0,1fr);column-gap:36px;align-items:start;max-width:1240px;padding:8px var(--page-pad) 56px}
+ #app[data-route=orders] .cal-page{display:grid;grid-template-columns:minmax(360px,430px) minmax(0,1fr);column-gap:36px;align-items:start;max-width:1450px;padding:8px var(--page-pad) 56px}
  #app[data-route=orders] .cal-page>*{grid-column:2;min-width:0}
  #app[data-route=orders] .cal-page>.cal-month{grid-column:1;grid-row:1/span 30;position:sticky;top:8px}
  #app[data-route=orders] .cal-page>.cal-tools{margin-top:28px}
@@ -49,7 +49,7 @@
 
  /* Explore */
  #app .ex-browse-switch{width:360px;margin:6px var(--page-pad) 18px}
- #app>.screen>.ex-browse-switch{margin-inline:max(var(--page-pad),calc((100% - 1240px)/2 + var(--page-pad)))}
+ #app>.screen>.ex-browse-switch{margin-inline:max(var(--page-pad),calc((100% - 1450px)/2 + var(--page-pad)))}
  #app .ix-home .ix-citybar{padding:0 var(--page-pad) 18px}
  #app .ix-home .ix-hero{height:clamp(340px,46vh,460px);margin:0 var(--page-pad);border-radius:30px}
  #app .ix-home .ix-hero h1{font-size:clamp(44px,4.6vw,64px);line-height:1.02;letter-spacing:-2.4px;max-width:620px}
@@ -88,7 +88,7 @@
  /* Focused forms and single-column reading pages */
  #app:is([data-route=planner],[data-route=checkout],[data-route=bag],[data-route=vat],[data-route=memory-new],[data-route=currency],[data-route=plan-editor],[data-route=ai-email]) .screen>.content{max-width:800px;margin-inline:0 auto}
  #app .tch-page{max-width:900px;margin-inline:0 auto;padding:16px var(--page-pad) 56px}
- #app .dw-page{max-width:1240px;padding:12px var(--page-pad) 56px;gap:26px}
+ #app .dw-page{max-width:1450px;padding:12px var(--page-pad) 56px;gap:26px}
  #app[data-route=demo-wallet] .dw-page{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
  #app[data-route=demo-wallet] .dw-page>.dw-balance,#app[data-route=demo-wallet] .dw-page>.dw-error{grid-column:1/-1}
 

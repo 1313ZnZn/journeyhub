@@ -6,9 +6,54 @@
   const isMac=/Mac|iPhone|iPad/.test(navigator.platform||'');
   let lastRoute=null,enterTimer=null;
 
+  // Top navigation: brand, section links, then search and the global bar actions on the right.
   function dkDecorateNav(nav){
-    if(nav.querySelector('.dk-brand'))return;
-    nav.insertAdjacentHTML('afterbegin','<div class="dk-brand">journey hub<i aria-hidden="true"></i></div><button type="button" class="dk-search" data-dk-palette aria-haspopup="dialog">'+ic('search',16)+'<span>Search anything</span><kbd>'+(isMac?'⌘K':'Ctrl K')+'</kbd></button>');
+    if(nav.querySelector('.dx-brand'))return;
+    const home=state.role==='staff'?'s-today':'journey';
+    nav.insertAdjacentHTML('afterbegin','<button type="button" class="dx-brand" data-act="tab" data-a="'+home+'" aria-label="Journey Hub home">'+mark(30)+'<span>Journey Hub</span></button>');
+    nav.insertAdjacentHTML('beforeend','<div class="dx-actions"><button type="button" class="dk-search" data-dk-palette aria-haspopup="dialog">'+ic('search',16)+'<span>Search</span><kbd>'+(isMac?'⌘K':'Ctrl K')+'</kbd></button></div>');
+  }
+  const dxGlobal=':scope>:is(.fx-switch,.sn-entry,[data-act=bell],[data-act=go][data-a=bag])';
+  function dkLiftActions(nav){
+    const bar=app.querySelector(':scope>.bar'),slot=nav.querySelector('.dx-actions');
+    if(!bar||!slot)return;
+    const order=['fx-switch','bell','bag','sn-entry'],rank=el=>order.findIndex(k=>el.classList.contains(k)||el.dataset.act===k||el.dataset.a===k);
+    [...bar.querySelectorAll(dxGlobal)].sort((a,b)=>rank(a)-rank(b)).forEach(el=>slot.appendChild(el));
+    // Travelers see currency, notifications and bag on every page, as in the design.
+    if(state.role==='traveler'){
+      const have=sel=>slot.querySelector(sel);
+      const search=slot.querySelector('.dk-search');
+      if(!have('.fx-switch')&&typeof jhFxSwitch==='function')search.insertAdjacentHTML('afterend',jhFxSwitch());
+      const after=have('.fx-switch')||search;
+      if(!have('[data-act=bell]'))after.insertAdjacentHTML('afterend','<button class="icon-btn ring" data-act="bell" aria-label="Notifications">'+ic('bell',19)+(myOrders().some(o=>orderInfo(o).needsChoice)?'<span class="dot"></span>':'')+'</button>');
+      if(!have('[data-a=bag]')){const n=cartCount();have('[data-act=bell]').insertAdjacentHTML('afterend','<button class="icon-btn ring" data-act="go" data-a="bag" aria-label="Bag, '+plural(n,'item')+'">'+ic('bag',20)+(n?'<span class="count">'+n+'</span>':'')+'</button>');}
+    }
+  }
+  // Eyebrow over the page title names the section, unless the title already does.
+  const dxSections={journey:'AI Journey',home:'Explore',orders:'Calendar',me:'Account','s-today':'Hub operations','s-orders':'Hub operations','s-sessions':'Hub operations','s-insights':'Hub operations'};
+  function dkEyebrow(){
+    const bar=app.querySelector(':scope>.bar');if(!bar)return;
+    const section=dxSections[TAB_OF[state.route]||state.route],title=bar.querySelector('.bar-title,h1')?.textContent.trim();
+    if(section&&title&&title.toLowerCase()!==section.toLowerCase())bar.dataset.dxEyebrow=section;
+  }
+  function dkBackdrop(){
+    if(document.querySelector('.dx-bg'))return;
+    const fog='<svg viewBox="0 0 2880 400" preserveAspectRatio="none" aria-hidden="true" focusable="false"><defs><filter id="dxFog" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="0.0016 0.0075" numOctaves="4" seed="6" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.7 0 0 0 -0.62" result="a"/><feFlood flood-color="#f2e6ff" result="c"/><feComposite in="c" in2="a" operator="in"/></filter><linearGradient id="dxFogFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff"/></linearGradient><mask id="dxFogMask"><rect width="2880" height="400" fill="url(#dxFogFade)"/></mask></defs><g mask="url(#dxFogMask)"><rect width="2880" height="400" filter="url(#dxFog)"/></g></svg>';
+    app.insertAdjacentHTML('beforebegin','<div class="dx-bg" aria-hidden="true"><div class="dx-bg-scene"></div><div class="dx-fog">'+fog+'</div></div>');
+  }
+  // The golden-hour film is one layer shared by the landing page and sign-in, so moving
+  // between them never cuts the film: sign-in blurs and dims it, other pages fade it out.
+  let dkFilmTimer=null;
+  function dkFilm(route){
+    let film=document.querySelector('.gh-film');
+    if(!film){app.insertAdjacentHTML('beforebegin','<div class="gh-film" aria-hidden="true"><video src="./media/golden-hour.mp4" poster="./media/golden-hour.jpg" muted loop playsinline preload="auto"></video><div class="gh-film-shade"></div></div>');film=document.querySelector('.gh-film');}
+    const on=route==='welcome'||route==='login',video=film.querySelector('video');
+    document.body.classList.toggle('gh-on',on);
+    document.body.classList.toggle('gh-blur',route==='login');
+    if(on)document.body.classList.remove('gh-out');
+    clearTimeout(dkFilmTimer);
+    if(on){video.muted=true;if(calm?.matches)video.pause();else video.play()?.catch?.(()=>{});}
+    else dkFilmTimer=setTimeout(()=>video.pause(),900);
   }
   function dkSync(){
     const route=state.route||'';
@@ -23,7 +68,8 @@
       nav=app.querySelector(':scope>.tabbar');
       nav.dataset.dkAdded='1';
     }else if(!shell&&nav?.dataset.dkAdded){nav.remove();nav=null;}
-    if(shell&&nav)dkDecorateNav(nav);
+    if(shell&&nav){dkDecorateNav(nav);dkLiftActions(nav);dkEyebrow();}
+    if(wide?.matches){dkBackdrop();dkFilm(route);}
     if(route!==lastRoute){
       if(lastRoute!==null&&wide?.matches&&!calm?.matches){
         app.dataset.enter='1';clearTimeout(enterTimer);
@@ -89,6 +135,93 @@
     button.style.transform='translate('+(((event.clientX-box.left)/box.width-.5)*6).toFixed(1)+'px,'+(((event.clientY-box.top)/box.height-.5)*4-1).toFixed(1)+'px)';
     button.addEventListener('pointerleave',()=>{button.style.transform='';},{once:true});
   });
+
+  // Sign-in landing on wide screens: a golden-hour film with two ways in. Same actions as the mobile welcome.
+  const dkWelcome=V.welcome;
+  V.welcome=()=>{
+    if(!wide?.matches)return dkWelcome();
+    // A remembered session continues straight in; without one, the entry asks for email and password.
+    const t=traveler(),staff=me();
+    // Each ticket: an entrance wrapper, a float layer that sways with the carriage, and the button that tilts toward the pointer.
+    const entry=(kind,cls,icon,title,sub)=>'<div class="gh-ticket" style="--i:'+(kind==='traveler'?0:1)+'"><div class="gh-float"><button type="button" class="gh-entry '+cls+'" data-act="'+((kind==='traveler'?t:staff)?'dkContinue':'dkSignIn')+'" data-a="'+kind+'"><span class="gh-sheen" aria-hidden="true"></span><span class="gh-entry-icon" aria-hidden="true">'+icon+'</span><span class="gh-entry-text"><span class="gh-entry-title">'+title+'</span><span class="gh-entry-sub">'+sub+'</span></span><span class="gh-entry-stub" aria-hidden="true">'+ic('right',22)+'</span></button></div></div>';
+    return {
+      body:'<div class="gh"><main class="gh-hero"><div class="gh-shade"></div>'+
+        '<header class="gh-nav"><span class="gh-brand">'+mark(30)+'Journey Hub</span></header>'+
+        '<div class="gh-sky"><h1>Explore Bangkok,<br>Shanghai <em>and</em> Singapore</h1><p>Workshops, food walks and local stores, combined into one day, with purchases delivered to your hotel.</p></div>'+
+        '<section class="gh-panel" aria-labelledby="gh-entry-q"><div class="gh-panel-head"><h2 id="gh-entry-q">How will you use Journey Hub?</h2><p>Concept prototype · stores, prices and people are illustrative'+(t||staff?' · <button type="button" class="gh-switch" data-act="dkSignIn" data-a="'+(t?'traveler':'staff')+'">Use another account</button>':'')+'</p></div><div class="gh-entries">'+
+        entry('traveler','gh-entry-traveler',ic('explore',26),'I\'m traveling',t?'Continue as '+esc(t.name):'Sign in with your email and password')+
+        entry('staff','gh-entry-staff',ic('grid',24),staff?'Staff workspace':'Staff sign in',staff?'Continue as '+esc(staff.name):'Use your assigned email and password')+
+        '</div></section></main></div>',
+      after(){
+        // Tickets lean toward the pointer, as if lifted off the table.
+        const panel=app.querySelector('.gh-panel');if(!panel||calm?.matches)return;
+        const tickets=[...panel.querySelectorAll('.gh-entry')];
+        panel.addEventListener('pointermove',e=>{
+          if(e.pointerType!=='mouse')return;
+          for(const el of tickets){const r=el.getBoundingClientRect(),dx=Math.max(-1,Math.min(1,(e.clientX-(r.left+r.width/2))/r.width)),dy=Math.max(-1,Math.min(1,(e.clientY-(r.top+r.height/2))/r.height));
+            el.classList.add('is-tilting');el.style.setProperty('--ry',(dx*7).toFixed(2)+'deg');el.style.setProperty('--rx',(-dy*9).toFixed(2)+'deg');}
+        });
+        panel.addEventListener('pointerleave',()=>{for(const el of tickets){el.classList.remove('is-tilting');el.style.removeProperty('--rx');el.style.removeProperty('--ry');}});
+      }
+    };
+  };
+
+  // Opening the site starts on the landing page, signed in or not. Its two entries
+  // continue straight to the saved session. A reload in the same tab, or a
+  // password-recovery link, keeps its place.
+  const dkBoot=jhStart;
+  jhStart=async function(){
+    const result=await dkBoot.apply(this,arguments);
+    let seen=false;try{seen=sessionStorage.getItem('jh-landing-seen')==='1';sessionStorage.setItem('jh-landing-seen','1');}catch{}
+    if(wide?.matches&&!seen&&!jhRecovery&&state.route!=='welcome'&&state.route!=='login'){
+      state.role=null;state.route='welcome';state.params={};state.hist=[];render();
+    }
+    return result;
+  };
+
+  // Both landing entries go to the email and password form first, then into the app.
+  // The traveler form still offers Continue as guest.
+  A.dkContinue=mode=>{
+    mode=mode==='staff'?'staff':'traveler';
+    if(mode==='staff'?!me():!traveler())return A.dkSignIn(mode);
+    setRole(mode,mode==='staff'?(me().role==='host'?'s-session':'s-today'):'journey');
+  };
+  A.dkSignIn=mode=>{
+    mode=mode==='staff'?'staff':'traveler';
+    state.hist=[];state.role=mode;state.guestOk=false;
+    openLogin(mode,{route:mode==='staff'?'s-today':'journey'});
+    const email=mode==='traveler'&&jhUser?.email||'';if(email&&ui.loginDraft&&!ui.loginDraft.email){ui.loginDraft.email=email;render();}
+  };
+
+  // Calendar: the selected day's route map sits under the month, in the left column.
+  const dkOrders=V.orders;
+  V.orders=function(){
+    const view=dkOrders.apply(this,arguments);
+    if(!wide?.matches||!view?.body||!view.body.includes('cal-inline-map'))return view;
+    const t=document.createElement('template');t.innerHTML=view.body;
+    const page=t.content.querySelector('.cal-page'),month=page?.querySelector(':scope>.cal-month'),map=t.content.querySelector('.cal-inline-map');
+    if(!page||!month||!map)return view;
+    const side=document.createElement('div');side.className='cal-side';
+    month.replaceWith(side);side.append(month,map);
+    view.body=t.innerHTML;return view;
+  };
+
+  // Leaving the landing page: the headline lifts away, the chosen ticket rises toward where
+  // the sign-in card appears, the other ticket settles out, and the film blurs (sign-in) or
+  // fades (straight into the app). Then the next page enters over it.
+  let dkLeaving=false;
+  function dkLeave(mode,kind,next){
+    const gh=app.querySelector('.gh');
+    if(state.route!=='welcome'||!gh||!wide?.matches||calm?.matches||gh.classList.contains('is-leaving')){next();return;}
+    if(dkLeaving)return;dkLeaving=true;
+    gh.classList.add('is-leaving');
+    gh.querySelector('.gh-entry-'+(mode==='staff'?'staff':'traveler'))?.closest('.gh-ticket')?.classList.add('is-chosen');
+    document.body.classList.add(kind==='continue'?'gh-out':'gh-blur');
+    setTimeout(()=>{dkLeaving=false;next();},430);
+  }
+  const dkSignInNow=A.dkSignIn,dkContinueNow=A.dkContinue;
+  A.dkSignIn=mode=>dkLeave(mode,'signin',()=>dkSignInNow(mode));
+  A.dkContinue=mode=>dkLeave(mode,'continue',()=>dkContinueNow(mode));
 
   new MutationObserver(dkSync).observe(app,{childList:true});
   wide?.addEventListener?.('change',()=>{dkClose();render();});

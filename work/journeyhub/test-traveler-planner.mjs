@@ -80,9 +80,25 @@ const late=schedule('09:00','10:00','20:00','21:00');
 late.stops[2]={...late.stops[2],start:'18:00',end:'19:30'};
 const blocked=harness([call('propose_schedule',late),call('check_routes',{}),call('report_limit',{})],{searchResult:found.result.result,facts});
 const blockedPlan=await run({id:'77777777-7777-4777-8777-777777777777',userId:owner,kind:'discover_plan',payload:{token,selection,wanted:selected,skipped:[]},state:null},blocked);
-assert.equal(blockedPlan.result.status,'needs_input');
+// The model gave up after one route conflict. The built-in scheduler finishes
+// with real road times instead: every must-visit stays, no conflict remains.
 assert.equal(blocked.requests[2].validation.routeConflicts[0].placeId,'amap_BT0');
-assert.equal(blockedPlan.task.state.plan.stops.find(p=>p.id==='amap_BT0').end,'21:00','infeasible repair leaves the original visit unchanged');
+assert.equal(blockedPlan.result.status,'completed');
+assert.equal(blocked.modelCount,3,'the scheduler finishes without further model calls');
+assert.ok(selected.every(id=>blockedPlan.result.result.plan.stops.some(p=>p.id===id)),'no must-visit place is dropped');assert.ok(blockedPlan.result.result.plan.stops.length<=8,'a 2-day trip holds at most 8 places');
+assert.equal(blockedPlan.result.result.plan.stops.some(p=>p.travelConflict),false);
+assert.ok(blockedPlan.outcomes.some(o=>o.events?.some(e=>e.tool==='scheduler')),'the switch to the scheduler is visible');
+for(const day of [1,2]){const stops=blockedPlan.result.result.plan.stops.filter(p=>p.dayIndex===day);for(let i=1;i<stops.length;i++){const gap=Number(stops[i].start.slice(0,2))*60+Number(stops[i].start.slice(3))-(Number(stops[i-1].end.slice(0,2))*60+Number(stops[i-1].end.slice(3)));assert.ok(gap>=100,'checked 90 min road time plus buffer is respected');}}
+// Must-visits that cannot fit the daily window get a clear request, not a vague limit.
+const tight={...selection,input:{...input,days:1,dayStart:'09:00',dayEnd:'12:00'}};
+const tightHarness=harness([call('propose_schedule',schedule()),call('report_limit',{reason:'Too many places.'})],{searchResult:found.result.result,facts});
+const tightPlan=await run({id:'99999999-9999-4999-8999-999999999999',userId:owner,kind:'discover_plan',payload:{token,selection:tight,wanted:selected,skipped:[]},state:null},tightHarness);
+assert.equal(tightPlan.result.status,'needs_input');assert.match(tightPlan.result.error.message,/Not enough time for .+ within your daily hours/);assert.equal(tightHarness.history.size,0);
+// A provider outage during planning no longer stops the trip.
+const outage=harness([],{searchResult:found.result.result,facts});const outageFetch=outage.context.fetcher;
+outage.context.fetcher=async(url,o)=>url.includes('/chat/completions')?new Response('upstream error',{status:503}):outageFetch(url,o);
+const outagePlan=await run({id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',userId:owner,kind:'discover_plan',payload:{token,selection,wanted:selected,skipped:[]},state:null},outage);
+assert.equal(outagePlan.result.status,'completed');assert.ok(selected.every(id=>outagePlan.result.result.plan.stops.some(p=>p.id===id)));
 assert.equal(planned.result.result.plan.stops.some(p=>p.travelConflict),false);
 assert.equal(planned.result.result.plan.bookable,false);assert.ok(planned.result.result.plan.notice.includes('No reservations or payments'));
 assert.ok(ph.history.has(planned.result.result.historyId));
@@ -97,7 +113,10 @@ assert.equal(researched.result.status,'completed');assert.equal(researchCalls,1)
 
 // A renewed worker may resume after the original browser selection token expired.
 const resumed={...planned.task,state:{...planned.task.state,result:undefined}};resumed.state.decisions=resumed.state.limit;
-const capped=await plannerStep(resumed,{...ph.context,now:new Date('2026-11-06T10:00:00Z')});assert.equal(capped.status,'needs_input');
+// At the decision cap the scheduler finishes from the saved state without the model.
+const before=ph.modelCount;let capTask=resumed,capped;
+for(let i=0;i<20;i++){capped=await plannerStep(capTask,{...ph.context,now:new Date('2026-11-06T10:00:00Z')});capTask={...capTask,state:JSON.parse(JSON.stringify(capped.state))};if(capped.status!=='running')break;}
+assert.equal(capped.status,'completed');assert.equal(ph.modelCount,before);
 await assert.rejects(()=>plannerStep({...planned.task,userId:'44444444-4444-4444-8444-444444444444'},ph.context),e=>e.code==='TASK_OWNER_MISMATCH');
 
 // A model cannot return ordinary prose or invent a tool and bypass validation.
@@ -172,4 +191,10 @@ assert.equal(impossible.result.status,'needs_input');
 assert.match(impossible.result.error.message,/exceed the group budget/);
 assert.equal(impossibleHarness.history.size,0,'never save a plan above the budget');
 
-console.log('PASS traveler planner: actual auto tool calls, omitted-interest guard, supplemental matcha search, 12 verified cards, resumable checkpoints, official-hours conflict, actual-route repair/cache, every-day coverage, budget checks and optional stops, partial recommendations, stable save, owner protection, tool allow-list and bounded incomplete results.');
+// Discovery: when the model keeps returning malformed calls near its limit,
+// cards are chosen from the verified search results instead of failing.
+const stalled=JSON.parse(JSON.stringify(found.task.state));delete stalled.result;stalled.decisions=stalled.limit-1;
+const sh=harness([]);const stalledResult=await plannerStep({...searchTask,state:stalled},sh.context);
+assert.equal(stalledResult.status,'completed');assert.equal(sh.modelCount,0);assert.ok(stalledResult.result.places.length>=8);assert.equal(new Set(stalledResult.result.places.map(p=>p.category)).size,4);
+
+console.log('PASS traveler planner: actual auto tool calls, omitted-interest guard, supplemental matcha search, 12 verified cards, resumable checkpoints, official-hours conflict, actual-route repair/cache, every-day coverage, budget checks and optional stops, partial recommendations, stable save, owner protection, tool allow-list and bounded incomplete results, built-in scheduler recovery (route conflicts, decision cap, provider outage, infeasible day) and discovery fallback.');

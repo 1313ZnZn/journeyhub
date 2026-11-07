@@ -29,7 +29,7 @@ html=html.replaceAll("openLogin('traveler', { route: 'home' })", "openLogin('tra
 // The imported prototype omits </head>; insert before its known style block.
 html=html.replace('<style>','<link rel="preconnect" href="https://images.unsplash.com">\n<link rel="stylesheet" href="./vendor/leaflet/leaflet.css">\n<style>');
 if(!html.includes('href="./vendor/leaflet/leaflet.css"'))throw Error('Route map stylesheet injection failed');
-html=html.replace('</style>',()=>['app-refresh.css','journal-ui.css','agent-ui.css','journey-route-map.css','journey-planning.css','catalog-ui.css','journey-home.css','place-discovery.css','place-map.css','currency-ui.css','travel-ui.css','trip-history.css','landing-ui.css','night-market.css','trip-care.css','staff-feature3.css','staff-navigation.css','explore-shop.css','place-reviews.css','calendar-ui.css','calendar-visit.css','calendar-map.css','calendar-management.css','demo-wallet.css','unified-booking-ui.css','planning-editor.css','staff-agent.css','traveler-agent.css','traveler-planner-ui.css','trip-chat.css','desktop-web.css','desktop-theme-map.css','desktop-theme.css'].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n')+'\n</style>');
+html=html.replace('</style>',()=>['app-refresh.css','journal-ui.css','agent-ui.css','journey-route-map.css','journey-planning.css','catalog-ui.css','journey-home.css','place-discovery.css','place-map.css','currency-ui.css','travel-ui.css','trip-history.css','landing-ui.css','night-market.css','trip-care.css','staff-feature3.css','staff-navigation.css','explore-shop.css','place-reviews.css','calendar-ui.css','calendar-visit.css','calendar-map.css','calendar-management.css','demo-wallet.css','unified-booking-ui.css','planning-editor.css','staff-agent.css','traveler-agent.css','traveler-planner-ui.css','trip-chat.css','desktop-web.css','desktop-explore.css'].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n')+'\n</style>');
 // Currency changes display formatting only; all stored amounts and inputs remain THB.
 html=html.replace('const fmt = (n) =>','let fmt = (n) =>');
 // Keep persisted rule summaries canonical when the display preference later changes.
@@ -85,6 +85,8 @@ fs.writeFileSync(path.join(out,'index.html'),html);
 fs.writeFileSync(path.join(out,'ai-plan.html'),'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=./"><title>Journey Hub</title></head><body><a href="./">Open Journey Hub</a></body></html>');
 fs.mkdirSync(path.join(out,'vendor'),{recursive:true});
 fs.cpSync(path.join(root,'vendor-route-map'),path.join(out,'vendor/leaflet'),{recursive:true});
+// Desktop sign-in landing film and poster.
+fs.cpSync(path.join(root,'media'),path.join(out,'media'),{recursive:true});
 fs.copyFileSync(path.join(root,'node_modules/@supabase/supabase-js/dist/umd/supabase.js'),path.join(out,'vendor/supabase.js'));
 fs.copyFileSync(path.join(root,'node_modules/@supabase/supabase-js/LICENSE'),path.join(out,'vendor/SUPABASE-LICENSE.txt'));
 fs.copyFileSync(path.join(root,'node_modules/exifr/dist/full.umd.js'),path.join(out,'vendor/exifr.js'));

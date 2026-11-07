@@ -6,9 +6,40 @@
   const isMac=/Mac|iPhone|iPad/.test(navigator.platform||'');
   let lastRoute=null,enterTimer=null;
 
+  // Top navigation: brand, section links, then search and the global bar actions on the right.
   function dkDecorateNav(nav){
-    if(nav.querySelector('.dk-brand'))return;
-    nav.insertAdjacentHTML('afterbegin','<div class="dk-brand">journey hub<i aria-hidden="true"></i></div><button type="button" class="dk-search" data-dk-palette aria-haspopup="dialog">'+ic('search',16)+'<span>Search anything</span><kbd>'+(isMac?'⌘K':'Ctrl K')+'</kbd></button>');
+    if(nav.querySelector('.dx-brand'))return;
+    const home=state.role==='staff'?'s-today':'journey';
+    nav.insertAdjacentHTML('afterbegin','<button type="button" class="dx-brand" data-act="tab" data-a="'+home+'" aria-label="Journey Hub home">'+mark(30)+'<span>Journey Hub</span></button>');
+    nav.insertAdjacentHTML('beforeend','<div class="dx-actions"><button type="button" class="dk-search" data-dk-palette aria-haspopup="dialog">'+ic('search',16)+'<span>Search</span><kbd>'+(isMac?'⌘K':'Ctrl K')+'</kbd></button></div>');
+  }
+  const dxGlobal=':scope>:is(.fx-switch,.sn-entry,[data-act=bell],[data-act=go][data-a=bag])';
+  function dkLiftActions(nav){
+    const bar=app.querySelector(':scope>.bar'),slot=nav.querySelector('.dx-actions');
+    if(!bar||!slot)return;
+    const order=['fx-switch','bell','bag','sn-entry'],rank=el=>order.findIndex(k=>el.classList.contains(k)||el.dataset.act===k||el.dataset.a===k);
+    [...bar.querySelectorAll(dxGlobal)].sort((a,b)=>rank(a)-rank(b)).forEach(el=>slot.appendChild(el));
+    // Travelers see currency, notifications and bag on every page, as in the design.
+    if(state.role==='traveler'){
+      const have=sel=>slot.querySelector(sel);
+      const search=slot.querySelector('.dk-search');
+      if(!have('.fx-switch')&&typeof jhFxSwitch==='function')search.insertAdjacentHTML('afterend',jhFxSwitch());
+      const after=have('.fx-switch')||search;
+      if(!have('[data-act=bell]'))after.insertAdjacentHTML('afterend','<button class="icon-btn ring" data-act="bell" aria-label="Notifications">'+ic('bell',19)+(myOrders().some(o=>orderInfo(o).needsChoice)?'<span class="dot"></span>':'')+'</button>');
+      if(!have('[data-a=bag]')){const n=cartCount();have('[data-act=bell]').insertAdjacentHTML('afterend','<button class="icon-btn ring" data-act="go" data-a="bag" aria-label="Bag, '+plural(n,'item')+'">'+ic('bag',20)+(n?'<span class="count">'+n+'</span>':'')+'</button>');}
+    }
+  }
+  // Eyebrow over the page title names the section, unless the title already does.
+  const dxSections={journey:'AI Journey',home:'Explore',orders:'Calendar',me:'Account','s-today':'Hub operations','s-orders':'Hub operations','s-sessions':'Hub operations','s-insights':'Hub operations'};
+  function dkEyebrow(){
+    const bar=app.querySelector(':scope>.bar');if(!bar)return;
+    const section=dxSections[TAB_OF[state.route]||state.route],title=bar.querySelector('.bar-title,h1')?.textContent.trim();
+    if(section&&title&&title.toLowerCase()!==section.toLowerCase())bar.dataset.dxEyebrow=section;
+  }
+  function dkBackdrop(){
+    if(document.querySelector('.dx-bg'))return;
+    const fog='<svg viewBox="0 0 2880 400" preserveAspectRatio="none" aria-hidden="true" focusable="false"><defs><filter id="dxFog" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="0.0016 0.0075" numOctaves="4" seed="6" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.7 0 0 0 -0.62" result="a"/><feFlood flood-color="#f2e6ff" result="c"/><feComposite in="c" in2="a" operator="in"/></filter><linearGradient id="dxFogFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff"/></linearGradient><mask id="dxFogMask"><rect width="2880" height="400" fill="url(#dxFogFade)"/></mask></defs><g mask="url(#dxFogMask)"><rect width="2880" height="400" filter="url(#dxFog)"/></g></svg>';
+    app.insertAdjacentHTML('beforebegin','<div class="dx-bg" aria-hidden="true"><div class="dx-bg-scene"></div><div class="dx-fog">'+fog+'</div></div>');
   }
   function dkSync(){
     const route=state.route||'';
@@ -23,7 +54,8 @@
       nav=app.querySelector(':scope>.tabbar');
       nav.dataset.dkAdded='1';
     }else if(!shell&&nav?.dataset.dkAdded){nav.remove();nav=null;}
-    if(shell&&nav)dkDecorateNav(nav);
+    if(shell&&nav){dkDecorateNav(nav);dkLiftActions(nav);dkEyebrow();}
+    if(wide?.matches)dkBackdrop();
     if(route!==lastRoute){
       if(lastRoute!==null&&wide?.matches&&!calm?.matches){
         app.dataset.enter='1';clearTimeout(enterTimer);
@@ -89,6 +121,28 @@
     button.style.transform='translate('+(((event.clientX-box.left)/box.width-.5)*6).toFixed(1)+'px,'+(((event.clientY-box.top)/box.height-.5)*4-1).toFixed(1)+'px)';
     button.addEventListener('pointerleave',()=>{button.style.transform='';},{once:true});
   });
+
+  // Sign-in landing on wide screens: a golden-hour film with two ways in. Same actions as the mobile welcome.
+  const dkWelcome=V.welcome;
+  V.welcome=()=>{
+    if(!wide?.matches)return dkWelcome();
+    const t=traveler(),s=me();
+    const entry=(kind,cls,icon,title,sub)=>'<button type="button" class="gh-entry '+cls+'" data-act="role" data-a="'+kind+'"><span class="gh-entry-icon" aria-hidden="true">'+icon+'</span><span class="gh-entry-text"><span class="gh-entry-title">'+title+'</span><span class="gh-entry-sub">'+sub+'</span></span><span class="gh-entry-stub" aria-hidden="true">'+ic('right',22)+'</span></button>';
+    return {
+      body:'<div class="gh"><main class="gh-hero"><div class="gh-stage" aria-hidden="true"><video class="gh-video" src="./media/golden-hour.mp4" poster="./media/golden-hour.jpg" muted loop playsinline preload="auto"></video></div><div class="gh-shade"></div>'+
+        '<header class="gh-nav"><span class="gh-brand">'+mark(30)+'Journey Hub</span></header>'+
+        '<div class="gh-sky"><h1>Explore Bangkok,<br>Shanghai <em>and</em> Singapore</h1><p>Workshops, food walks and local stores, combined into one day, with purchases delivered to your hotel.</p></div>'+
+        '<section class="gh-panel" aria-labelledby="gh-entry-q"><div class="gh-panel-head"><h2 id="gh-entry-q">How will you use Journey Hub?</h2><p>Concept prototype · stores, prices and people are illustrative</p></div><div class="gh-entries">'+
+        entry('traveler','gh-entry-traveler',ic('explore',26),'I\'m traveling',t?'Signed in as '+esc(t.name):'Sign in, or browse as a guest')+
+        entry('staff','gh-entry-staff',ic('grid',24),'Staff sign in',s?'Signed in as '+esc(s.name):'Use your assigned email and password')+
+        '</div></section></main></div>',
+      after(){
+        const video=app.querySelector('.gh-video');if(!video)return;
+        video.muted=true;
+        if(calm?.matches)video.pause();else video.play()?.catch?.(()=>{});
+      }
+    };
+  };
 
   new MutationObserver(dkSync).observe(app,{childList:true});
   wide?.addEventListener?.('change',()=>{dkClose();render();});

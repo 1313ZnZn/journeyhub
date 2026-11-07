@@ -152,7 +152,11 @@
  #app .tu-trip :is(.pd-stop,.pd-stop.pm-selected){border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.04);box-shadow:none}
  #app .tu-trip .pd-stop{border-top-color:var(--stop-color,#b9ed46)}
  #app .tu-trip .pd-transfer.tu-transfer{border-color:rgba(197,255,72,.25);background:rgba(197,255,72,.05)}
- #app .tu-trip .tu-tabs{border-radius:999px}
+ /* Overview / Timetable: an even two-part switch, the selected part filled lime */
+ #app .tu-trip .tu-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(8,8,14,.35);box-shadow:none}
+ #app .tu-trip .tu-tabs button{width:auto;min-height:40px;padding:0 16px;border:0;border-radius:999px;background:transparent;color:var(--ink-2);font:650 14px var(--font);text-align:center;box-shadow:none;transition:background .2s,color .2s}
+ #app .tu-trip .tu-tabs button:hover:not([aria-pressed=true]){background:rgba(255,255,255,.06);color:var(--ink)}
+ #app .tu-trip .tu-tabs button[aria-pressed=true]{background:var(--forest);color:var(--forest-ink);font-weight:750;box-shadow:0 6px 18px rgba(197,255,72,.18)}
  @media(max-width:1280px){#app .tu-trip.pd-plan{grid-template-columns:minmax(0,1fr) minmax(400px,1fr);gap:20px}}
 
  /* Page-specific carry-overs from the previous desktop theme */

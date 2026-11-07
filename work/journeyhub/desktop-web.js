@@ -41,6 +41,20 @@
     const fog='<svg viewBox="0 0 2880 400" preserveAspectRatio="none" aria-hidden="true" focusable="false"><defs><filter id="dxFog" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="0.0016 0.0075" numOctaves="4" seed="6" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.7 0 0 0 -0.62" result="a"/><feFlood flood-color="#f2e6ff" result="c"/><feComposite in="c" in2="a" operator="in"/></filter><linearGradient id="dxFogFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".42" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff"/></linearGradient><mask id="dxFogMask"><rect width="2880" height="400" fill="url(#dxFogFade)"/></mask></defs><g mask="url(#dxFogMask)"><rect width="2880" height="400" filter="url(#dxFog)"/></g></svg>';
     app.insertAdjacentHTML('beforebegin','<div class="dx-bg" aria-hidden="true"><div class="dx-bg-scene"></div><div class="dx-fog">'+fog+'</div></div>');
   }
+  // The golden-hour film is one layer shared by the landing page and sign-in, so moving
+  // between them never cuts the film: sign-in blurs and dims it, other pages fade it out.
+  let dkFilmTimer=null;
+  function dkFilm(route){
+    let film=document.querySelector('.gh-film');
+    if(!film){app.insertAdjacentHTML('beforebegin','<div class="gh-film" aria-hidden="true"><video src="./media/golden-hour.mp4" poster="./media/golden-hour.jpg" muted loop playsinline preload="auto"></video><div class="gh-film-shade"></div></div>');film=document.querySelector('.gh-film');}
+    const on=route==='welcome'||route==='login',video=film.querySelector('video');
+    document.body.classList.toggle('gh-on',on);
+    document.body.classList.toggle('gh-blur',route==='login');
+    if(on)document.body.classList.remove('gh-out');
+    clearTimeout(dkFilmTimer);
+    if(on){video.muted=true;if(calm?.matches)video.pause();else video.play()?.catch?.(()=>{});}
+    else dkFilmTimer=setTimeout(()=>video.pause(),900);
+  }
   function dkSync(){
     const route=state.route||'';
     if(app.dataset.route!==route)app.dataset.route=route;
@@ -55,7 +69,7 @@
       nav.dataset.dkAdded='1';
     }else if(!shell&&nav?.dataset.dkAdded){nav.remove();nav=null;}
     if(shell&&nav){dkDecorateNav(nav);dkLiftActions(nav);dkEyebrow();}
-    if(wide?.matches)dkBackdrop();
+    if(wide?.matches){dkBackdrop();dkFilm(route);}
     if(route!==lastRoute){
       if(lastRoute!==null&&wide?.matches&&!calm?.matches){
         app.dataset.enter='1';clearTimeout(enterTimer);
@@ -131,7 +145,7 @@
     // Each ticket: an entrance wrapper, a float layer that sways with the carriage, and the button that tilts toward the pointer.
     const entry=(kind,cls,icon,title,sub)=>'<div class="gh-ticket" style="--i:'+(kind==='traveler'?0:1)+'"><div class="gh-float"><button type="button" class="gh-entry '+cls+'" data-act="'+((kind==='traveler'?t:staff)?'dkContinue':'dkSignIn')+'" data-a="'+kind+'"><span class="gh-sheen" aria-hidden="true"></span><span class="gh-entry-icon" aria-hidden="true">'+icon+'</span><span class="gh-entry-text"><span class="gh-entry-title">'+title+'</span><span class="gh-entry-sub">'+sub+'</span></span><span class="gh-entry-stub" aria-hidden="true">'+ic('right',22)+'</span></button></div></div>';
     return {
-      body:'<div class="gh"><main class="gh-hero"><div class="gh-stage" aria-hidden="true"><video class="gh-video" src="./media/golden-hour.mp4" poster="./media/golden-hour.jpg" muted loop playsinline preload="auto"></video></div><div class="gh-shade"></div>'+
+      body:'<div class="gh"><main class="gh-hero"><div class="gh-shade"></div>'+
         '<header class="gh-nav"><span class="gh-brand">'+mark(30)+'Journey Hub</span></header>'+
         '<div class="gh-sky"><h1>Explore Bangkok,<br>Shanghai <em>and</em> Singapore</h1><p>Workshops, food walks and local stores, combined into one day, with purchases delivered to your hotel.</p></div>'+
         '<section class="gh-panel" aria-labelledby="gh-entry-q"><div class="gh-panel-head"><h2 id="gh-entry-q">How will you use Journey Hub?</h2><p>Concept prototype · stores, prices and people are illustrative'+(t||staff?' · <button type="button" class="gh-switch" data-act="dkSignIn" data-a="'+(t?'traveler':'staff')+'">Use another account</button>':'')+'</p></div><div class="gh-entries">'+
@@ -139,8 +153,6 @@
         entry('staff','gh-entry-staff',ic('grid',24),staff?'Staff workspace':'Staff sign in',staff?'Continue as '+esc(staff.name):'Use your assigned email and password')+
         '</div></section></main></div>',
       after(){
-        const video=app.querySelector('.gh-video');
-        if(video){video.muted=true;if(calm?.matches)video.pause();else video.play()?.catch?.(()=>{});}
         // Tickets lean toward the pointer, as if lifted off the table.
         const panel=app.querySelector('.gh-panel');if(!panel||calm?.matches)return;
         const tickets=[...panel.querySelectorAll('.gh-entry')];
@@ -193,6 +205,23 @@
     month.replaceWith(side);side.append(month,map);
     view.body=t.innerHTML;return view;
   };
+
+  // Leaving the landing page: the headline lifts away, the chosen ticket rises toward where
+  // the sign-in card appears, the other ticket settles out, and the film blurs (sign-in) or
+  // fades (straight into the app). Then the next page enters over it.
+  let dkLeaving=false;
+  function dkLeave(mode,kind,next){
+    const gh=app.querySelector('.gh');
+    if(state.route!=='welcome'||!gh||!wide?.matches||calm?.matches||gh.classList.contains('is-leaving')){next();return;}
+    if(dkLeaving)return;dkLeaving=true;
+    gh.classList.add('is-leaving');
+    gh.querySelector('.gh-entry-'+(mode==='staff'?'staff':'traveler'))?.closest('.gh-ticket')?.classList.add('is-chosen');
+    document.body.classList.add(kind==='continue'?'gh-out':'gh-blur');
+    setTimeout(()=>{dkLeaving=false;next();},430);
+  }
+  const dkSignInNow=A.dkSignIn,dkContinueNow=A.dkContinue;
+  A.dkSignIn=mode=>dkLeave(mode,'signin',()=>dkSignInNow(mode));
+  A.dkContinue=mode=>dkLeave(mode,'continue',()=>dkContinueNow(mode));
 
   new MutationObserver(dkSync).observe(app,{childList:true});
   wide?.addEventListener?.('change',()=>{dkClose();render();});

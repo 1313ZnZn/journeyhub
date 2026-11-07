@@ -28,8 +28,8 @@
   const dirty=()=>!!(tl.draft&&pd.plan===tl.draft);
 
   // Rebuild the draft plan from an ordered list of {id,dayIndex}.
-  function reflow(order){
-    const base=tl.original,w=window_(),mode=base.transport||pd.input?.transport||'drive',byId=new Map(base.stops.map(s=>[s.id,s]));
+  function reflow(order,base=tl.original){
+    const w=window_(),mode=base.transport||pd.input?.transport||'drive',byId=new Map(base.stops.map(s=>[s.id,s]));
     const stops=[],overflow=new Set();
     for(let day=1;day<=base.days;day++){
       let prev=null,cursor=w.start;
@@ -87,38 +87,87 @@
     if(pe?.preview&&pe.revisionToken)await A.peApply();
   };
 
-  // Drag a visit to a new time slot or day.
+  // Press and drag a visit. The lifted visit follows the pointer every frame; the other
+  // visits slide to where they would be in the new order; on release it settles into
+  // its slot and the order is applied.
   let drag=null;
+  const SNAP_MS=200;
+  const slotTop=s=>(mins(s.start)-window_().start)*PX;
+  const slotHeight=s=>Math.max(30,(mins(s.end)-mins(s.start))*PX);
+  function proposal(g,x,centreY){
+    const base=g.order.filter(r=>r.id!==g.id);
+    let col=g.cols.find(c=>{const r=c.el.getBoundingClientRect();return x>=r.left-6&&x<=r.right+6;})||g.cols.find(c=>c.day===g.day);
+    // The last visit of a day cannot leave it; every day keeps at least one place.
+    if(col.day!==g.day&&!base.some(r=>r.dayIndex===g.day))col=g.cols.find(c=>c.day===g.day);
+    // Thresholds come from the order without the dragged visit, so they do not move as others make room.
+    const without=reflow(base,g.base).plan.stops.filter(st=>st.dayIndex===col.day);
+    const y=centreY-col.el.getBoundingClientRect().top;
+    const index=without.filter(st=>slotTop(st)+slotHeight(st)/2<y).length;
+    const target=base.filter(r=>r.dayIndex===col.day),before=target[index]?.id,order=base.slice(),row={id:g.id,dayIndex:col.day};
+    if(before)order.splice(order.findIndex(r=>r.id===before),0,row);
+    else{const last=order.map(r=>r.dayIndex).lastIndexOf(col.day);order.splice(last<0?order.filter(r=>r.dayIndex<col.day).length:last+1,0,row);}
+    order.sort((a,b)=>a.dayIndex-b.dayIndex);
+    return {order,col,layout:reflow(order,g.base).plan};
+  }
+  function paint(){
+    const g=drag;if(!g)return;g.frame=0;
+    const sc=g.scroller,scroll=(sc?.scrollTop||0)-g.scroll0;
+    const dx=g.px-g.x,dy=g.py-g.y+scroll;
+    g.block.style.transform='translate3d('+dx+'px,'+dy+'px,0) scale(1.04)';
+    const centre=g.rect.top+dy+g.rect.height/2;
+    const next=proposal(g,g.px,centre),key=JSON.stringify(next.order);
+    if(key===g.key)return;
+    g.key=key;g.next=next;
+    // Every other visit slides to its place in the proposed order.
+    for(const st of next.layout.stops){if(st.id===g.id)continue;const el=g.blocks.get(st.id);if(!el)continue;const home=el.closest('.tl-col').dataset.day;
+      if(String(st.dayIndex)===home){el.style.top=slotTop(st)+'px';el.style.height=slotHeight(st)+'px';const t=el.querySelector('.tl-text small');if(t)t.textContent=st.start+'–'+st.end;}}
+    g.cols.forEach(c=>c.el.classList.toggle('is-target',c===next.col));
+  }
   document.addEventListener('pointerdown',e=>{
-    const block=e.target.closest?.('.tl-block');if(!block||e.button>0||e.target.closest('button')||!editable()||(typeof pe!=='undefined'&&pe?.busy))return;
-    const box=block.getBoundingClientRect();
-    drag={id:block.dataset.id,block,x:e.clientX,y:e.clientY,dx:e.clientX-box.left,dy:e.clientY-box.top,h:box.height,moved:false,pointer:e.pointerId,scroller:app.querySelector(':scope>.screen'),scroll0:app.querySelector(':scope>.screen')?.scrollTop||0};
+    const block=e.target.closest?.('.tl-block');if(!block||e.button>0||e.target.closest('button')||!editable()||(typeof pe!=='undefined'&&pe?.busy)||drag)return;
+    const scroller=app.querySelector(':scope>.screen'),day=Number(block.closest('.tl-col').dataset.day);
+    drag={id:block.dataset.id,block,day,x:e.clientX,y:e.clientY,px:e.clientX,py:e.clientY,pointer:e.pointerId,started:false,scroller,scroll0:scroller?.scrollTop||0,
+      base:tl.original||pd.plan,order:currentOrder(),rect:block.getBoundingClientRect(),
+      cols:[...document.querySelectorAll('.tl-col')].map(c=>({el:c.querySelector('.tl-col-body'),day:Number(c.dataset.day)})),
+      blocks:new Map([...document.querySelectorAll('.tl-block')].map(b=>[b.dataset.id,b]))};
   });
   document.addEventListener('pointermove',e=>{
-    if(!drag||drag.pointer!==e.pointerId)return;
-    if(!drag.moved&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<6)return;
-    if(!drag.moved){drag.moved=true;drag.block.classList.add('is-dragging');try{drag.block.setPointerCapture(e.pointerId);}catch{}}
+    const g=drag;if(!g||g.pointer!==e.pointerId)return;
+    g.px=e.clientX;g.py=e.clientY;
+    if(!g.started){
+      if(Math.hypot(e.clientX-g.x,e.clientY-g.y)<4)return;
+      g.started=true;g.block.classList.add('is-lifted');document.querySelector('.tl')?.classList.add('is-sorting');
+      try{g.block.setPointerCapture(e.pointerId);}catch{}
+    }
     e.preventDefault();
     // Near the top or bottom edge the page scrolls, so a visit can travel the whole day.
-    const sc=drag.scroller;if(sc){const r=sc.getBoundingClientRect();if(e.clientY>r.bottom-70)sc.scrollTop+=14;else if(e.clientY<r.top+70)sc.scrollTop-=14;}
-    drag.block.style.transform='translate('+(e.clientX-drag.x)+'px,'+(e.clientY-drag.y+((sc?.scrollTop||0)-drag.scroll0))+'px)';
-    document.querySelectorAll('.tl-col').forEach(col=>{const r=col.getBoundingClientRect();col.classList.toggle('is-target',e.clientX>=r.left&&e.clientX<=r.right);});
+    const sc=g.scroller;if(sc){const r=sc.getBoundingClientRect();if(e.clientY>r.bottom-70)sc.scrollTop+=14;else if(e.clientY<r.top+70)sc.scrollTop-=14;}
+    if(!g.frame)g.frame=requestAnimationFrame(paint);
   });
+  function finish(g,commit){
+    cancelAnimationFrame(g.frame);g.frame=0;
+    g.cols.forEach(c=>c.el.classList.remove('is-target'));
+    const next=commit&&g.next&&JSON.stringify(g.next.order)!==JSON.stringify(g.order)?g.next:null;
+    // Settle into the slot: the new one, or back where it was.
+    const slot=next?next.layout.stops.find(st=>st.id===g.id):pd.plan.stops.find(st=>st.id===g.id);
+    const body=(next?next.col.el:g.cols.find(c=>c.day===g.day).el).getBoundingClientRect(),scroll=(g.scroller?.scrollTop||0)-g.scroll0;
+    g.block.classList.add('is-settling');
+    g.block.style.transform='translate3d('+(body.left+4-g.rect.left)+'px,'+(body.top+slotTop(slot)-g.rect.top+scroll)+'px,0) scale(1)';
+    g.block.style.height=slotHeight(slot)+'px';
+    const done=()=>{if(drag!==g)return;drag=null;document.querySelector('.tl')?.classList.remove('is-sorting');
+      if(next)apply(next.order);else{g.block.classList.remove('is-lifted','is-settling');g.block.style.transform='';render();}};
+    setTimeout(done,SNAP_MS);
+  }
   const endDrag=e=>{
-    const g=drag;if(!g||g.pointer!==e.pointerId)return;drag=null;
-    document.querySelectorAll('.tl-col.is-target').forEach(c=>c.classList.remove('is-target'));
-    if(!g.moved)return;
-    g.block.classList.remove('is-dragging');g.block.style.transform='';
-    if(e.type!=='pointerup')return;
-    const col=[...document.querySelectorAll('.tl-col')].find(c=>{const r=c.getBoundingClientRect();return e.clientX>=r.left&&e.clientX<=r.right;});
-    if(!col)return;
-    // The dragged visit goes after every visit whose centre is above its own centre.
-    const day=Number(col.dataset.day),centre=e.clientY-g.dy+g.h/2;
-    const others=[...col.querySelectorAll('.tl-block')].filter(b=>b.dataset.id!==g.id);
-    const index=others.filter(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2<centre;}).length;
-    move(g.id,day,index);
+    const g=drag;if(!g||g.pointer!==e.pointerId||g.ending)return;
+    if(!g.started){drag=null;return;}
+    g.ending=true;if(g.frame){cancelAnimationFrame(g.frame);paint();}
+    finish(g,e.type==='pointerup');
   };
   document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);
+  // Background refreshes wait until the visit is dropped, so a drag is never cut short.
+  const tlRender=render;
+  render=function(){if(drag?.started){drag.pendingRender=true;return;}return tlRender.apply(this,arguments);};
   // Keyboard: arrows move a focused visit, Delete removes it.
   document.addEventListener('keydown',e=>{
     const block=e.target.closest?.('.tl-block');if(!block||e.target!==block||!editable())return;

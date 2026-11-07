@@ -139,6 +139,22 @@
  #app .jl-library-card :is(strong,b){color:var(--ink)}
  #app .jl-library-card small{color:var(--ink-3)}
 
+ /* Itinerary: map on the left, held in view; the trip sheet on the right */
+ #app .tu-trip.pd-plan{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(440px,1fr);gap:28px;align-items:start;max-width:1450px;margin:0 auto;padding:8px var(--page-pad,56px) 56px;background:transparent!important;overflow:visible}
+ #app .tu-trip>.pm-map-shell,#app .tu-trip.tu-expanded>.pm-map-shell{display:block;position:sticky;top:16px;height:calc(100vh - 290px);min-height:440px;overflow:hidden;border:1px solid var(--dx-glass-line);border-radius:26px;box-shadow:var(--dx-glass-shadow)}
+ #app .tu-trip .tu-sheet,#app .tu-trip.tu-expanded .tu-sheet{position:relative;padding:8px 0 20px;border:1px solid var(--dx-glass-line);border-radius:26px;background:var(--dx-glass)!important;-webkit-backdrop-filter:blur(22px) saturate(1.2);backdrop-filter:blur(22px) saturate(1.2);box-shadow:var(--dx-glass-shadow)}
+ #app .tu-trip .tu-handle{display:none}
+ #app .tu-trip .tu-title{padding:18px 22px 12px}
+ #app .tu-trip .tu-title h1,#app .tu-trip .tu-title h2{font-size:28px;font-weight:800;letter-spacing:-.6px}
+ #app .tu-trip .tu-sheet>:not(.tu-handle,.tu-title,.tu-sheet-scroll){margin-inline:20px}
+ #app .tu-trip .tu-sheet-scroll{padding-inline:20px;background:transparent!important}
+ #app .tu-trip .tc-confirm{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.04)}
+ #app .tu-trip :is(.pd-stop,.pd-stop.pm-selected){border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.04);box-shadow:none}
+ #app .tu-trip .pd-stop{border-top-color:var(--stop-color,#b9ed46)}
+ #app .tu-trip .pd-transfer.tu-transfer{border-color:rgba(197,255,72,.25);background:rgba(197,255,72,.05)}
+ #app .tu-trip .tu-tabs{border-radius:999px}
+ @media(max-width:1280px){#app .tu-trip.pd-plan{grid-template-columns:minmax(0,1fr) minmax(400px,1fr);gap:20px}}
+
  /* Page-specific carry-overs from the previous desktop theme */
  #app .th-heading :is(h1,h2,.h1,.h2){display:none}
  #app .cv-payment{align-items:flex-end}

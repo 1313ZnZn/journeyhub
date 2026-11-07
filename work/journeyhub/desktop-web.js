@@ -126,14 +126,16 @@
   const dkWelcome=V.welcome;
   V.welcome=()=>{
     if(!wide?.matches)return dkWelcome();
-    const entry=(kind,cls,icon,title,sub)=>'<button type="button" class="gh-entry '+cls+'" data-act="dkSignIn" data-a="'+kind+'"><span class="gh-entry-icon" aria-hidden="true">'+icon+'</span><span class="gh-entry-text"><span class="gh-entry-title">'+title+'</span><span class="gh-entry-sub">'+sub+'</span></span><span class="gh-entry-stub" aria-hidden="true">'+ic('right',22)+'</span></button>';
+    // A remembered session continues straight in; without one, the entry asks for email and password.
+    const t=traveler(),staff=me();
+    const entry=(kind,cls,icon,title,sub)=>'<button type="button" class="gh-entry '+cls+'" data-act="'+((kind==='traveler'?t:staff)?'dkContinue':'dkSignIn')+'" data-a="'+kind+'"><span class="gh-entry-icon" aria-hidden="true">'+icon+'</span><span class="gh-entry-text"><span class="gh-entry-title">'+title+'</span><span class="gh-entry-sub">'+sub+'</span></span><span class="gh-entry-stub" aria-hidden="true">'+ic('right',22)+'</span></button>';
     return {
       body:'<div class="gh"><main class="gh-hero"><div class="gh-stage" aria-hidden="true"><video class="gh-video" src="./media/golden-hour.mp4" poster="./media/golden-hour.jpg" muted loop playsinline preload="auto"></video></div><div class="gh-shade"></div>'+
         '<header class="gh-nav"><span class="gh-brand">'+mark(30)+'Journey Hub</span></header>'+
         '<div class="gh-sky"><h1>Explore Bangkok,<br>Shanghai <em>and</em> Singapore</h1><p>Workshops, food walks and local stores, combined into one day, with purchases delivered to your hotel.</p></div>'+
-        '<section class="gh-panel" aria-labelledby="gh-entry-q"><div class="gh-panel-head"><h2 id="gh-entry-q">How will you use Journey Hub?</h2><p>Concept prototype · stores, prices and people are illustrative</p></div><div class="gh-entries">'+
-        entry('traveler','gh-entry-traveler',ic('explore',26),'I\'m traveling','Sign in with your email and password')+
-        entry('staff','gh-entry-staff',ic('grid',24),'Staff sign in','Use your assigned email and password')+
+        '<section class="gh-panel" aria-labelledby="gh-entry-q"><div class="gh-panel-head"><h2 id="gh-entry-q">How will you use Journey Hub?</h2><p>Concept prototype · stores, prices and people are illustrative'+(t||staff?' · <button type="button" class="gh-switch" data-act="dkSignIn" data-a="'+(t?'traveler':'staff')+'">Use another account</button>':'')+'</p></div><div class="gh-entries">'+
+        entry('traveler','gh-entry-traveler',ic('explore',26),'I\'m traveling',t?'Continue as '+esc(t.name):'Sign in with your email and password')+
+        entry('staff','gh-entry-staff',ic('grid',24),staff?'Staff workspace':'Staff sign in',staff?'Continue as '+esc(staff.name):'Use your assigned email and password')+
         '</div></section></main></div>',
       after(){
         const video=app.querySelector('.gh-video');if(!video)return;
@@ -158,6 +160,11 @@
 
   // Both landing entries go to the email and password form first, then into the app.
   // The traveler form still offers Continue as guest.
+  A.dkContinue=mode=>{
+    mode=mode==='staff'?'staff':'traveler';
+    if(mode==='staff'?!me():!traveler())return A.dkSignIn(mode);
+    setRole(mode,mode==='staff'?(me().role==='host'?'s-session':'s-today'):'journey');
+  };
   A.dkSignIn=mode=>{
     mode=mode==='staff'?'staff':'traveler';
     state.hist=[];state.role=mode;state.guestOk=false;

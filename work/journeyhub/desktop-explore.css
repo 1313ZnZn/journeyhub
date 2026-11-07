@@ -213,6 +213,8 @@
  .gh-panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:0 4px 12px}
  .gh-panel-head h2{color:var(--walnut);font-size:15px;font-weight:700}
  .gh-panel-head p{color:var(--gh-muted);font-size:12px}
+ .gh-switch{padding:0;border:0;background:none;color:var(--brass-ink);font:700 12px var(--font);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+ .gh-switch:focus-visible{outline:2px solid var(--brass-ink);outline-offset:2px}
  .gh-entries{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
  .gh-entry{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) 56px;align-items:center;gap:16px;min-height:96px;padding:0 0 0 18px;border:0;border-radius:18px;font-family:var(--font);text-align:left;cursor:pointer;transition:background .15s,transform .15s}
  .gh-entry:active{transform:translateY(1px)}

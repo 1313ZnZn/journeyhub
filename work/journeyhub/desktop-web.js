@@ -144,6 +144,19 @@
     };
   };
 
+  // Opening the site starts on the landing page, signed in or not. Its two entries
+  // continue straight to the saved session. A reload in the same tab, or a
+  // password-recovery link, keeps its place.
+  const dkBoot=jhStart;
+  jhStart=async function(){
+    const result=await dkBoot.apply(this,arguments);
+    let seen=false;try{seen=sessionStorage.getItem('jh-landing-seen')==='1';sessionStorage.setItem('jh-landing-seen','1');}catch{}
+    if(wide?.matches&&!seen&&!jhRecovery&&state.route!=='welcome'&&state.route!=='login'){
+      state.role=null;state.route='welcome';state.params={};state.hist=[];render();
+    }
+    return result;
+  };
+
   new MutationObserver(dkSync).observe(app,{childList:true});
   wide?.addEventListener?.('change',()=>{dkClose();render();});
   dkSync();

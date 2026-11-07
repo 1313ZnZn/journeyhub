@@ -213,7 +213,8 @@
     const note=!can?'Save this trip to edit it.':dirty()?'Unsaved changes. Confirm to check real routes and update Overview.':'Drag a visit to change the order or move it to another day. Use × to remove it.';
     const busy=typeof pe!=='undefined'&&pe?.busy,late=dirty()&&tl.overflow?.size,error=dirty()&&typeof pe!=='undefined'&&pe?.error;
     const actions=dirty()?'<button type="button" class="btn-text" data-act="tlDiscard"'+(busy?' disabled':'')+'>Discard</button><button type="button" class="tl-confirm" data-act="tlConfirm"'+(busy||late?' disabled':'')+'>'+ic('check',16)+(busy?(pe.phase==='apply'?'Saving…':'Checking routes…'):'Confirm changes')+'</button>':'';
-    return '<section class="tl" aria-label="Timetable"><p class="tl-note">'+ic('sliders',15)+'<span>'+esc(note)+'</span>'+actions+'</p>'+(error?'<p class="tl-error" role="alert">'+esc(pe.error)+'</p>':'')+'<div class="tl-grid" style="--days:'+plan.days+'">'+axis+cols+'</div></section>';
+    const head=dirty()?'<div class="tl-note is-dirty"><span class="tl-status"><i aria-hidden="true"></i>Unsaved changes</span><span class="tl-actions">'+actions+'</span><small>Confirm to check real routes and update Overview.</small></div>':'<p class="tl-note">'+ic('sliders',15)+'<span>'+esc(note)+'</span></p>';
+    return '<section class="tl" aria-label="Timetable">'+head+(error?'<p class="tl-error" role="alert">'+esc(pe.error)+'</p>':'')+'<div class="tl-grid" style="--days:'+plan.days+'">'+axis+cols+'</div></section>';
   }
   function careActive(){return typeof tc!=='undefined'&&tc.trips?.some(t=>t.sourceType==='history'&&t.sourceId===pd.historyId&&['active','paused'].includes(t.status));}
   function barHTML(){

@@ -14,6 +14,19 @@
  .tl-confirm:disabled{opacity:.55;cursor:default}
  .tl-error{margin:0;padding:10px 14px;border:1px solid rgba(255,155,158,.45);border-radius:14px;background:rgba(255,155,158,.08);color:#ffc2c4;font-size:13px}
  .tl-note{position:sticky;top:0;z-index:5;padding:8px 0;background:linear-gradient(180deg,rgba(24,23,33,.96),rgba(24,23,33,.9))}
+ /* Unsaved: one short status line with the actions, the explanation underneath */
+ .tl-note.is-dirty{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;min-width:0;padding:10px 12px;border:1px solid rgba(197,255,72,.3);border-radius:16px}
+ .tl-status{display:inline-flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;color:var(--ink);font-size:14px;font-weight:700;white-space:nowrap}
+ .tl-status i{flex:none;width:8px;height:8px;border-radius:50%;background:var(--forest);box-shadow:0 0 0 4px rgba(197,255,72,.15)}
+ .tl-note .tl-actions{display:inline-flex;align-items:center;gap:12px;flex:none;margin-left:auto}
+ .tl-note .tl-status{flex:1 1 auto}
+ .tl-actions .btn-text{min-height:36px;padding:0 4px;font-size:13px;white-space:nowrap}
+ .tl-note.is-dirty small{flex-basis:100%;color:var(--ink-3);font-size:12px;line-height:1.4}
+ .tl-confirm{white-space:nowrap}
+ .tl{min-width:0}
+ /* The timetable gets more room than the map while it is open */
+ #app .tu-trip.pd-plan[data-view=itinerary]{grid-template-columns:minmax(0,.85fr) minmax(520px,1.15fr)}
+ @media(max-width:1180px){#app .tu-trip.pd-plan[data-view=itinerary]{grid-template-columns:minmax(0,.7fr) minmax(480px,1.3fr)}}
  .tl-grid{display:grid;grid-template-columns:44px repeat(var(--days),minmax(0,1fr));gap:8px;align-items:start}
  .tl-axis{position:relative;margin-top:52px}
  .tl-axis span{position:absolute;right:4px;transform:translateY(-50%);color:var(--ink-3);font-size:11px;font-variant-numeric:tabular-nums}

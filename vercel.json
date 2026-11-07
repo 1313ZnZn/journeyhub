@@ -1,0 +1,10 @@
+{
+  "framework": null,
+  "buildCommand": "npm run build:preview",
+  "installCommand": "npm ci --prefix work/journeyhub",
+  "outputDirectory": "outputs/JourneyHub-Vercel",
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/.*", "status": 404 }
+  ]
+}

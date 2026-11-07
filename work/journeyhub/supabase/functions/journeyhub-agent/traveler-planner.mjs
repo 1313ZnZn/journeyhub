@@ -234,7 +234,7 @@ async function propose(s,args){
 }
 async function routes(s,ctx){
  if(!s.plan)return issue(s,'check_routes','Propose a complete schedule first.');
- if((s.routeChecks||0)>=5)return issue(s,'check_routes','The route-check budget is reached. Report the unresolved timing constraint.');
+ if((s.routeChecks||0)>=(s.auto?12:5))return issue(s,'check_routes','The route-check budget is reached. Report the unresolved timing constraint.');
  const key=JSON.stringify([s.input.transport,s.plan.stops.map(p=>[p.dayIndex,p.id])]);
  if(s.routeCache[key])s.plan.roadRoutes=structuredClone(s.routeCache[key]);
  else{await(s.useAmap?addAmapRoutes(s.plan,ctx.env('AMAP_WEB_SERVICE_KEY'),ctx.fetcher):addRoadRoutes(s.plan,ctx.env('GOOGLE_ROUTES_API_KEY')||ctx.env('GOOGLE_PLACES_API_KEY'),ctx.fetcher));if(s.plan.roadRoutes.every(r=>['ready','single_stop','empty'].includes(r.status)))s.routeCache[key]=structuredClone(s.plan.roadRoutes);}
@@ -255,6 +255,145 @@ async function finish(s,ctx){
  final.visitFacts=s.facts;const result={plan:final,historyId:id};s.result=result;
  return{state:s,status:'completed',stage:'complete',message:'Your itinerary is checked and saved.',events:[{kind:'completed',tool:'finish_plan',summary:'Saved '+final.stops.length+' visits across '+new Set(final.stops.map(p=>p.dayIndex)).size+' scheduled days.'}],result};
 }
+// ---------------------------------------------------------------------------
+// Built-in scheduler. When the model keeps failing the same checks (timing
+// arithmetic, route conflicts, malformed calls) or runs low on decisions, a
+// deterministic scheduler finishes the plan with the SAME validated tools:
+// propose_schedule, check_routes, research_venue and finish_plan. It never
+// drops a must-visit place, never invents facts and never books anything.
+const VISIT=[[/museum|gallery|exhibition|博物馆|美术馆/i,120],[/restaurant|food|dining|cuisine|cafe|coffee|tea|bakery|dessert|matcha|bar|italian|餐|咖啡|茶/i,75],[/park|garden|nature|zoo|botanic|公园|花园/i,90],[/temple|church|mosque|shrine|寺|庙/i,75],[/market|mall|shop|商场|市场/i,90]];
+const visitMinutes=p=>{const text=[p.kind,p.category,...(p.categories||[])].join(' ');for(const [re,m] of VISIT)if(re.test(text))return m;return 90;};
+const clockOf=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
+// Total places a trip can hold, spread evenly across days (matches the traveler app's picks tray).
+export function tripPlaceCap(input){
+ const days=Math.max(1,Math.min(4,Math.round(Number(input.days)||1)));
+ if(days>1)return {2:8,3:10,4:12}[days];
+ const hours=(minute(input.dayEnd)-minute(input.dayStart))/60;
+ return hours<=2?1:hours<=8?2:hours<=12?3:4;
+}
+export function perDayCounts(total,days){return Array.from({length:days},(_,i)=>Math.floor(total/days)+(i<total%days?1:0));}
+// Prefer checked road times for any pair seen in an earlier route check.
+function knownLegs(s){
+ const legs={};
+ for(const routes of [...Object.values(s.routeCache||{}),s.plan?.roadRoutes||[]])for(const r of routes||[])for(const l of r.legs||[])if(l?.fromId&&l?.toId&&Number.isFinite(l.durationMinutes))legs[l.fromId+'>'+l.toId]=Math.max(legs[l.fromId+'>'+l.toId]||0,transferMinutes(l));
+ return legs;
+}
+export function autoSchedule(s){
+ const legs=knownLegs(s),wanted=s.choices.wanted,dropped=new Set(s.auto?.dropped||[]);
+ const usable=s.places.filter(p=>[p.lat,p.lng].every(Number.isFinite)&&!dropped.has(p.id));
+ const must=usable.filter(p=>wanted.includes(p.id)),missing=wanted.filter(id=>!must.some(p=>p.id===id));
+ if(missing.length)return{infeasible:missing,reason:'details'};
+ const gap=(a,b)=>Math.max(transferMinutes(estimateTravel(a,b,s.input.transport)),legs[a.id+'>'+b.id]||0)+5;
+ // Optional places closest to the must-visits fill remaining capacity.
+ const cap=Math.max(must.length,Math.min(usable.length,tripPlaceCap(s.input)));
+ const anchor=must.length?must:usable.slice(0,1);
+ const near=p=>Math.min(...anchor.map(a=>estimateTravel(a,p,s.input.transport).durationMinutes));
+ const optional=usable.filter(p=>!wanted.includes(p.id)).sort((a,b)=>near(a)-near(b)).slice(0,Math.max(0,cap-must.length));
+ let pool=[...must,...optional];if(!pool.length)return{infeasible:[],reason:'empty'};
+ // Nearest-neighbour order keeps each day geographically tight.
+ const tour=[pool.shift()];while(pool.length){const last=tour.at(-1);pool.sort((a,b)=>gap(last,a)-gap(last,b));tour.push(pool.shift());}
+ const counts=perDayCounts(tour.length,Math.min(s.input.days,tour.length)),days=[];let at=0;for(const n of counts){days.push(tour.slice(at,at+n));at+=n;}
+ const open=minute(s.input.dayStart),close=minute(s.input.dayEnd),stops=[],overflow=[];
+ const place=(day,list)=>{let cursor=open,prev=null;const kept=[];
+  for(const p of list){
+   const start=Math.ceil((prev?cursor+gap(prev,p):cursor)/5)*5;let length=visitMinutes(p);
+   if(start+length>close)length=Math.floor((close-start)/5)*5;
+   const fact=s.facts.find(f=>f.id===p.id&&f.date===dateAt(s.input,day)),hours=fact?hoursAssessment(fact,clockOf(start),clockOf(start+Math.max(length,30))):null;
+   if(length<45||['closed','conflict'].includes(hours?.status)){if(wanted.includes(p.id))overflow.push(p);continue;}
+   kept.push({p,start,end:start+length});cursor=start+length;prev=p;
+  }
+  return kept;};
+ const placed=days.map((list,i)=>place(i+1,list));
+ // A must-visit that did not fit its day moves to the end of another day with room.
+ for(const p of overflow.splice(0)){
+  let ok=false;
+  for(let d=0;d<s.input.days&&!ok;d++){const list=[...(placed[d]||[]).map(x=>x.p),p],trial=place(d+1,list);if(trial.some(x=>x.p.id===p.id)&&trial.length===list.length){placed[d]=trial;ok=true;}}
+  if(!ok)overflow.push(p);
+ }
+ if(overflow.length)return{infeasible:overflow.map(p=>p.id),reason:'time'};
+ placed.forEach((list,d)=>list.forEach(({p,start,end})=>stops.push({placeId:p.id,day:d+1,start:clockOf(start),end:clockOf(end),name:englishName(p.name)||s.selection?.englishNames?.[p.id]||p.name,reason:englishCopy(p.reason)?clean(p.reason,280):wanted.includes(p.id)?'One of your must-visit places.':'A nearby place that fits your day.'})));
+ return{args:{summary:'A '+s.input.days+'-day '+s.input.city+' plan built around your must-visit places, with travel time between stops.',stops}};
+}
+const placeName=(s,id)=>englishName(s.places.find(p=>p.id===id)?.name)||s.selection?.englishNames?.[id]||'A must-visit place';
+function autoNeedsInput(s,message,code='PLANNER_NEEDS_INPUT'){
+ s.auto={...s.auto,done:true};
+ return{state:s,status:'needs_input',stage:'review',message:'Your trip needs a small change before planning can finish.',events:[{kind:'needs_input',tool:'scheduler',summary:'The built-in scheduler could not fit every must-visit place.'}],error:{code,message}};
+}
+function shouldAutopilot(s){
+ if(s.kind!=='discover_plan'||s.result)return false;
+ if(s.auto)return !s.auto.done;
+ const conflicts=s.validation?.routeConflicts?.length>0;
+ return s.decisions>=s.limit-6||(s.strikes||0)>=5||(s.invalidStreak||0)>=2||((s.routeChecks||0)>=2&&conflicts);
+}
+async function autopilotStep(s,ctx){
+ const first=!s.auto;
+ s.auto??={phase:'propose',rounds:0,steps:0,dropped:[]};s.auto.steps++;
+ const note=r=>{if(first&&r.events)r.events.unshift({kind:'tool_result',tool:'scheduler',summary:'Finishing your plan with the built-in scheduler.'});return r;};
+ if(s.auto.steps>16)return autoNeedsInput(s,'Your plan could not be finished automatically. Try fewer must-visit places or longer daily hours.');
+ if(s.auto.phase==='propose'){
+  if(s.auto.rounds>=4)return autoNeedsInput(s,'Your must-visit places could not be fitted with their travel times. Add a day, extend your daily hours, or keep fewer must-visit places.');
+  s.auto.rounds++;
+  const draft=autoSchedule(s);
+  if(draft.infeasible){
+   const names=draft.infeasible.map(id=>placeName(s,id)).slice(0,3).join(', ');
+   return autoNeedsInput(s,draft.reason==='time'?'Not enough time for '+(names||'every must-visit place')+' within your daily hours. Add a day, extend your daily hours, or keep fewer must-visit places.':draft.reason==='details'?'Some must-visit places are missing location details: '+names+'. Choose them again or pick other places.':'Keep at least one place available to plan.');
+  }
+  const r=await propose(s,draft.args);
+  if(s.budgetIssue){
+   const optional=draft.args.stops.map(x=>x.placeId).filter(id=>!s.choices.wanted.includes(id));
+   if(!optional.length)return autoNeedsInput(s,s.budgetIssue.type==='over_budget'?'Estimated activities and dining exceed the group budget. Increase the budget or review your must-visit places.':'Some must-visit prices could not be estimated. Review your must-visit places or plan without a budget cap.');
+   // Drop the optional stop furthest along the day first; must-visits always stay.
+   s.auto.dropped.push(optional.at(-1));s.auto.rounds--;return note(r);
+  }
+  const closed=(s.validation?.issues||[]).filter(i=>i.type==='opening_hours');
+  if(closed.length){
+   const must=closed.filter(i=>s.choices.wanted.includes(i.placeId));
+   if(must.length)return autoNeedsInput(s,placeName(s,must[0].placeId)+' is closed at the planned time on your date. Choose another date or remove it from your must-visit places.');
+   s.auto.dropped.push(...closed.map(i=>i.placeId));return note(r);
+  }
+  if(s.plan&&s.observation?.ok!==false)s.auto.phase='routes';
+  return note(r);
+ }
+ if(s.auto.phase==='routes'){
+  const r=await routes(s,ctx);
+  s.auto.phase=s.validation?.routeConflicts?.length?'propose':'research';
+  return note(r);
+ }
+ if(s.auto.phase==='research'){
+  const todo=s.plan.stops.find(p=>/museum/i.test(p.kind||'')&&!s.facts.some(f=>f.id===p.id&&f.date===dateAt(s.input,p.dayIndex)&&f.fields?.hours?.url)&&!(s.researchAttempts||[]).includes(p.id+':'+dateAt(s.input,p.dayIndex)));
+  if(todo)return note(await researchVenue(s,{placeId:todo.id,date:dateAt(s.input,todo.dayIndex)},ctx));
+  s.auto.phase=(s.validation?.issues||[]).length?'propose':'finish';
+  if(s.auto.phase==='propose')s.auto.dropped.push(...s.validation.issues.map(i=>i.placeId).filter(id=>!s.choices.wanted.includes(id)));
+  return autopilotStep(s,ctx);
+ }
+ const r=await finish(s,ctx);
+ if(r.status!=='completed')s.auto.phase='propose';
+ return note(r);
+}
+// Turn an internal tool observation into a counter of consecutive failures.
+async function runAutopilot(s,ctx){
+ try{return await autopilotStep(s,ctx);}
+ catch(error){
+  const safe=error instanceof WorkflowError?error:{code:'PLANNER_TOOL_FAILED',message:'A planning tool could not complete. Retry from the saved task.'};
+  s.observation={ok:false,tool:'scheduler',code:safe.code,message:clean(safe.message)};
+  return{state:s,status:'failed',stage:'scheduler',message:clean(safe.message),events:[{kind:'tool_failed',tool:'scheduler',summary:'This step could not complete. Earlier results are saved.'}],error:{code:safe.code,message:clean(safe.message)}};
+ }
+}
+// Discovery fallback: pick cards from verified search results, interleaving interests.
+async function autoCards(s,ctx){
+ s.autoCards=true;
+ const per=s.queries.map(q=>s.records.filter(p=>p.categories?.includes(q.category)&&englishName(p.name)).sort((a,b)=>Number(hasPhoto(b))-Number(hasPhoto(a))).map(p=>({p,category:q.category})));
+ const places=[],seen=new Set();
+ for(let i=0;places.length<Math.min(16,s.target);i++){let added=false;for(const group of per){const x=group[i];if(x&&!seen.has(x.p.id)&&places.length<s.target){seen.add(x.p.id);places.push({id:x.p.id,category:x.category,name:englishName(x.p.name),addressEnglish:'',reason:'Matches your interest in '+x.category.toLowerCase()+'.'});added=true;}}if(!added&&per.every(g=>i>=g.length))break;}
+ if(!places.length)return null;
+ const r=await select(s,{places},ctx);
+ return r.status==='completed'?r:null;
+}
+function track(s,r){
+ if(s.kind==='discover_plan'){s.strikes=s.observation?.ok===false?(s.strikes||0)+1:0;}
+ return r;
+}
+
 export async function plannerStep(task,context){
  const upstream=context.fetcher||fetch;
  const boundedFetch=(url,options={})=>{const left=Number.isFinite(context.deadlineAt)?context.deadlineAt-Date.now():85000;if(left<500)fail('PLANNER_STEP_TIMEOUT','This planning step timed out. Retry from the saved task.',503);return upstream(url,{...options,signal:AbortSignal.any([...(options.signal?[options.signal]:[]),AbortSignal.timeout(Math.max(1,Math.floor(left)))])});};
@@ -262,17 +401,29 @@ export async function plannerStep(task,context){
  let s=task.state?.version===1?structuredClone(task.state):await initialize(task,ctx);
  if(s.owner!==task.userId||s.kind!==task.kind)fail('TASK_OWNER_MISMATCH','This planning task is unavailable.',403);
  if(s.result)return{state:s,status:'completed',stage:'complete',message:'Your saved result is ready.',events:[],result:s.result};
- if(s.decisions>=s.limit||(s.usage?.inputTokens||0)>180000||(s.usage?.outputTokens||0)>32000)return{state:s,status:'needs_input',stage:'review',message:'Some trip requirements remain unresolved. Review the saved task and adjust your preferences or selection.',events:[{kind:'needs_input',tool:'limit',summary:'The planning limit was reached without inventing missing information.'}],error:{code:'PLANNER_LIMIT',message:clean(s.observation?.message)||'The agent could not resolve every requirement within this task.'}};
- const choice=await decide(s,ctx);s.decisions++;
- if(choice.invalid)return issue(s,'decision',choice.invalid);
+ if(shouldAutopilot(s)||s.kind==='discover_plan'&&!s.auto&&(s.decisions>=s.limit||(s.usage?.inputTokens||0)>180000||(s.usage?.outputTokens||0)>32000))return await runAutopilot(s,ctx);
+ if(s.kind==='discover'&&!s.autoCards&&s.queries.length&&s.records.length&&(s.decisions>=s.limit-1||(s.invalidStreak||0)>=3)){const r=await autoCards(s,ctx);if(r)return r;}
+ if(s.decisions>=s.limit||(s.usage?.inputTokens||0)>180000||(s.usage?.outputTokens||0)>32000)return{state:s,status:'needs_input',stage:'review',message:'Some trip requirements remain unresolved. Review the saved task and adjust your preferences or selection.',events:[{kind:'needs_input',tool:'limit',summary:'The planning limit was reached without inventing missing information.'}],error:{code:'PLANNER_LIMIT',message:s.kind==='discover'?'We could not find enough verified places for every interest. Try broader interests or another search.':'This plan could not be finished automatically. Try fewer must-visit places or longer daily hours.'}};
+ let choice;
+ try{choice=await decide(s,ctx);}
+ catch(error){
+  // The model provider failed. Planning can still finish without it; discovery keeps any verified results.
+  if(s.kind==='discover_plan')return await runAutopilot(s,ctx);
+  if(s.kind==='discover'&&s.queries.length&&s.records.length&&!s.autoCards){const r=await autoCards(s,ctx);if(r)return r;}
+  throw error;
+ }
+ s.decisions++;
+ if(choice.invalid){s.invalidStreak=(s.invalidStreak||0)+1;return track(s,issue(s,'decision',choice.invalid));}
+ s.invalidStreak=0;
  try{
-  if(choice.name==='search_places')return await search(s,choice.args,ctx);
-  if(choice.name==='inspect_places')return await inspect(s,choice.args,ctx);
-  if(choice.name==='research_venue'&&s.kind==='discover_plan')return await researchVenue(s,choice.args,ctx);
-  if(choice.name==='select_cards'&&s.kind==='discover')return await select(s,choice.args,ctx);
-  if(choice.name==='propose_schedule'&&s.kind==='discover_plan')return await propose(s,choice.args);
-  if(choice.name==='check_routes'&&s.kind==='discover_plan')return await routes(s,ctx);
-  if(choice.name==='finish_plan'&&s.kind==='discover_plan')return await finish(s,ctx);
+  if(choice.name==='search_places')return track(s,await search(s,choice.args,ctx));
+  if(choice.name==='inspect_places')return track(s,await inspect(s,choice.args,ctx));
+  if(choice.name==='research_venue'&&s.kind==='discover_plan')return track(s,await researchVenue(s,choice.args,ctx));
+  if(choice.name==='select_cards'&&s.kind==='discover')return track(s,await select(s,choice.args,ctx));
+  if(choice.name==='propose_schedule'&&s.kind==='discover_plan')return track(s,await propose(s,choice.args));
+  if(choice.name==='check_routes'&&s.kind==='discover_plan')return track(s,await routes(s,ctx));
+  if(choice.name==='finish_plan'&&s.kind==='discover_plan')return track(s,await finish(s,ctx));
+  if(choice.name==='report_limit'&&s.kind==='discover_plan'&&!s.auto&&!s.budgetIssue)return await runAutopilot(s,ctx);
   if(choice.name==='report_limit'){
    if(s.kind==='discover'&&s.searched.length<s.queries.length+1&&s.searched.length<12)return issue(s,'report_limit','Try a targeted supplemental search before reporting a coverage shortage.');
    const explanation=s.kind==='discover'?'No suitable recommendation set could be verified. Broaden your preferences or retry.':s.budgetIssue?.type==='over_budget'?'Estimated activities and dining exceed the group budget. Increase the budget or review your must-visit places.':s.budgetIssue?.type==='unknown_price'?'Some scheduled prices could not be estimated. Review your must-visit places or plan without a budget cap.':s.validation?.issues?.length?'A selected visit conflicts with published opening information. Review the travel dates or selected places.':s.validation?.routeConflicts?.length?'The selected visits do not yet leave enough travel time. Review your daily hours or selected places.':'A complete itinerary could not be verified. Review your dates, daily hours or selected places.';

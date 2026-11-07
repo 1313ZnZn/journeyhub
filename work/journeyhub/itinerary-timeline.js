@@ -92,14 +92,16 @@
   document.addEventListener('pointerdown',e=>{
     const block=e.target.closest?.('.tl-block');if(!block||e.button>0||e.target.closest('button')||!editable()||(typeof pe!=='undefined'&&pe?.busy))return;
     const box=block.getBoundingClientRect();
-    drag={id:block.dataset.id,block,x:e.clientX,y:e.clientY,dx:e.clientX-box.left,dy:e.clientY-box.top,moved:false,pointer:e.pointerId};
+    drag={id:block.dataset.id,block,x:e.clientX,y:e.clientY,dx:e.clientX-box.left,dy:e.clientY-box.top,h:box.height,moved:false,pointer:e.pointerId,scroller:app.querySelector(':scope>.screen'),scroll0:app.querySelector(':scope>.screen')?.scrollTop||0};
   });
   document.addEventListener('pointermove',e=>{
     if(!drag||drag.pointer!==e.pointerId)return;
     if(!drag.moved&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<6)return;
     if(!drag.moved){drag.moved=true;drag.block.classList.add('is-dragging');try{drag.block.setPointerCapture(e.pointerId);}catch{}}
     e.preventDefault();
-    drag.block.style.transform='translate('+(e.clientX-drag.x)+'px,'+(e.clientY-drag.y)+'px)';
+    // Near the top or bottom edge the page scrolls, so a visit can travel the whole day.
+    const sc=drag.scroller;if(sc){const r=sc.getBoundingClientRect();if(e.clientY>r.bottom-70)sc.scrollTop+=14;else if(e.clientY<r.top+70)sc.scrollTop-=14;}
+    drag.block.style.transform='translate('+(e.clientX-drag.x)+'px,'+(e.clientY-drag.y+((sc?.scrollTop||0)-drag.scroll0))+'px)';
     document.querySelectorAll('.tl-col').forEach(col=>{const r=col.getBoundingClientRect();col.classList.toggle('is-target',e.clientX>=r.left&&e.clientX<=r.right);});
   });
   const endDrag=e=>{
@@ -110,9 +112,10 @@
     if(e.type!=='pointerup')return;
     const col=[...document.querySelectorAll('.tl-col')].find(c=>{const r=c.getBoundingClientRect();return e.clientX>=r.left&&e.clientX<=r.right;});
     if(!col)return;
-    const day=Number(col.dataset.day),top=e.clientY-g.dy;
+    // The dragged visit goes after every visit whose centre is above its own centre.
+    const day=Number(col.dataset.day),centre=e.clientY-g.dy+g.h/2;
     const others=[...col.querySelectorAll('.tl-block')].filter(b=>b.dataset.id!==g.id);
-    const index=others.filter(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2<top;}).length;
+    const index=others.filter(b=>{const r=b.getBoundingClientRect();return r.top+r.height/2<centre;}).length;
     move(g.id,day,index);
   };
   document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);

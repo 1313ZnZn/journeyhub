@@ -16,6 +16,8 @@ fs.rmSync(target, {recursive:true, force:true});
 fs.mkdirSync(target, {recursive:true});
 for (const name of ['index.html', 'ai-plan.html']) fs.copyFileSync(path.join(source,name),path.join(target,name));
 fs.cpSync(path.join(source,'vendor'),path.join(target,'vendor'),{recursive:true});
+// Desktop landing film, poster and backdrop, when the build produced them.
+if(fs.existsSync(path.join(source,'media')))fs.cpSync(path.join(source,'media'),path.join(target,'media'),{recursive:true});
 fs.writeFileSync(path.join(target,'config.js'),
   'window.JOURNEYHUB_CONFIG = '+JSON.stringify({url,publishableKey:key})+';\n');
 const files=[];

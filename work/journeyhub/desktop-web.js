@@ -376,18 +376,23 @@
   A.dkContinue=mode=>dkLeave(mode,'continue',()=>dkContinueNow(mode));
 
   // Background updates (status polls, snapshot syncs) re-render the page even when nothing on
-  // it changed, which rebuilds maps and images and makes the page flicker. On these pages a
-  // render that the traveler did not trigger is skipped when the page would look the same.
-  const dkSteady=new Set(['welcome','login','orders','place-plan','reserved-trips','trip-history','s-today','s-insights','s-sessions','s-orders','s-bookings']);
+  // it changed, which rebuilds maps and images and makes the page flicker. A render that the
+  // traveler did not trigger is skipped when the page would look the same.
+  // Every page, except the two that already update themselves in place (picking cards, agent chat).
+  const dkSelfPainting=new Set(['ai-picks','trip-chat']);
   let dkLastSig='',dkUserAt=0;
   for(const type of ['pointerdown','click','keydown','input','change','submit'])document.addEventListener(type,()=>{dkUserAt=performance.now();},true);
+  const dkSignature=()=>{try{const v=V[state.route]();return JSON.stringify([state.role,state.route,state.params,v.bar||'',v.body||'',v.foot||'',v.tabs?tabbar():'',sheetView(),toastView()]);}catch{return '';}};
+  // A page that updates itself in place (Explore's city tour) announces it, so the next
+  // background render compares against what is really on screen.
+  document.addEventListener('jh:painted',()=>{if(wide?.matches&&!dkSelfPainting.has(state.route)&&typeof V[state.route]==='function')dkLastSig=dkSignature();});
   const dkInnerRender=render;
   render=function(){
     let sig='';
     // The connecting screen is not the page itself: never treat it as already showing the page.
     const real=typeof MODE==='undefined'||!(MODE.kind==='connecting'||(MODE.kind==='live'&&(!allReady()||catalogEmpty())));
-    if(real&&wide?.matches&&(state.role||state.route==='welcome'||state.route==='login')&&dkSteady.has(state.route)&&typeof V[state.route]==='function'){
-      try{const v=V[state.route]();sig=JSON.stringify([state.role,state.route,state.params,v.bar||'',v.body||'',v.foot||'',v.tabs?tabbar():'',sheetView(),toastView()]);}catch{sig='';}
+    if(real&&wide?.matches&&(state.role||state.route==='welcome'||state.route==='login')&&!dkSelfPainting.has(state.route)&&typeof V[state.route]==='function'){
+      sig=dkSignature();
       const userDriven=performance.now()-dkUserAt<1200;
       if(sig&&!userDriven&&sig===dkLastSig&&app.dataset.route===state.route&&app.querySelector(':scope>.screen'))return;
     }

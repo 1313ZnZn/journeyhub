@@ -373,6 +373,24 @@
   A.dkSignIn=mode=>dkLeave(mode,'signin',()=>dkSignInNow(mode));
   A.dkContinue=mode=>dkLeave(mode,'continue',()=>dkContinueNow(mode));
 
+  // Background updates (status polls, snapshot syncs) re-render the page even when nothing on
+  // it changed, which rebuilds maps and images and makes the page flicker. On these pages a
+  // render that the traveler did not trigger is skipped when the page would look the same.
+  const dkSteady=new Set(['orders','place-plan','reserved-trips','trip-history','s-today','s-insights','s-sessions','s-orders','s-bookings']);
+  let dkLastSig='',dkUserAt=0;
+  for(const type of ['pointerdown','click','keydown','input','change','submit'])document.addEventListener(type,()=>{dkUserAt=performance.now();},true);
+  const dkInnerRender=render;
+  render=function(){
+    let sig='';
+    if(wide?.matches&&state.role&&dkSteady.has(state.route)&&typeof V[state.route]==='function'){
+      try{const v=V[state.route]();sig=JSON.stringify([state.role,state.route,state.params,v.bar||'',v.body||'',v.foot||'',v.tabs?tabbar():'',sheetView(),toastView()]);}catch{sig='';}
+      const userDriven=performance.now()-dkUserAt<1200;
+      if(sig&&!userDriven&&sig===dkLastSig&&app.dataset.route===state.route&&app.querySelector(':scope>.screen'))return;
+    }
+    dkLastSig=sig;
+    return dkInnerRender.apply(this,arguments);
+  };
+
   new MutationObserver(dkSync).observe(app,{childList:true});
   wide?.addEventListener?.('change',()=>{dkClose();render();});
   dkSync();

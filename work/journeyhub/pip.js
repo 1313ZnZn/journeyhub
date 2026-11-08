@@ -26,6 +26,7 @@
       const trip=typeof tc!=='undefined'?tc.trips?.find(x=>x.id===t.a):null;
       return trip?.sourceType==='history'?trip.sourceId:'care:'+t.a;
     }
+    if(state.route==='journey')return 'idea';
     if(live())return pd.historyId||'search:'+(pd.requestId||'new');
     return 'idea';
   }
@@ -59,7 +60,8 @@
     if(m.from==='me')return '<div class="pip-msg is-me"><div class="pip-bub">'+fmtText(m.text)+'</div></div>';
     const typing=m.typing&&Date.now()-m.at<600&&i===all.length-1;
     const showAv=all[i-1]?.from!=='pip';
-    return '<div class="pip-msg'+(m.kind==='react'?' is-react':'')+'">'+(showAv?avatar('is-mini'):'<span class="pip-av-gap"></span>')+'<div class="pip-bub">'+(typing?'<span class="pip-typing" aria-label="Pip is typing"><i></i><i></i><i></i></span>':fmtText(m.text)+(m.heads?.length?'<span class="pip-heads">'+heads(m.heads)+'</span>':''))+'</div></div>';
+    const changed=m.changed?.length?'<span class="pip-changed">✓ Updated '+m.changed.map(esc).join(' · ')+'</span>':'';
+    return '<div class="pip-msg'+(m.kind==='react'?' is-react':'')+'">'+(showAv?avatar('is-mini'):'<span class="pip-av-gap"></span>')+'<div class="pip-bub">'+(typing?'<span class="pip-typing" aria-label="Pip is typing"><i></i><i></i><i></i></span>':fmtText(m.text)+changed+(m.heads?.length?'<span class="pip-heads">'+heads(m.heads)+'</span>':''))+'</div></div>';
   }
 
   // Live cards: what is happening now (not stored).
@@ -86,6 +88,11 @@
     const chip=(act,a,icon,label,primary)=>'<button type="button" class="pip-chip'+(primary?' is-primary':'')+'" data-act="'+act+'"'+(a!=null?' data-a="'+esc(String(a))+'"':'')+'>'+icon+' '+esc(label)+'</button>';
     if(stage===0&&!(live()&&pd.busy)){
       const em={food:'🍜',globe:'🏛️',sun:'🌿'},ideas=typeof window.jhHomeIdeas==='function'?window.jhHomeIdeas():[],short={food:['🍜','Eat like a local'],globe:['🏛️','Culture & art'],sun:['🌿','Relaxed outdoors']};
+      const msgs=load('idea'),lastPip=msgs.filter(m=>m.from==='pip').at(-1);
+      if(centreRoute()&&msgs.length){
+        if(chatBusy)return '';
+        return (lastPip?.quick||[]).map((q,i)=>chip('pipQuick',i,'💬',q)).join('')+chip('pipScout',null,'🔎','Start scouting',!!lastPip?.ready);
+      }
       if(centreRoute())return ideas.map((x,i)=>chip('pipIdea',i,(short[x.icon]||['✨'])[0],(short[x.icon]||[0,'An idea'])[1])).join('')+chip('pipSurprise',null,'✨','Just plan it for me');
       return '<span class="pip-chips-label">Not sure where to start? Tap one</span>'+ideas.map((x,i)=>'<button type="button" class="pip-idea" data-act="pipIdea" data-a="'+i+'"><span aria-hidden="true">'+(em[x.icon]||'✨')+'</span>'+esc(x.text)+'</button>').join('')+chip('pipSurprise',null,'✨','Just plan it for me');
     }
@@ -174,7 +181,8 @@
     const steps=STAGES.map(([e,t],i)=>'<span class="pip-step'+(i<stage?' is-done':'')+(i===stage?' is-on':'')+'"><b>'+(i<stage?'✓':e)+'</b>'+t+'</span>').join('');
     const msgs=load(key);
     let thread=msgs.map(messageHTML).join('');
-    const empty=centre&&!msgs.length&&!(live()&&pd.busy);
+    if(chatBusy&&key==='idea')thread+='<div class="pip-msg">'+avatar('is-mini')+'<div class="pip-bub"><span class="pip-typing" aria-label="Pip is typing"><i></i><i></i><i></i></span></div></div>';
+    const empty=centre&&!msgs.length&&!(live()&&pd.busy)&&!chatBusy;
     dock.classList.toggle('is-empty',empty);
     if(empty)thread='';
     else if(!msgs.length)thread=messageHTML({from:'pip',text:stage===0?'Hi, I’m **Pip** 👋 Tell me where you’d like to go and what you love — I’ll scout places, help you choose and plan the days.':stage===3?'Hi again 👋 Pick a day in the calendar and I can check timings, tweak the route or add food.':'Hi, I’m **Pip** 👋 I’ll help you with this trip.'},0,[{}]);
@@ -208,15 +216,46 @@
     const form=e.target.closest?.('[data-pip-form]');if(!form)return;e.preventDefault();
     const input=form.querySelector('textarea'),text=input.value.trim();if(!text)return;
     input.value='';input.style.height='';
-    if(form.dataset.mode==='idea'){
-      ag.prefs.prompt=text.slice(0,1200);if(typeof jpSavePrefs==='function')jpSavePrefs();
-      void A.jpRequirements();
-    }else if(form.dataset.mode==='calendar'){
+    if(form.dataset.mode==='idea'){void ideaChat(text);}
+    else if(form.dataset.mode==='calendar'){
       say('me',text);say('pip','Opening our chat for **'+(window.jhCalendarAgent.target()?.day||'this day')+'** — I’ll send that right away.');
       window.jhCalendarAgent.say(text);
     }
     sync();
   });
+  // Before a search: a real conversation with Pip. Pip fills in the trip settings the traveler
+  // mentions and says when there is enough to start scouting.
+  let chatBusy=false;
+  const SETTING_LABELS={city:v=>'📍 '+v,date:v=>'📅 '+(typeof agDate==='function'?agDate(v):v),days:v=>'🕘 '+plural(v,'day'),guests:v=>'👥 '+plural(v,'guest'),dayStart:v=>'🕘 starts '+v,dayEnd:v=>'🕘 ends '+v,transport:v=>v==='walk'?'🚶 Walking':'🚕 Car / taxi',budgetAmount:(v,u)=>v==null?'💰 No budget limit':'💰 '+(u.budgetCurrency||'CNY')+' '+v};
+  async function pipPost(payload){
+    const {data,error}=await sb.auth.getSession();if(error||!data.session)throw Error('Please sign in again.');
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
+    try{
+      const response=await fetch(jhConfig.url+'/functions/v1/journeyhub-agent',{method:'POST',headers:{'Content-Type':'application/json',apikey:jhConfig.publishableKey,Authorization:'Bearer '+data.session.access_token},body:JSON.stringify(payload),signal:controller.signal});
+      const body=await response.json().catch(()=>({}));
+      if(!response.ok)throw Object.assign(Error(body?.error?.message||'Pip can’t chat right now.'),{code:body?.error?.code});
+      return body;
+    }finally{clearTimeout(timer);}
+  }
+  async function ideaChat(text){
+    if(chatBusy)return;
+    const key='idea';say('me',text,{},key);chatBusy=true;sync();
+    const history=load(key).filter(m=>m.text&&!m.kind).slice(-12).map(m=>({role:m.from==='me'?'user':'pip',text:String(m.text).slice(0,1200)}));
+    const p=ag.prefs||{};
+    try{
+      const r=await pipPost({action:'pip_chat',messages:history,trip:{city:p.city,date:p.date,days:Number(p.days)||1,guests:Number(p.guests)||2,dayStart:p.dayStart,dayEnd:p.dayEnd,transport:p.transport,budgetAmount:p.budgetAmount??null,budgetCurrency:p.budgetCurrency,prompt:p.prompt}});
+      const u=r.updates||{},changed=[];
+      for(const [k,v] of Object.entries(u)){if(k==='budgetCurrency')continue;if(JSON.stringify(ag.prefs[k])!==JSON.stringify(v)){ag.prefs[k]=v;if(SETTING_LABELS[k])changed.push(SETTING_LABELS[k](v,u));}}
+      if(u.budgetCurrency)ag.prefs.budgetCurrency=u.budgetCurrency;
+      if(r.brief)ag.prefs.prompt=String(r.brief).slice(0,1200);
+      if(typeof jpSavePrefs==='function')jpSavePrefs();
+      say('pip',r.reply,{quick:r.quick||[],ready:!!r.ready,changed},key);
+    }catch(e){
+      say('pip',(e.message||'Pip can’t chat right now.')+' You can still start scouting from your trip details.',{ready:true,kind:'error'},key);
+    }finally{chatBusy=false;render();}
+  }
+  A.pipQuick=i=>{const m=load('idea').filter(x=>x.from==='pip').at(-1),q=m?.quick?.[+i];if(q)void ideaChat(q);};
+  A.pipScout=()=>{void A.jpRequirements();};
   A.pipIdea=i=>{const t=(typeof window.jhHomeIdeas==='function'?window.jhHomeIdeas():[])[+i]?.text;if(!t)return;const input=dock?.querySelector('[data-pip-input]');if(input){input.value=(input.value?input.value+' ':'')+t;input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();input.setSelectionRange(input.value.length,input.value.length);}};
   // No words needed: plan from the trip details alone.
   A.pipSurprise=()=>{ag.prefs.prompt='';if(typeof jpSavePrefs==='function')jpSavePrefs();void A.jpRequirements();};
@@ -227,7 +266,9 @@
     const prompt=String(ag.prefs?.prompt||'').trim(),before=typeof pd!=='undefined'?pd:null;
     const result=pipStart.apply(this,arguments);
     if(window.jhPipShowing()&&live()&&pd!==before){
-      const key=tripKey();say('me',prompt||'Plan a trip to '+(pd.input?.city||'the city'),{},key);
+      const key=tripKey(),earlier=load('idea');
+      if(earlier.length){save(key,[...earlier,...load(key)]);try{localStorage.removeItem(storeKey('idea'));}catch{}}
+      else say('me',prompt||'Plan a trip to '+(pd.input?.city||'the city'),{},key);
       say('pip','On it! 🔎 Scouting **'+(pd.input?.city||'the city')+'** for '+plural(Number(pd.input?.days)||1,'day')+' — I’ll be right back with places to choose from.',{},key);
     }
     return result;

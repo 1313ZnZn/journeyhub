@@ -237,3 +237,8 @@
  body.pip-center #app .jl-home.is-pip>.jl-copy{display:none}
 }
 @media(min-width:1024px) and (prefers-reduced-motion:reduce){.pip-hello .tch-avatar{animation:none}}
+@media(min-width:1024px){
+ .pip-changed{display:block;margin-top:7px;padding-top:7px;border-top:1px dashed rgba(255,255,255,.12);color:var(--forest);font-size:12px;font-weight:700}
+ .pip-composer.is-busy{opacity:.6}
+}
+@media(min-width:1024px){.pip.is-center .pip-chip.is-primary{background:var(--forest);color:var(--forest-ink)}}

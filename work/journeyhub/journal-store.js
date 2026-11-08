@@ -21,6 +21,16 @@
     if(typeof lat!=='number'||typeof lng!=='number'||!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)fail('Invalid photo coordinates.');
     return {lat,lng};
   }
+  // Pip's recap of this memory and the traveler's answers to its reflection questions.
+  function agentRecord(raw){
+    if(!raw||typeof raw!=='object'||Array.isArray(raw))return undefined;
+    const r=raw.recap&&typeof raw.recap==='object'?raw.recap:null;
+    const recap=r&&typeof r.story==='string'&&r.story.trim()?{title:text(r.title,120),story:text(r.story,1200),
+      highlights:(Array.isArray(r.highlights)?r.highlights:[]).slice(0,3).filter(h=>Number.isInteger(h?.stop)&&h.stop>=0&&h.stop<200).map(h=>({stop:h.stop,line:text(h.line,240)})),
+      mood:(Array.isArray(r.mood)?r.mood:[]).slice(0,3).map(m=>text(m,24)).filter(Boolean),question:text(r.question,240),hash:text(r.hash,40),at:Number.isFinite(Date.parse(r.at))?new Date(r.at).toISOString():new Date().toISOString()}:null;
+    const reflections=(Array.isArray(raw.reflections)?raw.reflections:[]).slice(-20).map(x=>({q:text(x?.q,240),a:text(x?.a,1200),at:Number.isFinite(Date.parse(x?.at))?new Date(x.at).toISOString():new Date().toISOString()})).filter(x=>x.q&&x.a);
+    return recap||reflections.length?{recap,reflections}:undefined;
+  }
   function tripRecord(owner,input){
     if(!input||typeof input!=='object'||Array.isArray(input))fail('Invalid trip.');
     if(input.stops!=null&&!Array.isArray(input.stops))fail('Invalid trip stops.');
@@ -31,7 +41,7 @@
       const id=text(s.id||uuid(),100);if(seen.has(id))fail('Trip stop identifiers must be unique.');seen.add(id);
       return {id,title:text(s.title,200),time:text(s.time,80),visited:!!s.visited,note:text(s.note,4000)};
     });
-    return {id:input.id?idOf(input.id):uuid(),owner,title:text(input.title||'My journey',200),city:text(input.city,120),country:text(input.country,120),countryCode:text(input.countryCode,3).toUpperCase(),...coordinates(input.lat,input.lng),date:dateOf(input.date),timeZone:text(input.timeZone,80),source:text(input.source,80),stops,createdAt:Number.isFinite(Date.parse(input.createdAt))?new Date(input.createdAt).toISOString():new Date().toISOString(),updatedAt:new Date().toISOString()};
+    return {id:input.id?idOf(input.id):uuid(),owner,title:text(input.title||'My journey',200),city:text(input.city,120),country:text(input.country,120),countryCode:text(input.countryCode,3).toUpperCase(),...coordinates(input.lat,input.lng),date:dateOf(input.date),timeZone:text(input.timeZone,80),source:text(input.source,80),stops,...(agentRecord(input.agent)?{agent:agentRecord(input.agent)}:{}),createdAt:Number.isFinite(Date.parse(input.createdAt))?new Date(input.createdAt).toISOString():new Date().toISOString(),updatedAt:new Date().toISOString()};
   }
   function storageError(error){
     if(error?.name==='QuotaExceededError')return new Error('Browser storage is full. Export a journal or remove some photos, then try again.');

@@ -89,7 +89,7 @@
 
   // On wide screens the home page shows trip details as a side panel, always open.
   const dkJourney=V.journey;
-  V.journey=function(){if(wide?.matches&&typeof jlDetailsOpen!=='undefined')jlDetailsOpen=true;return dkJourney.apply(this,arguments);};
+  V.journey=function(){if(wide?.matches){if(typeof jlDetailsOpen!=='undefined')jlDetailsOpen=true;if(typeof jhHomeOptionsOpen!=='undefined')jhHomeOptionsOpen=true;}return dkJourney.apply(this,arguments);};
   const dkJlDetails=A.jlDetails;
   A.jlDetails=function(){if(wide?.matches&&state.route==='journey'){const d=document.querySelector('.jl-home>.jl-details');if(d){d.open=true;d.querySelector('input,select,button')?.focus();return;}}return dkJlDetails.apply(this,arguments);};
 

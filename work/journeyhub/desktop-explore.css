@@ -354,3 +354,26 @@
  .dk-agent :disabled{opacity:.5;cursor:default}
  .dk-agent-foot{color:var(--ink-3);font-size:12.5px;line-height:1.5}
 }
+
+/* Home trip details: every option visible at once in a compact grid, balanced with the chat box. */
+@media(min-width:1024px){
+ #app .jl-home{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);grid-template-rows:auto 1fr auto auto auto}
+ #app .jl-home>.jl-details{padding:20px 22px}
+ #app .jl-home>.jl-details>summary{margin-bottom:12px}
+ #app .jl-home .jl-details .ag-form{gap:12px!important}
+ #app .jl-home .jl-details label{font-size:12.5px!important;line-height:1.35!important}
+ #app .jl-home .jl-details :is(select,input:not([type=checkbox]):not([type=radio])){min-height:42px!important;height:42px;padding-block:0!important;font-size:14px!important}
+ #app .jl-home .jh-destination-cards{gap:10px}
+ #app .jl-home .jh-destination-cards>*{height:84px!important;min-height:0!important;aspect-ratio:auto!important}
+ #app .jl-home .jh-home-options{margin:0;padding:0;border:0}
+ #app .jl-home .jh-home-options>summary{display:none}
+ #app .jl-home .jh-home-options-body{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px!important;margin:0!important;padding:0!important}
+ #app .jl-home .jh-home-options-body :is(.jp-trip-options,.jp-budget-options){display:contents!important}
+ #app .jl-home .jh-home-options-body>*,#app .jl-home .jh-home-options-body :is(.jp-trip-options,.jp-budget-options)>*{min-width:0;margin:0!important}
+ #app .jl-home .jh-home-options-body :is(small,.ag-prompts){grid-column:1/-1}
+ #app .jl-home .jh-home-options-body small{margin-top:-4px!important;font-size:12px}
+ #app .jl-home .jh-home-sample{justify-self:start;margin:0}
+ #app .jl-home>.jl-composer{grid-row:2;align-self:stretch;display:flex;flex-direction:column}
+ #app .jl-home>.jl-composer textarea{flex:1 1 auto;height:auto!important;min-height:160px;max-height:none!important}
+ #app .jl-home .jh-home-options-body .jp-budget-scope{grid-column:span 2}
+}

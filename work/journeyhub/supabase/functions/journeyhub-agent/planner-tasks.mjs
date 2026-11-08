@@ -1,9 +1,18 @@
 import {WorkflowError,fail,providerConfig} from './planner.mjs';
 import {validateDiscovery,readSelection} from './discovery.mjs';
 import {historyId,historyChoices} from './history.mjs';
-import {plannerStep} from './traveler-planner.mjs';
+import {plannerStep,dayPlanFor} from './traveler-planner.mjs';
 
 const key=(env,name,fallback)=>{try{const value=JSON.parse(env(name)||'{}').default;if(typeof value==='string'&&value)return value;}catch{}return env(fallback)||'';};
+// Fixes offered after a trip could not be planned: a different budget, later daily
+// end time or one more day. Only these fields change; the whole input is revalidated.
+export function plannerAdjust(raw){
+ if(raw==null)return null;
+ if(typeof raw!=='object'||Array.isArray(raw))fail('INVALID_INPUT','Choose a valid change to your trip.');
+ const allowed=['budgetAmount','budgetCurrency','budgetScope','dayEnd','days'],out={};
+ for(const [k,v] of Object.entries(raw)){if(!allowed.includes(k))fail('INVALID_INPUT','Choose a valid change to your trip.');out[k]=v;}
+ return Object.keys(out).length?out:null;
+}
 const dateOf=now=>typeof now==='function'?now():now instanceof Date?now:new Date();
 export function plannerRPCError(error){
  const message=String(error?.message||'');
@@ -44,15 +53,23 @@ export async function plannerTaskAction(context){
   if(kind==='discover'){
    input=validateDiscovery(raw,now);payload={...input,action:'discover',requestId};
   }else{
-   const selection=await readSelection(raw.token,context.secret,user.id,now);
+   let selection=await readSelection(raw.token,context.secret,user.id,now);
    if(selection.sample||selection.ids.some(id=>id.startsWith('jh_sample_')))fail('SAMPLE_TRIP_READ_ONLY','Start a new search to plan your own journey.',409);
+   const adjust=plannerAdjust(raw.adjust);
+   if(adjust){
+    const base=selection.input,merged={...base,...adjust};
+    // Older inputs carry only a THB budget; a new amount replaces it.
+    if(Object.hasOwn(adjust,'budgetAmount')){delete merged.budgetThb;delete merged.budgetCnyMinor;merged.budgetCurrency=adjust.budgetCurrency||base.budgetCurrency||'CNY';merged.budgetScope=adjust.budgetScope||base.budgetScope||'group';}
+    selection={...selection,input:validateDiscovery(merged,now)};
+   }
    input=validateDiscovery(selection.input,now);
    const {wanted,skipped}=historyChoices(selection.ids,raw.wanted||[],raw.skipped||[]),eligible=selection.ids.filter(id=>!skipped.includes(id));
    if(!eligible.length)fail('INSUFFICIENT_PLACES','Keep at least one place available to plan.');
    if(wanted.length>16)fail('INVALID_INPUT','Choose no more than 16 places.');
    // Persist the server-validated selection so a resumed task is not broken by
    // its original browser token expiring while the worker is still running.
-   payload={action:'discover_plan',token:raw.token,wanted,skipped,selection};
+   const dayPlan=dayPlanFor(raw.dayPlan,wanted,input.days);
+   payload={action:'discover_plan',token:raw.token,wanted,skipped,selection,...(dayPlan?{dayPlan}:{})};
   }
   if(!providerConfig(env).ready)fail('AI_NOT_CONFIGURED','The AI service is not configured.',503);
   const useAmap=input.city==='Shanghai'&&!!env('AMAP_WEB_SERVICE_KEY');

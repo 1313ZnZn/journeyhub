@@ -96,7 +96,7 @@ async function initialize(task,ctx){
   // began. Never make a resumed task depend on a later-expired browser token.
   s.selection=payload.selection||await readSelection(payload.token,ctx.secret,owner,now);
   if(s.selection.owner!==owner||s.selection.sample||s.selection.ids.some(id=>id.startsWith('jh_sample_')))fail('SAMPLE_TRIP_READ_ONLY','Choose a live saved search to plan this journey.',409);
-  s.input=s.selection.input;s.choices=historyChoices(s.selection.ids,payload.wanted||[],payload.skipped||[]);s.selected=s.selection.ids.filter(id=>!s.choices.skipped.includes(id));
+  s.input=s.selection.input;s.choices=historyChoices(s.selection.ids,payload.wanted||[],payload.skipped||[]);s.dayPlan=dayPlanFor(payload.dayPlan,s.choices.wanted,s.input.days);s.selected=s.selection.ids.filter(id=>!s.choices.skipped.includes(id));
   if(!s.selected.length||s.choices.wanted.length>16)fail('INSUFFICIENT_PLACES','Keep at least one place available and choose at most sixteen must-visit places.',409);
   s.root=await searchHistoryId(s.selection,payload.token);s.revision=await revisionHistoryId(s.root,s.choices.wanted,s.choices.skipped);s.useAmap=s.selected.every(isAmap);
   const available=await ctx.rpc('journeyhub_plan_dates_check',{p_user_id:owner,p_input:s.input,p_kind:'history',p_id:s.revision});if(available?.available!==true)fail('WORKFLOW_UNAVAILABLE','Your travel dates could not be checked. Please retry.',503);
@@ -271,6 +271,14 @@ export function tripPlaceCap(input){
  const hours=(minute(input.dayEnd)-minute(input.dayStart))/60;
  return hours<=2?1:hours<=8?2:hours<=12?3:4;
 }
+// The tray's day placement: one list of must-visit IDs per day, each used once.
+export function dayPlanFor(raw,wanted,days){
+ if(raw==null)return null;
+ if(!Array.isArray(raw)||raw.length>days||raw.some(day=>!Array.isArray(day)||day.length>16))fail('INVALID_INPUT','Choose a valid day for each must-visit place.');
+ const seen=new Set();
+ for(const id of raw.flat())if(typeof id!=='string'||!wanted.includes(id)||seen.has(id)||!seen.add(id))fail('INVALID_INPUT','Choose a valid day for each must-visit place.');
+ return seen.size?raw.map(day=>[...day]):null;
+}
 export function perDayCounts(total,days){return Array.from({length:days},(_,i)=>Math.floor(total/days)+(i<total%days?1:0));}
 // Prefer checked road times for any pair seen in an earlier route check.
 function knownLegs(s){
@@ -290,9 +298,24 @@ export function autoSchedule(s){
  const near=p=>Math.min(...anchor.map(a=>estimateTravel(a,p,s.input.transport).durationMinutes));
  const optional=usable.filter(p=>!wanted.includes(p.id)).sort((a,b)=>near(a)-near(b)).slice(0,Math.max(0,cap-must.length));
  let pool=[...must,...optional];if(!pool.length)return{infeasible:[],reason:'empty'};
- // Nearest-neighbour order keeps each day geographically tight.
- const tour=[pool.shift()];while(pool.length){const last=tour.at(-1);pool.sort((a,b)=>gap(last,a)-gap(last,b));tour.push(pool.shift());}
- const counts=perDayCounts(tour.length,Math.min(s.input.days,tour.length)),days=[];let at=0;for(const n of counts){days.push(tour.slice(at,at+n));at+=n;}
+ let days=[];
+ if(s.dayPlan){
+  // The traveler placed must-visits on days and in an order: keep both. Optional
+  // places then fill each day's remaining capacity, nearest to that day's stops.
+  const byId=new Map(must.map(p=>[p.id,p])),placed=new Set();
+  days=Array.from({length:s.input.days},(_,d)=>(s.dayPlan[d]||[]).map(id=>byId.get(id)).filter(p=>p&&!placed.has(p.id)&&placed.add(p.id)));
+  const rest=pool.filter(p=>!placed.has(p.id)),target=perDayCounts(pool.length,s.input.days);
+  for(const p of rest){
+   const open=days.map((list,d)=>({d,room:target[d]-list.length,dist:list.length?Math.min(...list.map(q=>gap(q,p))):0})).sort((a,b)=>(b.room>0)-(a.room>0)||a.dist-b.dist||b.room-a.room);
+   days[open[0].d].push(p);
+  }
+  // A day the traveler left empty borrows an optional place from the fullest day.
+  for(const list of days){if(list.length)continue;const donor=days.filter(l=>l.length>1).sort((a,b)=>b.length-a.length)[0];const i=donor?donor.findLastIndex(p=>!wanted.includes(p.id)):-1;if(i>=0)list.push(donor.splice(i,1)[0]);}
+ }else{
+  // Nearest-neighbour order keeps each day geographically tight.
+  const tour=[pool.shift()];while(pool.length){const last=tour.at(-1);pool.sort((a,b)=>gap(last,a)-gap(last,b));tour.push(pool.shift());}
+  const counts=perDayCounts(tour.length,Math.min(s.input.days,tour.length));let at=0;for(const n of counts){days.push(tour.slice(at,at+n));at+=n;}
+ }
  const open=minute(s.input.dayStart),close=minute(s.input.dayEnd),stops=[],overflow=[];
  const place=(day,list)=>{let cursor=open,prev=null;const kept=[];
   for(const p of list){
@@ -315,9 +338,11 @@ export function autoSchedule(s){
  return{args:{summary:'A '+s.input.days+'-day '+s.input.city+' plan built around your must-visit places, with travel time between stops.',stops}};
 }
 const placeName=(s,id)=>englishName(s.places.find(p=>p.id===id)?.name)||s.selection?.englishNames?.[id]||'A must-visit place';
-function autoNeedsInput(s,message,code='PLANNER_NEEDS_INPUT'){
+function autoNeedsInput(s,message,details=null,code='PLANNER_NEEDS_INPUT'){
  s.auto={...s.auto,done:true};
- return{state:s,status:'needs_input',stage:'review',message:'Your trip needs a small change before planning can finish.',events:[{kind:'needs_input',tool:'scheduler',summary:'The built-in scheduler could not fit every must-visit place.'}],error:{code,message}};
+ // details tell the app which fix to offer: raise the budget, add time, or remove places.
+ const facts=details?{...details,days:s.input.days,dayStart:s.input.dayStart,dayEnd:s.input.dayEnd,budgetAmount:s.input.budgetAmount??null,budgetCurrency:s.input.budgetCurrency||'CNY',budgetScope:s.input.budgetScope||'group'}:null;
+ return{state:s,status:'needs_input',stage:'review',message:'Your trip needs a small change before planning can finish.',events:[{kind:'needs_input',tool:'scheduler',summary:'The built-in scheduler could not fit every must-visit place.'}],error:{code,message,...(facts?{details:facts}:{})}};
 }
 function shouldAutopilot(s){
  if(s.kind!=='discover_plan'||s.result)return false;
@@ -329,26 +354,26 @@ async function autopilotStep(s,ctx){
  const first=!s.auto;
  s.auto??={phase:'propose',rounds:0,steps:0,dropped:[]};s.auto.steps++;
  const note=r=>{if(first&&r.events)r.events.unshift({kind:'tool_result',tool:'scheduler',summary:'Finishing your plan with the built-in scheduler.'});return r;};
- if(s.auto.steps>16)return autoNeedsInput(s,'Your plan could not be finished automatically. Try fewer must-visit places or longer daily hours.');
+ if(s.auto.steps>16)return autoNeedsInput(s,'Your plan could not be finished automatically. Try fewer must-visit places or longer daily hours.',{reason:'time',placeIds:[]});
  if(s.auto.phase==='propose'){
-  if(s.auto.rounds>=4)return autoNeedsInput(s,'Your must-visit places could not be fitted with their travel times. Add a day, extend your daily hours, or keep fewer must-visit places.');
+  if(s.auto.rounds>=4)return autoNeedsInput(s,'Your must-visit places could not be fitted with their travel times. Add a day, extend your daily hours, or keep fewer must-visit places.',{reason:'time',placeIds:[]});
   s.auto.rounds++;
   const draft=autoSchedule(s);
   if(draft.infeasible){
    const names=draft.infeasible.map(id=>placeName(s,id)).slice(0,3).join(', ');
-   return autoNeedsInput(s,draft.reason==='time'?'Not enough time for '+(names||'every must-visit place')+' within your daily hours. Add a day, extend your daily hours, or keep fewer must-visit places.':draft.reason==='details'?'Some must-visit places are missing location details: '+names+'. Choose them again or pick other places.':'Keep at least one place available to plan.');
+   return autoNeedsInput(s,draft.reason==='time'?'Not enough time for '+(names||'every must-visit place')+' within your daily hours. Add a day, extend your daily hours, or keep fewer must-visit places.':draft.reason==='details'?'Some must-visit places are missing location details: '+names+'. Choose them again or pick other places.':'Keep at least one place available to plan.',{reason:draft.reason==='details'?'details':draft.reason==='time'?'time':'empty',placeIds:draft.infeasible.slice(0,16)});
   }
   const r=await propose(s,draft.args);
   if(s.budgetIssue){
    const optional=draft.args.stops.map(x=>x.placeId).filter(id=>!s.choices.wanted.includes(id));
-   if(!optional.length)return autoNeedsInput(s,s.budgetIssue.type==='over_budget'?'Estimated activities and dining exceed the group budget. Increase the budget or review your must-visit places.':'Some must-visit prices could not be estimated. Review your must-visit places or plan without a budget cap.');
+   if(!optional.length)return autoNeedsInput(s,s.budgetIssue.type==='over_budget'?'Estimated activities and dining exceed the group budget. Increase the budget or review your must-visit places.':'Some must-visit prices could not be estimated. Review your must-visit places or plan without a budget cap.',s.budgetIssue.type==='over_budget'?{reason:'over_budget',budgetCnyMinor:s.budgetIssue.budgetCnyMinor,subtotalCnyMinor:s.budgetIssue.knownSubtotalCnyMinor}:{reason:'price_unknown',placeIds:(s.budgetIssue.placeIds||[]).slice(0,16)});
    // Drop the optional stop furthest along the day first; must-visits always stay.
    s.auto.dropped.push(optional.at(-1));s.auto.rounds--;return note(r);
   }
   const closed=(s.validation?.issues||[]).filter(i=>i.type==='opening_hours');
   if(closed.length){
    const must=closed.filter(i=>s.choices.wanted.includes(i.placeId));
-   if(must.length)return autoNeedsInput(s,placeName(s,must[0].placeId)+' is closed at the planned time on your date. Choose another date or remove it from your must-visit places.');
+   if(must.length)return autoNeedsInput(s,placeName(s,must[0].placeId)+' is closed at the planned time on your date. Choose another date or remove it from your must-visit places.',{reason:'closed',placeIds:[must[0].placeId]});
    s.auto.dropped.push(...closed.map(i=>i.placeId));return note(r);
   }
   if(s.plan&&s.observation?.ok!==false)s.auto.phase='routes';

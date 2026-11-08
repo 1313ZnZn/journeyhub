@@ -1,6 +1,6 @@
 import {WorkflowError,fail,providerConfig} from './planner.mjs';
 import {validateDiscovery,readSelection} from './discovery.mjs';
-import {historyId,historyChoices} from './history.mjs';
+import {historyId,historyChoices,searchHistoryId,stableHistoryId} from './history.mjs';
 import {plannerStep,dayPlanFor} from './traveler-planner.mjs';
 
 const key=(env,name,fallback)=>{try{const value=JSON.parse(env(name)||'{}').default;if(typeof value==='string'&&value)return value;}catch{}return env(fallback)||'';};
@@ -60,7 +60,10 @@ export async function plannerTaskAction(context){
     const base=selection.input,merged={...base,...adjust};
     // Older inputs carry only a THB budget; a new amount replaces it.
     if(Object.hasOwn(adjust,'budgetAmount')){delete merged.budgetThb;delete merged.budgetCnyMinor;merged.budgetCurrency=adjust.budgetCurrency||base.budgetCurrency||'CNY';merged.budgetScope=adjust.budgetScope||base.budgetScope||'group';}
-    selection={...selection,input:validateDiscovery(merged,now)};
+    // Changed trip details make a new search record: a saved plan must carry the same details as
+    // the search it belongs to. Places are still read from the original search (baseHistoryId).
+    const origin=selection.baseHistoryId||await searchHistoryId(selection,raw.token),changed=validateDiscovery(merged,now);
+    selection={...selection,input:changed,baseHistoryId:origin,historyId:await stableHistoryId('adjusted-search:'+origin+':'+JSON.stringify(changed))};
    }
    input=validateDiscovery(selection.input,now);
    const {wanted,skipped}=historyChoices(selection.ids,raw.wanted||[],raw.skipped||[]),eligible=selection.ids.filter(id=>!skipped.includes(id));

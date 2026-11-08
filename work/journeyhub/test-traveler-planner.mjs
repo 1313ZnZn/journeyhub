@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {plannerStep,explicitInterests} from './supabase/functions/journeyhub-agent/traveler-planner.mjs';
-import {signSelection} from './supabase/functions/journeyhub-agent/discovery.mjs';
+import {signSelection,validateDiscovery} from './supabase/functions/journeyhub-agent/discovery.mjs';
 
 const owner='11111111-1111-4111-8111-111111111111',root='22222222-2222-4222-8222-222222222222',now=new Date('2026-11-05T10:00:00Z'),secret='local-test-signing-secret-only';
 const input={city:'Shanghai',date:'2026-11-12',days:2,dayStart:'09:00',dayEnd:'21:00',guests:2,transport:'drive',budget:null,prompt:'Shanghai local food, Italian restaurants, popular matcha and museums.'};
@@ -32,7 +32,7 @@ function harness(decisions,{emptyMatcha=false,searchResult=null,facts=[]}={}){
    const calls=d.calls||[d];tools.push(...calls.map(c=>c.name));return Response.json({choices:[{finish_reason:'tool_calls',message:{tool_calls:calls.map((c,i)=>({id:'c'+modelIndex+'_'+i,type:'function',function:{name:c.name,arguments:JSON.stringify(c.args)}}))}}],usage:{prompt_tokens:120,completion_tokens:30}});
   }
   const u=new URL(url);
-  if(u.pathname.endsWith('/text')){const query=u.searchParams.get('keywords');return Response.json({status:'1',pois:emptyMatcha&&query==='抹茶'?[]:Array.from({length:4},(_,i)=>poi(cat[query],i))});}
+  if(u.pathname.endsWith('/text')){const query=u.searchParams.get('keywords');return Response.json({status:'1',pois:emptyMatcha&&(query==='抹茶'||emptyMatcha==='all'&&query==='抹茶甜品')?[]:Array.from({length:4},(_,i)=>poi(cat[query],i))});}
   if(u.pathname.endsWith('/detail')){const id=u.searchParams.get('id'),category=Object.keys(prefixes).find(k=>id.startsWith(prefixes[k]));return Response.json({status:'1',pois:[poi(category,Number(id.at(-1)))]});}
   if(u.pathname.includes('/direction/')){routeCalls++;return Response.json({status:'1',route:{paths:[{distance:'2000',duration:'5400',steps:[{polyline:'121.47,31.23;121.48,31.24'}]}]}});}
   throw Error('Unexpected URL '+u.origin+u.pathname);
@@ -67,13 +67,38 @@ const token=await signSelection(selection,secret);
 const schedule=(museumStart='09:00',museumEnd='10:00',teaStart='13:30',teaEnd='14:30')=>({summary:'Two days with food, matcha and a museum.',stops:[{placeId:selected[0],day:1,start:museumStart,end:museumEnd,reason:'Museum visit'},{placeId:selected[1],day:1,start:'12:00',end:'13:00',reason:'Local lunch'},{placeId:selected[2],day:2,start:'12:00',end:'13:00',reason:'Italian lunch'},{placeId:selected[3],day:2,start:teaStart,end:teaEnd,reason:'Matcha break'}]});
 const closedHours=schedule('18:00','19:00');closedHours.stops[1]={...closedHours.stops[1],start:'20:00',end:'21:00'};
 const facts=[{id:selected[0],date:'2026-11-12',state:'verified',fields:{hours:{text:'09:00–17:00',url:'https://www.shanghaimuseum.net/visit',basis:'regular'}}}];
-const ph=harness([call('propose_schedule',closedHours),call('finish_plan',{}),call('propose_schedule',schedule()),call('check_routes',{}),call('finish_plan',{}),call('propose_schedule',schedule('09:00','10:00','15:00','16:00')),call('check_routes',{}),call('finish_plan',{})],{searchResult:found.result.result,facts});
+const ph=harness([call('propose_schedule',closedHours),call('finish_plan',{}),call('propose_schedule',schedule()),call('check_routes',{}),call('finish_plan',{})],{searchResult:found.result.result,facts});
 const planned=await run({id:'33333333-3333-4333-8333-333333333333',userId:owner,kind:'discover_plan',payload:{token,selection,wanted:selected,skipped:[]},state:null},ph);
 assert.equal(planned.result.status,'completed');assert.equal(planned.result.result.plan.stops.length,4);assert.equal(new Set(planned.result.result.plan.stops.map(p=>p.dayIndex)).size,2);
 assert.equal(ph.requests[1].validation.issues[0].type,'opening_hours');
-assert.equal(ph.requests[4].validation.routeConflicts[0].placeId,'amap_BT0');
-assert.equal(ph.routeCalls,2,'unchanged order reuses the first checked routes after time repair');
-assert.equal(planned.result.result.plan.stops.find(p=>p.id==='amap_BT0').start,'15:00');
+assert.deepEqual(ph.requests[4].validation.routeConflicts,[]);
+assert.equal(ph.routeCalls,2,'repair does not fetch the same road routes again');
+const repairedTea=planned.result.result.plan.stops.find(p=>p.id==='amap_BT0');
+assert.equal(repairedTea.start,'14:40');assert.equal(repairedTea.end,'15:40','repair preserves the full visit duration');
+assert.equal(planned.result.result.plan.scheduleAdjusted,true);
+const late=schedule('09:00','10:00','20:00','21:00');
+late.stops[2]={...late.stops[2],start:'18:00',end:'19:30'};
+const blocked=harness([call('propose_schedule',late),call('check_routes',{}),call('report_limit',{})],{searchResult:found.result.result,facts});
+const blockedPlan=await run({id:'77777777-7777-4777-8777-777777777777',userId:owner,kind:'discover_plan',payload:{token,selection,wanted:selected,skipped:[]},state:null},blocked);
+// The model gave up after one route conflict. The built-in scheduler finishes
+// with real road times instead: every must-visit stays, no conflict remains.
+assert.equal(blocked.requests[2].validation.routeConflicts[0].placeId,'amap_BT0');
+assert.equal(blockedPlan.result.status,'completed');
+assert.equal(blocked.modelCount,3,'the scheduler finishes without further model calls');
+assert.ok(selected.every(id=>blockedPlan.result.result.plan.stops.some(p=>p.id===id)),'no must-visit place is dropped');assert.ok(blockedPlan.result.result.plan.stops.length<=8,'a 2-day trip holds at most 8 places');
+assert.equal(blockedPlan.result.result.plan.stops.some(p=>p.travelConflict),false);
+assert.ok(blockedPlan.outcomes.some(o=>o.events?.some(e=>e.tool==='scheduler')),'the switch to the scheduler is visible');
+for(const day of [1,2]){const stops=blockedPlan.result.result.plan.stops.filter(p=>p.dayIndex===day);for(let i=1;i<stops.length;i++){const gap=Number(stops[i].start.slice(0,2))*60+Number(stops[i].start.slice(3))-(Number(stops[i-1].end.slice(0,2))*60+Number(stops[i-1].end.slice(3)));assert.ok(gap>=100,'checked 90 min road time plus buffer is respected');}}
+// Must-visits that cannot fit the daily window get a clear request, not a vague limit.
+const tight={...selection,input:{...input,days:1,dayStart:'09:00',dayEnd:'12:00'}};
+const tightHarness=harness([call('propose_schedule',schedule()),call('report_limit',{reason:'Too many places.'})],{searchResult:found.result.result,facts});
+const tightPlan=await run({id:'99999999-9999-4999-8999-999999999999',userId:owner,kind:'discover_plan',payload:{token,selection:tight,wanted:selected,skipped:[]},state:null},tightHarness);
+assert.equal(tightPlan.result.status,'needs_input');assert.match(tightPlan.result.error.message,/Not enough time for .+ within your daily hours/);assert.equal(tightHarness.history.size,0);
+// A provider outage during planning no longer stops the trip.
+const outage=harness([],{searchResult:found.result.result,facts});const outageFetch=outage.context.fetcher;
+outage.context.fetcher=async(url,o)=>url.includes('/chat/completions')?new Response('upstream error',{status:503}):outageFetch(url,o);
+const outagePlan=await run({id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',userId:owner,kind:'discover_plan',payload:{token,selection,wanted:selected,skipped:[]},state:null},outage);
+assert.equal(outagePlan.result.status,'completed');assert.ok(selected.every(id=>outagePlan.result.result.plan.stops.some(p=>p.id===id)));
 assert.equal(planned.result.result.plan.stops.some(p=>p.travelConflict),false);
 assert.equal(planned.result.result.plan.bookable,false);assert.ok(planned.result.result.plan.notice.includes('No reservations or payments'));
 assert.ok(ph.history.has(planned.result.result.historyId));
@@ -88,7 +113,10 @@ assert.equal(researched.result.status,'completed');assert.equal(researchCalls,1)
 
 // A renewed worker may resume after the original browser selection token expired.
 const resumed={...planned.task,state:{...planned.task.state,result:undefined}};resumed.state.decisions=resumed.state.limit;
-const capped=await plannerStep(resumed,{...ph.context,now:new Date('2026-11-06T10:00:00Z')});assert.equal(capped.status,'needs_input');
+// At the decision cap the scheduler finishes from the saved state without the model.
+const before=ph.modelCount;let capTask=resumed,capped;
+for(let i=0;i<20;i++){capped=await plannerStep(capTask,{...ph.context,now:new Date('2026-11-06T10:00:00Z')});capTask={...capTask,state:JSON.parse(JSON.stringify(capped.state))};if(capped.status!=='running')break;}
+assert.equal(capped.status,'completed');assert.equal(ph.modelCount,before);
 await assert.rejects(()=>plannerStep({...planned.task,userId:'44444444-4444-4444-8444-444444444444'},ph.context),e=>e.code==='TASK_OWNER_MISMATCH');
 
 // A model cannot return ordinary prose or invent a tool and bypass validation.
@@ -112,4 +140,61 @@ assert.equal(converged.result.status,'completed');assert.equal(converged.result.
 // registered same-tool searches within the existing six-query tool boundary.
 const bh=harness([{calls:queries.map(q=>call('search_places',{queries:[q]}))},call('select_cards',ranked())]);
 const batched=await run({...searchTask,state:null},bh);assert.equal(batched.result.status,'completed');assert.equal(batched.task.state.searched.length,4);
-console.log('PASS traveler planner: actual auto tool calls, omitted-interest guard, supplemental matcha search, 12 verified cards, resumable checkpoints, official-hours conflict, actual-route repair/cache, every-day coverage, stable save, owner protection, tool allow-list and bounded incomplete results.');
+// A missing interest after a supplemental search should not discard valid cards.
+const partialRank=ranked(['Local food','Italian','Museums']);
+const partialHarness=harness([call('search_places',{queries}),call('select_cards',partialRank),call('search_places',{queries:[{category:'Matcha',query:'抹茶甜品'}]}),call('select_cards',partialRank)],{emptyMatcha:'all'});
+const partial=await run({...searchTask,state:null},partialHarness);
+assert.equal(partial.result.status,'completed');
+assert.equal(partial.result.result.places.length,9);
+assert.deepEqual(partial.result.result.missingCategories,['Matcha']);
+assert.equal(partial.result.result.cardCountShortfall,3);
+
+// One CNY 40 museum plus one CNY 50 meal for two travelers fits
+// USD 27 as a group (demo CNY 189), but adding another meal does not.
+const budgetInput=validateDiscovery({...input,budgetAmount:27,budgetCurrency:'USD',budgetScope:'group'},now);
+const budgetSelection={...selection,input:budgetInput};
+const wanted=[selected[0]],skipped=[selected[3]];
+const budgetTask={id:'88888888-8888-4888-8888-888888888888',userId:owner,kind:'discover_plan',payload:{token,selection:budgetSelection,wanted,skipped},state:null};
+const withStops=(...stops)=>({summary:'An itinerary for your trip.',stops});
+const [museum,meal,anotherMeal,tea]=schedule().stops;
+const unknown={...anotherMeal,placeId:'amap_BI1'};
+const modifiedSearch={...found.result.result,places:found.result.result.places.map(p=>p.id===unknown.placeId?{...p,kind:'other',name:'Unclassified venue'}:p)};
+const budgetHarness=harness([
+ call('propose_schedule',withStops(meal)),
+ call('propose_schedule',withStops(museum,tea)),
+ call('propose_schedule',withStops(museum,meal,anotherMeal)),
+ call('propose_schedule',withStops(museum,unknown)),
+ call('propose_schedule',withStops(museum,meal)),
+ call('check_routes',{}),call('finish_plan',{})
+],{searchResult:modifiedSearch,facts});
+const budgeted=await run(budgetTask,budgetHarness);
+assert.equal(budgeted.result.status,'completed');
+assert.deepEqual(budgetHarness.requests[0].mustVisitPlaceIds,wanted);
+assert.ok(budgetHarness.requests[0].optionalPlaceIds.includes(meal.placeId));
+assert.ok(!budgetHarness.requests[0].optionalPlaceIds.includes(tea.placeId));
+assert.match(budgeted.outcomes[0].message,/must-visit/);
+assert.match(budgeted.outcomes[1].message,/Skipped/);
+assert.equal(budgeted.outcomes[2].state.observation.issues[0].type,'over_budget');
+assert.equal(budgeted.outcomes[3].state.observation.issues[0].type,'unknown_price');
+assert.equal(budgeted.result.result.plan.estimate.budgetCnyMinor,18900);
+assert.equal(budgeted.result.result.plan.estimate.totalMinor,18000);
+assert.deepEqual(budgeted.result.result.plan.stops.map(s=>s.id),[museum.placeId,meal.placeId]);
+const savedBudget=budgetHarness.history.get(budgeted.result.result.historyId);
+assert.deepEqual(savedBudget.plan.stops.map(s=>s.id),[museum.placeId,meal.placeId]);
+assert.equal(budgeted.result.result.plan.roadRoutes[1].status,'empty','an unfilled day is preserved as free time');
+
+const impossibleInput=validateDiscovery({...input,budgetAmount:5,budgetCurrency:'USD',budgetScope:'person'},now);
+assert.equal(impossibleInput.budgetCnyMinor,7000,'per-person budget scales by the party size');
+const impossibleHarness=harness([call('propose_schedule',withStops(museum)),call('report_limit',{reason:'The required museum exceeds the group budget.'})],{searchResult:modifiedSearch,facts});
+const impossible=await run({...budgetTask,payload:{...budgetTask.payload,selection:{...selection,input:impossibleInput}}},impossibleHarness);
+assert.equal(impossible.result.status,'needs_input');
+assert.match(impossible.result.error.message,/exceed the group budget/);
+assert.equal(impossibleHarness.history.size,0,'never save a plan above the budget');
+
+// Discovery: when the model keeps returning malformed calls near its limit,
+// cards are chosen from the verified search results instead of failing.
+const stalled=JSON.parse(JSON.stringify(found.task.state));delete stalled.result;stalled.decisions=stalled.limit-1;
+const sh=harness([]);const stalledResult=await plannerStep({...searchTask,state:stalled},sh.context);
+assert.equal(stalledResult.status,'completed');assert.equal(sh.modelCount,0);assert.ok(stalledResult.result.places.length>=8);assert.equal(new Set(stalledResult.result.places.map(p=>p.category)).size,4);
+
+console.log('PASS traveler planner: actual auto tool calls, omitted-interest guard, supplemental matcha search, 12 verified cards, resumable checkpoints, official-hours conflict, actual-route repair/cache, every-day coverage, budget checks and optional stops, partial recommendations, stable save, owner protection, tool allow-list and bounded incomplete results, built-in scheduler recovery (route conflicts, decision cap, provider outage, infeasible day) and discovery fallback.');

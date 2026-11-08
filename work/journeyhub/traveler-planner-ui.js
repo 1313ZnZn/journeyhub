@@ -79,7 +79,7 @@ async function ptuApply(task,discovery){
     Object.assign(discovery,{places:result.places,token:result.token,expires:result.expires,missingCategories:result.missingCategories||[],plan:null});
   }else{
     const days=Number(task.input?.days)||Number(result.plan?.days)||1;
-    if(!result.plan?.stops?.length||Number(result.plan.days)!==days||!Array.from({length:days},(_,i)=>i+1).every(day=>result.plan.stops.some(s=>s.dayIndex===day)))throw Error('The itinerary is incomplete. Check the saved task again.');
+    if(!result.plan?.stops?.length||Number(result.plan.days)!==days||(!result.plan.agent?.checked&&!Array.from({length:days},(_,i)=>i+1).every(day=>result.plan.stops.some(s=>s.dayIndex===day))))throw Error('The itinerary is incomplete. Check the saved task again.');
     if(!discovery.token&&result.historyId){
       try{const restored=await ptuPreviousRequest({action:'history_open',id:result.historyId},discovery);if(!pdCurrent(discovery))return;Object.assign(discovery,{places:restored.places||result.plan.stops,token:restored.token,expires:restored.expires,wanted:restored.wanted||[],skipped:restored.skipped||[]});}catch{/* The saved itinerary still opens; metadata can be refreshed from history. */}
     }
@@ -113,7 +113,9 @@ A.ptuEdit=()=>{const task=ptuCurrent(ptu)&&ptu.task;if(!task||pd.busy)return;if(
 A.ptuCheck=()=>{ptu.failures=0;return ptuPoll();};
 function ptuTaskEntry(){
   const task=ptuCurrent(ptu)&&ptu.task;if(!task||task.status==='completed'&&pd.plannerTaskId===task.id)return '';
-  const label=ptuActive(task)?'Your agent is working':task.status==='completed'?(task.kind==='discover_plan'?'Your itinerary is ready':'Your places are ready'):'Your agent needs attention';
+  // Only running or finished work is offered on the start page; a stopped task does not linger as a warning.
+  if(!ptuActive(task)&&task.status!=='completed')return '';
+  const label=ptuActive(task)?'Your agent is working':task.kind==='discover_plan'?'Your itinerary is ready':'Your places are ready';
   return '<button class="ptu-resume" data-act="ptuOpen">'+ic('sparkle',18)+'<span>'+label+'</span>'+ic('right',16)+'</button>';
 }
 const ptuJourney=V.journey;

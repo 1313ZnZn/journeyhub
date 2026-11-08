@@ -103,9 +103,12 @@ BEGIN
  PERFORM pg_temp.ub_error(format('SELECT public.journeyhub_demo_book(%L,%L,%L)',u,qid,gen_random_uuid()),'CAPACITY_CHANGED');
  PERFORM pg_temp.ub_assert((SELECT balance_minor FROM journey_hub.demo_wallets WHERE user_id=u)=initial_balance AND(SELECT count(*)FROM journey_hub.demo_ledger WHERE user_id=u)=beforeledger AND NOT EXISTS(SELECT 1 FROM journey_hub.bookings WHERE source_id=h2),'partial itinerary capacity failure rolls back reservations, wallet and ledger');
  UPDATE journey_hub.sessions SET capacity=40 WHERE session_id=sid2;
- -- Unknown availability never creates a partially successful itinerary.
+ -- An unclassified stop is skipped: the known stops are booked and only they are charged.
  items:=jsonb_set(jsonb_set(pg_temp.ub_items(),'{1,kind}','"unavailable"'),'{1,unitMinor}','0');q:=public.journeyhub_demo_quote_save(u,'history',h2,items);
- PERFORM pg_temp.ub_error(format('SELECT public.journeyhub_demo_book(%L,%L,%L)',u,q->>'id',gen_random_uuid()),'DEMO_NOT_READY');
+ SELECT balance_minor INTO initial_balance FROM journey_hub.demo_wallets WHERE user_id=u;
+ result:=public.journeyhub_demo_book(u,(q->>'id')::uuid,gen_random_uuid());
+ PERFORM pg_temp.ub_assert(result->'quote'->>'status'='booked' AND (q->>'totalMinor')::int>0 AND (result->'wallet'->>'balanceMinor')::int=initial_balance-(q->>'totalMinor')::int,'partly unclassified itinerary charges only its known stops');
+ PERFORM pg_temp.ub_assert((SELECT status='unavailable' AND amount_minor=0 AND booking_id IS NULL FROM journey_hub.demo_bookings WHERE source_id=h2 AND stop_id='ub_museum') AND NOT EXISTS(SELECT 1 FROM journey_hub.bookings WHERE source_id=h2 AND stop_id='ub_museum'),'unclassified stop is recorded as skipped with no charge or reservation');
  -- Insufficient balance, expired quote and request reuse are all read-only failures.
  h3:=pg_temp.ub_history(v,dt+4);q:=public.journeyhub_demo_quote_save(v,'history',h3,pg_temp.ub_items());qid:=(q->>'id')::uuid;
  UPDATE journey_hub.demo_wallets SET balance_minor=1 WHERE user_id=v;

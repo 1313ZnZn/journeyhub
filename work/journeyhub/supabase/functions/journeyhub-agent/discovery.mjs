@@ -1,7 +1,7 @@
 import {intentPrompt,rankingPrompt,searchQueries,mergeCandidates,selectCurated,englishName,discoveryCardCount} from './curation.mjs';
 import {isAmap,amapURL,amapSearch,amapDetails,addAmapRoutes} from './amap.mjs';
 // Real place discovery is separate from inventory: it cannot reserve or email.
-import {fail,validateInput,providerConfig,parsePlanResponse,estimateTravel} from './planner.mjs';
+import {fail,validateInput,providerConfig,parsePlanResponse,estimateTravel,transferMinutes} from './planner.mjs';
 import {addRoadRoutes} from './roads.mjs';
 import {historyId,historyInput,historyIds,historyChoices,historyPlan,searchHistoryId,revisionHistoryId,getHistory,saveHistory,saveSearchAndPlan,safelySave,listHistory} from './history.mjs';
 import {hasSampleIds,isSampleHistory,samplePlaces} from './sample-history.mjs';
@@ -11,10 +11,17 @@ import {getDisplaySnapshot,persistDisplaySnapshot} from './snapshot.mjs';
 import {englishAddress,addressTranslationPrompt} from './address-localization.mjs';
 export function addPlanEstimate(plan,input){
  if(!plan)return plan;
- const items=plan.stops.map(stop=>{const price=demoPrice(stop,stop);return {stopId:stop.id,kind:price.kind,unitMinor:price.unitMinor,quantity:input.guests,totalMinor:price.unitMinor*input.guests};});
- plan.estimate={currency:'CNY',totalMinor:items.reduce((sum,item)=>sum+item.totalMinor,0),items,basis:'illustrative',incomplete:items.some(item=>item.kind==='unavailable'),budgetCnyMinor:input.budgetCnyMinor??null};
+ const items=plan.stops.map(stop=>{const price=demoPrice(stop);return {stopId:stop.id,kind:price.kind,unitMinor:price.kind==='unavailable'?null:price.unitMinor,quantity:input.guests,totalMinor:price.kind==='unavailable'?null:price.unitMinor*input.guests};});
+ plan.estimate={currency:'CNY',totalMinor:items.reduce((sum,item)=>sum+(item.totalMinor??0),0),items,basis:'illustrative',incomplete:items.some(item=>item.kind==='unavailable'),budgetCnyMinor:input.budgetCnyMinor??null};
  plan.estimate.budgetExceeded=plan.estimate.budgetCnyMinor!==null&&plan.estimate.totalMinor>plan.estimate.budgetCnyMinor;
  return plan;
+}
+export function planBudgetIssue(plan,input){
+ const estimate=addPlanEstimate(plan,input).estimate;
+ if(estimate.budgetCnyMinor===null)return null;
+ if(estimate.budgetExceeded)return {type:'over_budget',budgetCnyMinor:estimate.budgetCnyMinor,knownSubtotalCnyMinor:estimate.totalMinor};
+ if(estimate.incomplete)return {type:'unknown_price',budgetCnyMinor:estimate.budgetCnyMinor,placeIds:estimate.items.filter(item=>item.kind==='unavailable').map(item=>item.stopId)};
+ return null;
 }
 const CITIES={Bangkok:{low:{latitude:13.48,longitude:100.30},high:{latitude:14.02,longitude:100.95}},Shanghai:{low:{latitude:30.68,longitude:120.85},high:{latitude:31.88,longitude:122.0}},Singapore:{low:{latitude:1.15,longitude:103.59},high:{latitude:1.48,longitude:104.10}}};
 const encoder=new TextEncoder();
@@ -81,7 +88,7 @@ export function validateDiscovery(value,now){
   const {input}=validateInput({...value,action:'plan',requestId:'11111111-1111-4111-8111-111111111111',preferredExperienceIds:[],excludedExperienceIds:[]},now);
   if(!input.prompt)input.prompt='A balanced trip with local food, culture and relaxed sightseeing.';return input;
 }
-export function validateFreePlan(raw,places,input){
+export function validateFreePlan(raw,places,input,{allowFreeDays=false}={}){
   const lookup=new Map(places.map(p=>[p.id,p])),seen=new Set();
   if(!raw||!Array.isArray(raw.stops)||!raw.stops.length||raw.stops.length>16)fail('AI_INVALID_PLAN','The AI could not create a usable route. Please retry.',502);
   const minutes=s=>{if(typeof s!=='string'||!/^([01]\d|2[0-3]):[0-5]\d$/.test(s))return NaN;const [h,m]=s.split(':').map(Number);return h*60+m;};
@@ -91,8 +98,8 @@ export function validateFreePlan(raw,places,input){
     if(!place||seen.has(place.id)||!Number.isInteger(s.day)||s.day<1||s.day>input.days||!Number.isFinite(from)||!Number.isFinite(to)||from<start||to>end||to-from<30||to-from>240)fail('AI_INVALID_PLAN','The route contains an invalid place or time. Please retry.',502);
     seen.add(place.id);return {...place,addressEnglish:englishAddress(place.address,s.addressEnglish||place.addressEnglish),dayIndex:s.day,start:s.start,end:s.end,reason:clean(s.reason,300)};
   }).sort((a,b)=>a.dayIndex-b.dayIndex||a.start.localeCompare(b.start));
-  for(const stop of stops){const previous=last.get(stop.dayIndex);if(previous){const leg=estimateTravel(previous,stop,input.transport);if(minutes(stop.start)<minutes(previous.end)+leg.durationMinutes)fail('AI_INVALID_PLAN','This route needs more travel time. Please retry.',502);stop.travel=leg;}last.set(stop.dayIndex,stop);}
-  if(last.size!==input.days)fail('AI_INVALID_PLAN','The itinerary must include a visit on every travel day. Please retry.',502);
+  for(const stop of stops){const previous=last.get(stop.dayIndex);if(previous){const leg=estimateTravel(previous,stop,input.transport);if(minutes(stop.start)<minutes(previous.end)+transferMinutes(leg))fail('AI_INVALID_PLAN','This route needs more travel time. Please retry.',502);stop.travel=leg;}last.set(stop.dayIndex,stop);}
+  if(!allowFreeDays&&last.size!==input.days)fail('AI_INVALID_PLAN','The itinerary must include a visit on every travel day. Please retry.',502);
   return {city:input.city,date:input.date,days:input.days,transport:input.transport,summary:clean(raw.summary,600),stops,bookable:false,openingHoursVerified:false,notice:'Suggested visit times. Opening hours, admission fees and travel times must be checked before visiting. No reservations have been made.'};
 }
 // If an AI schedule violates visit/transfer limits, recompute suggested times
@@ -111,9 +118,9 @@ export function scheduleVerifiedStops(raw,places,input){
    const size=Math.floor(count/input.days)+(i<count%input.days?1:0);
    return ordered.slice(at,at+=size).map(s=>({...s,day:i+1}));
  }).flat();}
- const stops=ordered.map(s=>{const prev=byDay.get(s.day),p=lookup.get(s.placeId),buffer=prev?estimateTravel(lookup.get(prev.placeId),p,input.transport).durationMinutes:0;
+ const stops=ordered.map(s=>{const prev=byDay.get(s.day),p=lookup.get(s.placeId),buffer=prev?transferMinutes(estimateTravel(lookup.get(prev.placeId),p,input.transport)):0;
   const earliest=prev?minute(prev.end)+buffer:first,desired=minute(s.start),start=Number.isFinite(desired)&&desired>=earliest&&desired+30<=last?desired:earliest;
-  const proposed=minute(s.end)-minute(s.start),duration=Number.isFinite(proposed)&&proposed>=30?Math.min(proposed,240):60,end=Math.min(start+duration,last);
+  const proposed=minute(s.end)-minute(s.start),duration=Number.isFinite(proposed)&&proposed>=30?Math.min(proposed,240):60,end=start+duration;
   const fixed={...s,start:clock(start),end:clock(end)};byDay.set(s.day,fixed);return fixed;});
  return {...raw,stops};
 }
@@ -239,7 +246,7 @@ export async function discoveryAction({value,user,env,fetcher,rpc,now,secret,mea
     if(!records.length)fail('NO_PLACES','No real places matched your interests. Try broader preferences.',404);
     let ranked=await measure('discovery_rank',()=>aiJSON(config,rankingPrompt,{input,targetCardCount,categories:queries.map(q=>q.category),places:records.map(({photo,...p})=>p)},fetcher));
     let curated=selectCurated(ranked,records,queries,targetCardCount);
-    if((curated.places.length<targetCardCount&&records.length>=targetCardCount)||curated.missingCategories.some(c=>records.some(p=>p.categories.includes(c)))){ranked=await measure('discovery_rank_repair',()=>aiJSON(config,rankingPrompt,{input,targetCardCount,categories:queries.map(q=>q.category),missingCategories:curated.missingCategories,correction:'Return the complete selection with exactly targetCardCount distinct suitable places when available. Recheck omitted interests and remaining supplied candidates. Do not add unrelated or invented venues just to fill the count.',places:records.map(({photo,...p})=>p)},fetcher));curated=selectCurated(ranked,records,queries,targetCardCount);}
+    if(curated.missingCategories.some(c=>records.some(p=>p.categories.includes(c)))){ranked=await measure('discovery_rank_repair',()=>aiJSON(config,rankingPrompt,{input,targetCardCount,categories:queries.map(q=>q.category),missingCategories:curated.missingCategories,correction:'Return up to targetCardCount distinct suitable places. Recheck omitted interests and remaining supplied candidates. Do not add unrelated or invented venues just to fill the count.',places:records.map(({photo,...p})=>p)},fetcher));curated=selectCurated(ranked,records,queries,targetCardCount);}
     const {places,missingCategories}=curated;
     await measure('discovery_photos',async()=>{if(useAmap)for(const p of places.filter(p=>!p.photo)){try{const detail=await amapDetails(p.id,env('AMAP_WEB_SERVICE_KEY'),fetcher);p.photo=detail.photo;}catch{/* A photo failure must not discard a verified place. */}}
     if(!useAmap)await Promise.all([
@@ -275,6 +282,8 @@ export async function discoveryAction({value,user,env,fetcher,rpc,now,secret,mea
     try{const raw=await measure('plan_schedule',()=>aiJSON(config,system,{input:search.input,places,minimumTransfers,visitDurationMinutes:{minimum:30,maximum:240},...(attempt?{correction:'Return complete JSON with every selected place exactly once, at least one place on every requested day, generous travel buffers and valid supplied IDs only.'}:{})},fetcher));try{plan=validateFreePlan(raw,places,search.input);}catch(e){if(e.code!=='AI_INVALID_PLAN')throw e;plan=validateFreePlan(scheduleVerifiedStops(raw,places,search.input),places,search.input);plan.scheduleAdjusted=true;}if(places.some(p=>!plan.stops.some(s=>s.id===p.id)))fail('AI_INVALID_PLAN','The itinerary omitted a selected place. Please retry.',502);break;}
     catch(e){if(attempt||!['AI_INVALID_PLAN','AI_EMPTY_RESPONSE','AI_INVALID_RESPONSE'].includes(e.code))throw e;}
   }
+  const budget=planBudgetIssue(plan,search.input);
+  if(budget)fail('PLANNER_NEEDS_INPUT',budget.type==='over_budget'?'Estimated activities and dining exceed the group budget. Increase the budget or review your selected places.':'Some selected prices could not be estimated. Review the selected places or plan without a budget cap.',409);
   await measure('plan_routes',()=>useAmap?addAmapRoutes(plan,env('AMAP_WEB_SERVICE_KEY'),fetcher):addRoadRoutes(plan,env('GOOGLE_ROUTES_API_KEY')||mapKey,fetcher));
   const saved=await safelySave(()=>saveSearchAndPlan({rpc,userId:user.id,search,token:value.token,wanted,skipped,plan,onSaved:async row=>{
     const prior=await historyDisplay(row,{rpc,user});

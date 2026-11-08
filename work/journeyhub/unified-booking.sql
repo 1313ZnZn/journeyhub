@@ -271,7 +271,8 @@ BEGIN
   IF q.expires_at<=clock_timestamp() THEN RAISE EXCEPTION 'DEMO_QUOTE_EXPIRED';END IF;
   IF q.source_type<>'session'AND EXISTS(SELECT 1 FROM jsonb_array_elements(q.items)i
    WHERE((i->>'date')||' '||(i->>'start'))::timestamp AT TIME ZONE CASE src->'input'->>'city'WHEN 'Shanghai'THEN 'Asia/Shanghai'WHEN 'Bangkok'THEN 'Asia/Bangkok'ELSE 'Asia/Singapore'END<=clock_timestamp())THEN RAISE EXCEPTION 'DEMO_TRIP_PASSED';END IF;
-  IF EXISTS(SELECT 1 FROM jsonb_array_elements(q.items)i WHERE i->>'kind'='unavailable') THEN RAISE EXCEPTION 'DEMO_NOT_READY';END IF;
+  -- Unclassified stops are skipped, never charged. Only a plan with nothing bookable is refused.
+  IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(q.items)i WHERE i->>'kind'<>'unavailable') THEN RAISE EXCEPTION 'DEMO_NOT_READY';END IF;
   IF bal<q.total_minor THEN RAISE EXCEPTION 'DEMO_INSUFFICIENT_FUNDS';END IF;
   -- Lock every capacity row in a stable order. Any later exception rolls back every debit and seat.
   PERFORM s.session_id FROM journey_hub.sessions s WHERE s.session_id IN(SELECT value->>'sessionId' FROM jsonb_array_elements(q.items)) ORDER BY s.session_id FOR UPDATE;
@@ -283,7 +284,7 @@ BEGIN
      ON CONFLICT(run_id,session_id)DO UPDATE SET booking_id=excluded.booking_id;END IF;
    ELSE
     INSERT INTO journey_hub.demo_bookings(user_id,quote_id,source_type,source_id,stop_id,kind,visit_date,starts,ends,day_index,unit_minor,quantity,amount_minor,status,reference)
-    VALUES(p_user_id,q.id,q.source_type,q.source_id,x->>'stopId',x->>'kind',(x->>'date')::date,x->>'start',x->>'end',(x->>'dayIndex')::int,0,(x->>'quantity')::int,0,'not_required','DEMO-FREE-'||gen_random_uuid()::text);
+    VALUES(p_user_id,q.id,q.source_type,q.source_id,x->>'stopId',x->>'kind',(x->>'date')::date,x->>'start',x->>'end',(x->>'dayIndex')::int,0,(x->>'quantity')::int,0,CASE WHEN x->>'kind'='unavailable' THEN 'unavailable' ELSE 'not_required' END,CASE WHEN x->>'kind'='unavailable' THEN 'DEMO-SKIP-' ELSE 'DEMO-FREE-' END||gen_random_uuid()::text);
    END IF;
   END LOOP;
   IF q.source_type='history' THEN PERFORM public.journeyhub_care_confirm(p_user_id,'history',q.source_id);END IF;

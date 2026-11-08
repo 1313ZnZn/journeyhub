@@ -112,6 +112,8 @@
   A.pdbKeep=which=>{
     if(!d)return;
     const [a,b]=d.ids,[A1,B1]=d.ids.map(placeOf),move=window.jhFanMove;
+    // Counted (anonymously) for this week's debate champions; the choice itself never waits on it.
+    if(['a','b','both','none'].includes(which)&&pd.token)window.jhPipPost?.({action:'debate_result',token:pd.token,ids:[a,b],choice:which}).catch(()=>{});
     clearInterval(typer);d=null;paint();
     if(typeof move!=='function')return;
     if(which==='a'){move(a,'want');move(b,'skip');}

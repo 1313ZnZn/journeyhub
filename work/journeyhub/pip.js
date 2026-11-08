@@ -6,8 +6,8 @@
 (function(){
   const wide=window.matchMedia?.('(min-width:1024px)');
   const calm=window.matchMedia?.('(prefers-reduced-motion:reduce)');
-  const STAGES=[['💭','Idea'],['🃏','Choose'],['🗺️','Plan'],['🎒','Go']];
-  const ROUTE_STAGE={journey:0,'place-search':0,'ai-picks':1,'place-plan':2,orders:3};
+  const STAGES=[['💭','Idea'],['🃏','Choose'],['🗺️','Plan'],['🎒','Go'],['📸','Remember']];
+  const ROUTE_STAGE={journey:0,'place-search':0,'ai-picks':1,'place-plan':2,orders:3,memories:4,'memory-trip':4,'memory-photo':4};
   let openPref=true;try{openPref=localStorage.getItem('jh-pip-open')!=='0';}catch{}
   let dock=null,toggle=null,last={key:'',stage:-1,thread:'',live:'',chips:'',head:''},peekTimer=null,typingTimer=null;
 
@@ -26,6 +26,9 @@
       const trip=typeof tc!=='undefined'?tc.trips?.find(x=>x.id===t.a):null;
       return trip?.sourceType==='history'?trip.sourceId:'care:'+t.a;
     }
+    if(state.route==='memories')return 'memories';
+    if(state.route==='memory-trip')return state.params?.id?'memory:'+state.params.id:null;
+    if(state.route==='memory-photo')return state.params?.tripId?'memory:'+state.params.tripId:null;
     if(state.route==='journey')return 'idea';
     if(live())return pd.historyId||'search:'+(pd.requestId||'new');
     return 'idea';
@@ -51,7 +54,7 @@
     return msg;
   }
   // Other desktop features (the place debate) speak through Pip and use its connection.
-  window.jhPipSay=(text,extra={})=>{if(!visible())return;say('pip',text,extra);sync();};
+  window.jhPipSay=(text,extra={},from='pip')=>{if(!visible())return;say(from==='me'?'me':'pip',text,extra);sync();};
   window.jhPipPost=payload=>pipPost(payload);
   // Bring Pip out (once per reason) when it has something the traveler needs to act on.
   window.jhPipSync=()=>sync();
@@ -88,6 +91,7 @@
       const maybe=typeof window.jhFanMaybe==='function'?window.jhFanMaybe().length:0,must=pd.wanted.length,cap=typeof jhPickCap==='function'?jhPickCap():8;
       return '<div class="pip-card pip-piles"><div class="pip-pile"><span>🧳</span><b>'+must+'</b><small>of '+cap+' Must go</small></div><div class="pip-pile"><span>🤔</span><b>'+maybe+'</b><small>Maybe</small></div><div class="pip-pile"><span>🙅</span><b>'+pd.skipped.length+'</b><small>Not this time</small></div></div>';
     }
+    if(stage===4)return typeof window.jhMemoryLive==='function'?window.jhMemoryLive():'';
     if(stage===3){
       const t=window.jhCalendarAgent?.target?.();
       if(!t)return '<div class="pip-card"><small>Pick a day with a trip in the calendar and I’ll help you adjust it.</small></div>';
@@ -109,10 +113,12 @@
     if(stage===1&&live()&&!pd.busy){const n=pd.wanted.length,m=typeof window.jhDebateReady==='function'&&window.jhDebateReady();return (n?chip('pdFinish',null,'✨','Plan '+plural(n,'place'),true):'')+(m?chip('pdbOpen',null,'🎤','Let two Maybes debate'):'')+(pd.undo.length?chip('pdUndo',null,'↩️','Undo'):'');}
     if(stage===2&&live()&&pd.plan&&!pd.busy&&typeof window.jhPipBookingChips==='function'&&window.jhPipBookingChips()!=null)return window.jhPipBookingChips();
     if(stage===2&&live()&&pd.plan&&!pd.busy)return chip('tuTab','itinerary','🗓️','Open the timetable')+(pd.sample?'':chip('tcConfirm',null,'🎒','Create my trip',true));
+    if(stage===4)return typeof window.jhMemoryChips==='function'?window.jhMemoryChips():'';
     if(stage===3&&window.jhCalendarAgent?.target?.())return window.jhCalendarAgent.prompts().map((p,i)=>chip('pipAsk',i,{clock:'🕘',map:'🧭',food:'🍜',leaf:'🌿',wallet:'💸'}[p.icon]||'✨',p.label)).join('');
     return '';
   }
   function composerFor(stage){
+    if(stage===4)return typeof window.jhMemoryComposer==='function'?window.jhMemoryComposer():null;
     if(stage===0&&!(live()&&pd.busy)){const i=ag.prefs||{};return {ph:'What would you love on this trip'+(i.city?' to '+i.city:'')+'?',act:'idea'};}
     if(stage===3&&window.jhCalendarAgent?.target?.())return {ph:'Ask Pip to change '+(window.jhCalendarAgent.target().day||'this day')+'…',act:'calendar'};
     return null;
@@ -192,11 +198,12 @@
     const steps=STAGES.map(([e,t],i)=>'<span class="pip-step'+(i<stage?' is-done':'')+(i===stage?' is-on':'')+'"><b>'+(i<stage?'✓':e)+'</b>'+t+'</span>').join('');
     const msgs=load(key);
     let thread=msgs.map(messageHTML).join('');
+    if(stage===4&&window.jhMemoryBusy?.())thread+='<div class="pip-msg">'+avatar('is-mini')+'<div class="pip-bub"><span class="pip-typing" aria-label="Pip is writing"><i></i><i></i><i></i></span></div></div>';
     if(chatBusy&&key==='idea')thread+='<div class="pip-msg">'+avatar('is-mini')+'<div class="pip-bub"><span class="pip-typing" aria-label="Pip is typing"><i></i><i></i><i></i></span></div></div>';
     const empty=centre&&!msgs.length&&!(live()&&pd.busy)&&!chatBusy;
     dock.classList.toggle('is-empty',empty);
     if(empty)thread='';
-    else if(!msgs.length)thread=messageHTML({from:'pip',text:stage===0?'Hi, I’m **Pip** 👋 Tell me where you’d like to go and what you love — I’ll scout places, help you choose and plan the days.':stage===3?'Hi again 👋 Pick a day in the calendar and I can check timings, tweak the route or add food.':'Hi, I’m **Pip** 👋 I’ll help you with this trip.'},0,[{}]);
+    else if(!msgs.length)thread=messageHTML({from:'pip',text:stage===0?'Hi, I’m **Pip** 👋 Tell me where you’d like to go and what you love — I’ll scout places, help you choose and plan the days.':stage===3?'Hi again 👋 Pick a day in the calendar and I can check timings, tweak the route or add food.':stage===4?(state.route==='memories'?'Hi, I’m **Pip**, your memory keeper 📸 I can look back over all your trips and find what you keep coming back to.':'Hi, I’m **Pip**, your memory keeper 📸 I can turn this trip’s stops, notes and photo times into a short story — and ask you one question to remember it by.'):'Hi, I’m **Pip** 👋 I’ll help you with this trip.'},0,[{}]);
     const liveHTML=liveCard(stage),chips=chipsFor(stage),composer=composerFor(stage);
     const set=(sel,html,prop)=>{if(last[prop]===html)return false;last[prop]=html;dock.querySelector(sel).innerHTML=html;return true;};
     set('[data-pip-sub]',headLine(),'head');
@@ -231,6 +238,7 @@
     const input=form.querySelector('textarea'),text=input.value.trim();if(!text)return;
     input.value='';input.style.height='';
     if(form.dataset.mode==='idea'){void ideaChat(text);}
+    else if(form.dataset.mode==='memory'){window.jhMemoryAnswer?.(text);}
     else if(form.dataset.mode==='calendar'){
       say('me',text);say('pip','Opening our chat for **'+(window.jhCalendarAgent.target()?.day||'this day')+'** — I’ll send that right away.');
       window.jhCalendarAgent.say(text);

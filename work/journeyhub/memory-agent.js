@@ -10,6 +10,8 @@
   const fresh={add:k=>freshUntil.set(k,Date.now()+1500),has:k=>(freshUntil.get(k)||0)>Date.now(),delete:()=>{}};
   let answerDraft='';
   const signedIn=()=>typeof jhUser!=='undefined'&&!!jhUser;
+  // With Pip's sidebar showing, Pip runs these features there; otherwise they sit on the page.
+  const pipOn=()=>typeof window.jhPipShowing==='function'&&window.jhPipShowing()&&typeof window.jhPipSay==='function';
   const avatar=cls=>typeof tchAvatar==='function'?tchAvatar(cls):'';
   const hash=s=>{let h=5381;for(let i=0;i<s.length;i++)h=(h*33^s.charCodeAt(i))>>>0;return h.toString(36);};
 
@@ -36,21 +38,26 @@
   async function writeRecap(t){
     const key=t.id;if(busy.has(key))return;
     if(!signedIn()){openLogin('traveler',{route:'memory-trip',params:{id:t.id}});return;}
-    busy.add(key);errors.delete(key);render();
+    const side=pipOn();if(side)window.jhPipSay(recapOf(t)?'Update the recap of this trip':'Write a recap of this trip',{},'me');
+    busy.add(key);errors.delete(key);render();window.jhPipSync?.();
     try{
       const r=await ask({mode:'trip',memory:memoryPayload(t)});
       const recap={title:r.title,story:r.story,highlights:r.highlights||[],mood:r.mood||[],question:r.question||'',hash:contentHash(t),at:new Date().toISOString()};
       fresh.add(key);
       if(jmDemo)demoRecaps.set(key,recap);
       else{await JM.saveTrip(jmOwner(),{...clone(t),agent:{recap,reflections:t.agent?.reflections||[]}});await jmLoad();}
-    }catch(e){errors.set(key,friendly(e));}
-    finally{busy.delete(key);render();}
+      busy.delete(key);
+      if(side){window.jhPipSay('**'+recap.title+'** ✨ '+recap.story,{marker:'recap:'+recap.at});
+        if(recap.question)window.jhPipSay('One question to remember it by: **'+recap.question+'**'+(jmDemo?' (Answers are kept on your own memories.)':' Answer below 👇'));}
+    }catch(e){errors.set(key,friendly(e));busy.delete(key);if(side)window.jhPipSay(friendly(e));}
+    finally{busy.delete(key);render();window.jhPipSync?.();}
   }
   async function saveAnswer(t,answer){
     const recap=recapOf(t);if(!recap?.question||!answer.trim())return;
     if(jmDemo){toast('Sample memory · create your own to keep answers');return;}
     const reflections=[...(t.agent?.reflections||[]),{q:recap.question,a:answer.trim().slice(0,1200),at:new Date().toISOString()}];
-    try{await JM.saveTrip(jmOwner(),{...clone(t),agent:{recap:{...recap,question:''},reflections}});answerDraft='';await jmLoad();toast('Saved to this memory');}
+    try{await JM.saveTrip(jmOwner(),{...clone(t),agent:{recap:{...recap,question:''},reflections}});answerDraft='';await jmLoad();
+      if(pipOn())window.jhPipSay('Saved to this memory 💾 I’ll keep it in mind next time I look back on this trip.');else toast('Saved to this memory');}
     catch(e){toast(e.message||'Could not save your answer.');}
   }
   function storyHTML(text,animate){
@@ -88,10 +95,13 @@
     if(busy.has('*'))return;
     if(!signedIn()){openLogin('traveler',{route:'memories'});return;}
     const trips=jmTrips().filter(hasContent).slice(0,12);if(!trips.length)return;
-    busy.add('*');errors.delete('*');render();
-    try{const r=await ask({mode:'all',memories:trips.map(memoryPayload)});saveReflect({...r,titles:trips.map(t=>t.title),hash:allHash(),at:new Date().toISOString()});fresh.add('*');}
-    catch(e){errors.set('*',friendly(e));}
-    finally{busy.delete('*');render();}
+    const side=pipOn();if(side)window.jhPipSay(loadReflect()?'Reflect on my trips again':'Reflect on my trips',{},'me');
+    busy.add('*');errors.delete('*');render();window.jhPipSync?.();
+    try{const r=await ask({mode:'all',memories:trips.map(memoryPayload)});saveReflect({...r,titles:trips.map(t=>t.title),hash:allHash(),at:new Date().toISOString()});fresh.add('*');
+      busy.delete('*');
+      if(side){window.jhPipSay(r.story);if(r.question)window.jhPipSay('Something to think about: **'+r.question+'**');if(r.next)window.jhPipSay('Where next? **'+r.next.city+'** — '+r.next.idea+' Tap **Plan it with Pip** when you’re ready ✈️');}}
+    catch(e){errors.set('*',friendly(e));busy.delete('*');if(side)window.jhPipSay(friendly(e));}
+    finally{busy.delete('*');render();window.jhPipSync?.();}
   }
   function hubPanel(){
     const trips=jmTrips(),usable=trips.filter(hasContent),saved=loadReflect(),working=busy.has('*'),error=errors.get('*');
@@ -109,6 +119,45 @@
       '<div class="ma-actions ma-foot">'+(changed?'<span class="ma-changed">Your memories changed since this reflection.</span>':'')+'<button type="button" class="ma-again'+(changed?' is-primary':'')+'" data-act="maReflect">↻ '+(changed?'Update reflection':'Reflect again')+'</button></div></section>';
   }
 
+  // ---------- Pip's sidebar ----------
+  const onHub=()=>state.route==='memories';
+  const sideTrip=()=>state.route==='memory-trip'?jmTrip():state.route==='memory-photo'?jmTrips().find(t=>t.id===state.params?.tripId):null;
+  window.jhMemoryBusy=()=>onHub()?busy.has('*'):!!sideTrip()&&busy.has(sideTrip().id);
+  window.jhMemoryLive=()=>{
+    if(!jmCache.loaded&&!jmDemo)return '';
+    const priv='<p class="ma-privacy">Only the text you wrote is sent to Pip. Your photos stay on this device.</p>';
+    if(onHub()){
+      const saved=loadReflect(),usable=jmTrips().filter(hasContent).length;
+      if(!saved)return '<div class="pip-card ma-side"><div class="pip-card-body"><strong>📸 Your travel story so far</strong><small>'+(usable?usable+' memor'+(usable===1?'y has':'ies have')+' stops, notes or photos I can read.':'Once a memory has stops, notes or photos, I can reflect on your trips.')+'</small>'+priv+'</div></div>';
+      const changed=saved.hash!==allHash(),fav=saved.favourite&&saved.titles[saved.favourite.memory];
+      return '<div class="pip-card ma-side"><div class="pip-card-body"><strong>📸 Across '+plural(saved.titles.length,'memory').replace('memorys','memories')+'</strong>'+
+        (saved.patterns?.length?'<ul class="ma-patterns">'+saved.patterns.map(p=>'<li>'+esc(p)+'</li>').join('')+'</ul>':'')+
+        (fav?'<p class="ma-fav">⭐ <b>'+esc(fav)+'</b> — '+esc(saved.favourite.why)+'</p>':'')+
+        (saved.next?'<div class="ma-next"><small>Next trip idea · '+esc(saved.next.city)+'</small><strong>'+esc(saved.next.idea)+'</strong></div>':'')+
+        (changed?'<small class="ma-changed">Your memories changed since this reflection.</small>':'')+'</div></div>';
+    }
+    const t=sideTrip();if(!t)return '';
+    const recap=recapOf(t),refl=t.agent?.reflections||[];
+    if(!recap)return '<div class="pip-card ma-side"><div class="pip-card-body"><strong>📸 '+esc(t.title)+'</strong><small>'+(hasContent(t)?plural(t.stops.length,'stop')+' · '+plural(t.stops.filter(s=>s.visited).length,'visited')+' · '+plural(jmPhotos(t.id).length,'photo')+'. Ready when you are.':'Add stops, notes or photos and I’ll turn them into a short story.')+'</small>'+priv+'</div></div>';
+    const changed=!jmDemo&&recap.hash!==contentHash(t);
+    const highlights=recap.highlights.filter(h=>t.stops[h.stop]).map(h=>'<li><b>'+esc(t.stops[h.stop].title)+'</b><span>'+esc(h.line)+'</span></li>').join('');
+    return '<div class="pip-card ma-side"><div class="pip-card-body"><strong class="ma-title">'+esc(recap.title)+'</strong>'+
+      (recap.mood.length?'<div class="ma-mood">'+recap.mood.map(m=>'<span>'+esc(m)+'</span>').join('')+'</div>':'')+
+      (highlights?'<ul class="ma-highlights">'+highlights+'</ul>':'')+
+      (refl.length?'<details class="ma-past"><summary>Your reflections ('+refl.length+')</summary><ul>'+refl.slice(-3).reverse().map(r=>'<li><small>'+esc(r.q)+'</small><span>'+esc(r.a)+'</span></li>').join('')+'</ul></details>':'')+
+      (changed?'<small class="ma-changed">Your memory changed since this recap.</small>':'')+'</div></div>';
+  };
+  window.jhMemoryChips=()=>{
+    const chip=(act,icon,label,primary,off)=>'<button type="button" class="pip-chip'+(primary?' is-primary':'')+'" data-act="'+act+'"'+(off?' disabled':'')+'>'+icon+' '+esc(label)+'</button>';
+    if(onHub()){if(busy.has('*'))return '';const saved=loadReflect(),usable=jmTrips().some(hasContent);
+      return (saved?.next?chip('maPlanNext','✈️','Plan it with Pip',true):'')+chip('maReflect',saved?'↻':'✨',saved?(saved.hash!==allHash()?'Update reflection':'Reflect again'):'Reflect on my trips',!saved,!usable);}
+    const t=sideTrip();if(!t||busy.has(t.id))return '';const recap=recapOf(t);
+    if(state.route==='memory-photo')return '';
+    return chip('maRecap',recap?'↻':'✨',recap?(!jmDemo&&recap.hash!==contentHash(t)?'Update recap':'Write it again'):'Write my recap',!recap||(!jmDemo&&recap.hash!==contentHash(t)),!hasContent(t));
+  };
+  window.jhMemoryComposer=()=>{const t=state.route==='memory-trip'?jmTrip():null,recap=t&&recapOf(t);return recap?.question&&!busy.has(t.id)&&!jmDemo?{ph:'Answer Pip’s question…',act:'memory'}:null;};
+  window.jhMemoryAnswer=text=>{const t=jmTrip();if(!t)return;window.jhPipSay(text,{},'me');void saveAnswer(t,text);};
+
   // ---------- Wiring ----------
   A.maRecap=()=>{const t=jmTrip();if(t)void writeRecap(t);};
   A.maReflect=()=>void reflectAll();
@@ -118,14 +167,14 @@
 
   const maTrip=V['memory-trip'];
   V['memory-trip']=function(){
-    const view=maTrip.apply(this,arguments),t=wide?.matches&&jmCache.loaded!==false?jmTrip():null;
+    const view=maTrip.apply(this,arguments),t=wide?.matches&&jmCache.loaded!==false&&!pipOn()?jmTrip():null;
     if(!t||!view?.body?.includes('<div class="jm-tabs">'))return view;
     view.body=view.body.replace('<div class="jm-tabs">',tripPanel(t)+'<div class="jm-tabs">');return view;
   };
   const maHub=V.memories;
   V.memories=function(){
     const view=maHub.apply(this,arguments),mark='<section><div class="jm-section-head"><h2>Recent memories';
-    if(!wide?.matches||!view?.body?.includes(mark))return view;
+    if(!wide?.matches||pipOn()||!view?.body?.includes(mark))return view;
     view.body=view.body.replace(mark,hubPanel()+mark);return view;
   };
 })();

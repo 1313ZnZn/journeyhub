@@ -9,7 +9,7 @@ const key=(env,name,fallback)=>{try{const value=JSON.parse(env(name)||'{}').defa
 export function plannerAdjust(raw){
  if(raw==null)return null;
  if(typeof raw!=='object'||Array.isArray(raw))fail('INVALID_INPUT','Choose a valid change to your trip.');
- const allowed=['budgetAmount','budgetCurrency','budgetScope','dayEnd','days','date'],out={};
+ const allowed=['budgetAmount','budgetCurrency','budgetScope','dayStart','dayEnd','days','date'],out={};
  for(const [k,v] of Object.entries(raw)){if(!allowed.includes(k))fail('INVALID_INPUT','Choose a valid change to your trip.');out[k]=v;}
  return Object.keys(out).length?out:null;
 }

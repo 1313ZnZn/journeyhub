@@ -55,3 +55,15 @@
 @media(min-width:1024px) and (prefers-reduced-motion:reduce){
  .fc.is-fixing .fc-slot.is-kept,.pf-card,.pf-scrim{animation:none}
 }
+@media(min-width:1024px){
+ .pf-trip>strong{font-size:15px}
+ .pf-trip-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .pf-field{display:grid;gap:4px;min-width:0}
+ .pf-field:last-child{grid-column:1/-1}
+ .pf-field small{color:var(--ink-3);font-size:12px;font-weight:650}
+ .pf-field :is(input,select){width:100%;min-width:0;height:40px;padding:0 10px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:rgba(8,8,14,.4);color:var(--ink);font:650 14px var(--font);color-scheme:dark}
+ .pf-field :is(input,select):focus{outline:0;border-color:var(--forest)}
+ .pf-trip-error{margin:0;color:#ffb3b3;font-size:12.5px}
+ .pf-trip-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+ .pf-card:not(.is-inline) .pf-trip-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}

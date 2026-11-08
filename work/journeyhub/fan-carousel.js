@@ -358,7 +358,7 @@
       const doneMatch=view.bar?.match(/<button class="btn-text" (data-act="[^"]+"(?: data-a="[^"]+")?)/);doneAttrs=doneMatch?doneMatch[1]:'data-act="pdFinish"';
       const root=document.createElement('template');root.innerHTML=view.body;
       const content=root.content.querySelector('.content')||root.content.firstElementChild;if(!content)return view;
-      content.querySelectorAll('.jp-deck,.jp-swipe-actions,.pd-card-credit,.pd-card-details,.jp-swipe-empty,.jp-done,.jp-small-note,.ix-note').forEach(el=>el.remove());
+      content.querySelectorAll('.jp-deck,.jp-swipe-actions,.pd-card-credit,.pd-card-details,.jp-swipe-empty,.jp-done,.jp-small-note,.ix-note,.jp-picks-complete,.pd-error').forEach(el=>el.remove());
       const maybe=maybeList().length;
       content.insertAdjacentHTML('beforeend','<section class="fc has-piles is-dealt" aria-label="Your piles"><div class="fc-dealt">'+(typeof tchAvatar==='function'?tchAvatar('fc-dealt-av'):'')+'<div><strong>All '+plural(pd.places.length,'card')+' dealt 🎉</strong><p>'+(pd.wanted.length?'Ready to plan your '+plural(pd.wanted.length,'Must go place')+(maybe?', with '+maybe+' in Maybe to fill any free time':'')+'.':'Drag a few places into Must go, then plan your trip.')+' Drag places between piles, or click one to see its card again.</p></div></div><div class="fc-piles">'+trayHTML()+sidePilesHTML()+'</div></section>');
       view.body=root.innerHTML.replace('jp-swipe-page','jp-swipe-page fc-page');

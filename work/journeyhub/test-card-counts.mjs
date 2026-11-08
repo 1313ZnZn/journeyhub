@@ -12,7 +12,7 @@ function fixture({days,sparse=false,underfillFirst=false,oneCategory=false}={}){
  const input={city:'Shanghai',date:'2026-11-10',prompt:oneCategory?'Quiet gardens':'Gardens, museums, historic sites and coffee',guests:2,days,dayStart:'09:00',dayEnd:'21:00',transport:'drive'};
  const rows=new Map(),calls=[],ranks=[];let rankingCalls=0;
  const rpc=async(name,args)=>{
-  if(name==='journeyhub_discovery_quota')return null;
+  if(name==='journeyhub_discovery_quota'||name==='journeyhub_refresh_quota')return null;
   if(name==='journeyhub_plan_dates_check')return {available:true};
   if(name==='journeyhub_trip_history_get')return rows.get(args.p_id)||null;
   if(name==='journeyhub_trip_history_save'){

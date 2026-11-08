@@ -44,7 +44,7 @@ function fixture(options={}){
    if(options.putResult)return options.putResult;
    return {ok:true,savedAt:REV};
   }
-  if(name==='journeyhub_discovery_quota'){quota++;return null;}
+  if(name==='journeyhub_discovery_quota'||name==='journeyhub_refresh_quota'){quota++;return null;}
   throw Error('Unexpected RPC '+name);
  };
  const fetcher=async(url,init={})=>{
@@ -298,7 +298,7 @@ test('initial discovery and newly generated plan both persist labels, including 
   location:{latitude:31.23,longitude:121.48+i*.001},businessStatus:'OPERATIONAL'}));
  let version=0;
  const rpc=async(name,a)=>{
-  if(name==='journeyhub_discovery_quota')return null;
+  if(name==='journeyhub_discovery_quota'||name==='journeyhub_refresh_quota')return null;
   if(name==='journeyhub_plan_dates_check')return {available:true};
   if(name==='journeyhub_trip_history_get'){const h=records.get(a.p_id);return h?.userId===a.p_user_id?structuredClone(h):null;}
   if(name==='journeyhub_trip_history_save'){

@@ -200,7 +200,7 @@ export async function historyAction(context){
     const row=await getHistory(rpc,user.id,value.id);
     if(isSampleHistory(row)||hasSampleIds(row))return hydrateHistory(row,context);
     const saved=await historyDisplay(row,context);
-    await rpc('journeyhub_discovery_quota',{p_user_id:user.id});
+    await rpc('journeyhub_refresh_quota',{p_user_id:user.id});
     const result=await hydrateHistory(row,context,{selectedOnly:!value.allCandidates,labels:saved?.payload.places||[]});
     const stored=await persistDisplaySnapshot(rpc,user.id,row,result.places);
     if(['revision_changed','removed','not_found'].includes(stored?.reason))fail('HISTORY_CHANGED','This itinerary changed. Reopen it to see the latest version.',409);

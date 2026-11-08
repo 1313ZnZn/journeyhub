@@ -94,7 +94,7 @@
   V['ai-picks']=function(){
     const view=previous.apply(this,arguments);
     if(!wide?.matches||!pd.mode)return view;
-    if(pd.fixRemove)view.body=view.body.replace('class="fc"','class="fc is-fixing"').replace('<div class="fc-days">','<p class="pf-hint">'+ic('info',15)+'Click a place to put it back, then press Done.</p><div class="fc-days">');
+    if(pd.fixRemove)view.body=view.body.replace('class="fc"','class="fc is-fixing"').replace('<div class="fc-piles">','<p class="pf-hint">'+ic('info',15)+'Drag a few Must go places to Maybe or Not this time (or click one to put it back), then press Plan.</p><div class="fc-piles">');
     if(showing()&&!(typeof window.jhPipShowing==='function'&&window.jhPipShowing()))view.body+=dialogHTML();
     return view;
   };

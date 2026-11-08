@@ -50,6 +50,9 @@
     if(from==='pip'&&!openPref)peek(text);
     return msg;
   }
+  // Other desktop features (the place debate) speak through Pip and use its connection.
+  window.jhPipSay=(text,extra={})=>{if(!visible())return;say('pip',text,extra);sync();};
+  window.jhPipPost=payload=>pipPost(payload);
   const once=(key,marker,fn)=>{if(!key)return;const msgs=load(key);if(msgs.some(m=>m.marker===marker))return;fn(marker);};
 
   // Light formatting: **bold** only; everything else is escaped.
@@ -96,7 +99,7 @@
       if(centreRoute())return ideas.map((x,i)=>chip('pipIdea',i,(short[x.icon]||['✨'])[0],(short[x.icon]||[0,'An idea'])[1])).join('')+chip('pipSurprise',null,'✨','Just plan it for me');
       return '<span class="pip-chips-label">Not sure where to start? Tap one</span>'+ideas.map((x,i)=>'<button type="button" class="pip-idea" data-act="pipIdea" data-a="'+i+'"><span aria-hidden="true">'+(em[x.icon]||'✨')+'</span>'+esc(x.text)+'</button>').join('')+chip('pipSurprise',null,'✨','Just plan it for me');
     }
-    if(stage===1&&live()&&!pd.busy){const n=pd.wanted.length;return (n?chip('pdFinish',null,'✨','Plan '+plural(n,'place'),true):'')+(pd.undo.length?chip('pdUndo',null,'↩️','Undo'):'');}
+    if(stage===1&&live()&&!pd.busy){const n=pd.wanted.length,m=typeof window.jhDebateReady==='function'&&window.jhDebateReady();return (n?chip('pdFinish',null,'✨','Plan '+plural(n,'place'),true):'')+(m?chip('pdbOpen',null,'🎤','Let two Maybes debate'):'')+(pd.undo.length?chip('pdUndo',null,'↩️','Undo'):'');}
     if(stage===2&&live()&&pd.plan&&!pd.busy)return chip('tuTab','itinerary','🗓️','Open the timetable')+(pd.sample?'':chip('tcConfirm',null,'🎒','Create my trip',true));
     if(stage===3&&window.jhCalendarAgent?.target?.())return window.jhCalendarAgent.prompts().map((p,i)=>chip('pipAsk',i,{clock:'🕘',map:'🧭',food:'🍜',leaf:'🌿',wallet:'💸'}[p.icon]||'✨',p.label)).join('');
     return '';

@@ -42,7 +42,7 @@
       return '<article'+attrs+'>'+pdPhotoHTML(p)+'<div class="fc-shade"></div>'+(typeof jhBuddy==='function'?'<span class="fc-buddy">'+jhBuddy(p,on?50:40,on?'smile':'smile')+'</span>':'')+
         (on?'':'<button type="button" class="fc-peek" data-act="fcFocus" data-a="'+esc(p.id)+'" tabindex="-1" aria-label="Show '+esc(p.name)+'"></button>')+
         (on?'<span class="fc-pull" aria-hidden="true">'+fcUpIc+'Drag to a pile</span>':'')+
-      '<div class="fc-copy"><span class="fc-tag">'+esc(pd.sample?'Sample place':'Place')+'</span><h2>'+esc(p.name)+'</h2>'+(on&&typeof pdReviewHTML==='function'?pdReviewHTML(p):'')+'</div></article>';
+      '<div class="fc-copy">'+(on&&typeof window.jhRankBadge==='function'?window.jhRankBadge(p):'')+'<span class="fc-tag">'+esc(pd.sample?'Sample place':'Place')+'</span><h2>'+esc(p.name)+'</h2>'+(on&&typeof pdReviewHTML==='function'?pdReviewHTML(p):'')+'</div></article>';
     }
     const e=item.exp;
     return '<article'+attrs+'><img class="fc-photo" src="'+esc(ixPhoto(e))+'" alt="'+esc(ixAlt(e))+'" draggable="false" loading="lazy"><div class="fc-shade"></div>'+

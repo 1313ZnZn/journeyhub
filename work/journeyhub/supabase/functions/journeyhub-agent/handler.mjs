@@ -12,6 +12,7 @@ import {plannerTaskAction,runPlannerTask,plannerRPCError} from './planner-tasks.
 import {pipChat} from './pip-chat.mjs';
 import {placeDebate} from './pip-debate.mjs';
 import {memoryRecap} from './pip-memory.mjs';
+import {leaderboard,debateResult} from './leaderboard.mjs';
 
 function keyFrom(env,name,fallback){try{const value=JSON.parse(env(name)||'{}').default;if(typeof value==='string'&&value)return value;}catch{}return env(fallback)||'';}
 function backendConfig(env){return {url:(env('SUPABASE_URL')||'').replace(/\/+$/,''),publicKey:keyFrom(env,'SUPABASE_PUBLISHABLE_KEYS','SUPABASE_ANON_KEY'),serviceKey:keyFrom(env,'SUPABASE_SECRET_KEYS','SUPABASE_SERVICE_ROLE_KEY')};}
@@ -88,6 +89,8 @@ export function createAgentHandler({envGet,fetchImpl=fetch,rpc:injectedRPC,authe
       const user=await measure('auth',()=>authenticate(req)),value=await boundedJSON(req);timing.action(value?.action);
       if(value?.action==='amap_config')return reply(amapBrowserConfig(env,db.serviceKey,now()));
       if(value?.action==='pip_chat')return reply(await pipChat({value,user,env,fetcher:fetchImpl,rpc,now:now()}));
+      if(value?.action==='leaderboard')return reply(await leaderboard({value,rpc}));
+      if(value?.action==='debate_result')return reply(await debateResult({value,user,rpc,now:now(),secret:env('JOURNEYHUB_DISCOVERY_SIGNING_KEY')||db.serviceKey}));
       if(value?.action==='memory_recap')return reply(await memoryRecap({value,user,env,fetcher:fetchImpl,rpc}));
     if(value?.action==='place_debate')return reply(await placeDebate({value,user,env,fetcher:fetchImpl,rpc,now:now(),secret:env('JOURNEYHUB_DISCOVERY_SIGNING_KEY')||db.serviceKey}));
       if(value?.action==='calendar_weather')return reply(await calendarWeather(value.city,{env,fetcher:fetchImpl,now:now()}));

@@ -1,0 +1,51 @@
+/* Pip on the Travel memories pages (desktop): trip recap, reflection question, travel reflection. */
+@media(min-width:1024px){
+ #app .ma-card{display:grid;gap:12px;margin:18px var(--page-pad,40px) 6px;padding:20px 22px;border:1px solid rgba(197,255,72,.28);border-radius:24px;background:radial-gradient(120% 90% at 0 0,rgba(197,255,72,.08),transparent 55%),rgba(255,255,255,.04);color:var(--ink);font-family:var(--font)}
+ #app .jm-hub>.ma-card{margin:0}
+ #app .ma-card:not(.ma-hubcard){box-sizing:border-box;max-width:calc(100% - 2 * var(--page-pad,40px))}
+ .ma-head{display:flex;align-items:center;gap:12px}
+ .ma-head strong{display:block;font-size:15px}
+ .ma-head small{display:block;color:var(--ink-3);font-size:12px}
+ .ma-av{width:40px;height:40px;flex:none}
+ .ma-av-sm{width:24px;height:24px;flex:none;vertical-align:middle}
+ .ma-lead{margin:0;color:var(--ink-2);font-size:14.5px;line-height:1.55;max-width:70ch}
+ .ma-title{margin:0;font-size:24px;font-weight:800;letter-spacing:-.01em}
+ .ma-story{margin:0;font-size:16px;line-height:1.65;max-width:72ch}
+ .ma-w{display:inline;opacity:0;animation:maWord .45s var(--d) ease both}
+ .ma-mood{display:flex;flex-wrap:wrap;gap:6px}
+ .ma-mood span{padding:3px 10px;border-radius:999px;background:rgba(197,255,72,.12);color:var(--forest);font-size:12px;font-weight:750;text-transform:capitalize}
+ .ma-highlights,.ma-patterns{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+ .ma-highlights li{display:grid;gap:2px;padding:10px 14px;border-left:3px solid var(--forest);border-radius:4px 14px 14px 4px;background:rgba(255,255,255,.04)}
+ .ma-highlights b{font-size:13px}
+ .ma-highlights span{color:var(--ink-2);font-size:14px}
+ .ma-patterns li{position:relative;padding-left:22px;color:var(--ink-2);font-size:14.5px}
+ .ma-patterns li::before{content:'✦';position:absolute;left:2px;color:var(--forest)}
+ .ma-fav{margin:0;color:var(--ink-2);font-size:14px}
+ .ma-q{display:flex;align-items:center;gap:8px;margin:0;color:var(--ink);font-weight:650}
+ .ma-ask{display:grid;gap:8px;padding:14px;border-radius:16px;background:rgba(255,255,255,.04)}
+ .ma-ask label{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14.5px}
+ .ma-ask textarea{width:100%;min-height:64px;padding:10px 12px;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:rgba(8,8,14,.35);color:var(--ink);font:500 14px/1.5 var(--font);resize:vertical}
+ .ma-ask textarea:focus{outline:0;border-color:var(--forest)}
+ .ma-past summary{cursor:pointer;color:var(--ink-2);font-size:13px;font-weight:700}
+ .ma-past ul{display:grid;gap:8px;margin:8px 0 0;padding:0;list-style:none}
+ .ma-past li{display:grid;gap:2px;font-size:14px}
+ .ma-past small{color:var(--ink-3)}
+ .ma-next{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border-radius:16px;background:linear-gradient(90deg,rgba(197,255,72,.12),rgba(255,255,255,.03))}
+ .ma-next small{display:block;color:var(--forest);font-size:12px;font-weight:750}
+ .ma-next strong{display:block;margin-top:2px;font-size:15px;line-height:1.4}
+ .ma-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+ .ma-foot{justify-content:flex-end}
+ .ma-go{height:40px;padding:0 18px;border:0;border-radius:12px;background:var(--forest);color:var(--forest-ink);font:800 14px var(--font);white-space:nowrap;cursor:pointer}
+ .ma-go:disabled{opacity:.45;cursor:default}
+ .ma-again{height:34px;padding:0 14px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:none;color:var(--ink-2);font:700 13px var(--font);cursor:pointer}
+ .ma-again.is-primary{border-color:var(--forest);color:var(--forest)}
+ .ma-changed{color:var(--ink-3);font-size:12.5px}
+ .ma-privacy{margin:0;color:var(--ink-3);font-size:12px}
+ .ma-error{margin:0;color:#ffb3b3;font-size:13.5px}
+ .ma-typing{display:flex;align-items:center;gap:6px;margin:0;color:var(--ink-2);font-size:14px}
+ .ma-typing i{width:7px;height:7px;border-radius:50%;background:var(--forest);animation:maDot 1s ease-in-out infinite}
+ .ma-typing i:nth-child(2){animation-delay:.15s}.ma-typing i:nth-child(3){animation-delay:.3s}
+ @keyframes maWord{from{opacity:0;filter:blur(3px)}to{opacity:1;filter:none}}
+ @keyframes maDot{50%{transform:translateY(-4px);opacity:.5}}
+}
+@media(min-width:1024px) and (prefers-reduced-motion:reduce){.ma-w{animation:none;opacity:1}.ma-typing i{animation:none}}

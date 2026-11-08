@@ -128,6 +128,11 @@
     show(CITIES[(cityIndex()+1)%3]);
   },TOUR_MS);
   calm?.addEventListener?.('change',()=>{if(calm.matches)setPlaying(false);});
+  // Pause the hero's looping motion once it has scrolled out of view.
+  document.addEventListener('scroll',event=>{
+    const screen=event.target;if(!(screen instanceof Element)||!screen.matches('#app>.screen'))return;
+    const root=screen.querySelector('.ex-page');if(root)root.classList.toggle('is-past',screen.scrollTop>760);
+  },{capture:true,passive:true});
 
   const dxMobileHome=V.home;
   V.home=function(){

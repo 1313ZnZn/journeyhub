@@ -357,7 +357,7 @@
 
 /* Home trip details: every option visible at once in a compact grid, balanced with the chat box. */
 @media(min-width:1024px){
- #app .jl-home{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);grid-template-rows:auto 1fr auto auto auto}
+ #app .jl-home{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);grid-template-rows:auto auto auto 1fr auto}
  #app .jl-home>.jl-details{padding:20px 22px}
  #app .jl-home>.jl-details>summary{margin-bottom:12px}
  #app .jl-home .jl-details .ag-form{gap:12px!important}
@@ -373,7 +373,55 @@
  #app .jl-home .jh-home-options-body :is(small,.ag-prompts){grid-column:1/-1}
  #app .jl-home .jh-home-options-body small{margin-top:-4px!important;font-size:12px}
  #app .jl-home .jh-home-sample{justify-self:start;margin:0}
- #app .jl-home>.jl-composer{grid-row:2;align-self:stretch;display:flex;flex-direction:column}
- #app .jl-home>.jl-composer textarea{flex:1 1 auto;height:auto!important;min-height:160px;max-height:none!important}
+ #app .jl-home>.jl-composer{grid-row:2;align-self:start}
+ #app .jl-home>.jl-composer textarea{min-height:96px!important;height:96px}
  #app .jl-home .jh-home-options-body .jp-budget-scope{grid-column:span 2}
+}
+
+/* Home: full-sentence ideas under the chat box, stacked */
+@media(min-width:1024px){
+ #app .jl-home>.dk-ideas{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+ .dk-ideas-label{align-self:flex-start;text-align:left;margin:2px 0 2px 4px;color:var(--ink-3);font-size:12.5px;font-weight:650}
+ #app .jl-home>.dk-ideas>button{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;margin:0;padding:10px 16px 10px 12px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(20,18,30,.5);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);color:var(--ink);text-align:left;font:600 14px/1.4 var(--font);white-space:normal;cursor:pointer;transition:border-color .18s,background .18s,transform .18s var(--dx-ease)}
+ #app .jl-home>.dk-ideas>button:hover{border-color:rgba(197,255,72,.5);background:rgba(197,255,72,.06);transform:translateX(3px)}
+ #app .jl-home>.dk-ideas>button[aria-pressed=true]{border-color:rgba(197,255,72,.7);background:rgba(197,255,72,.1)}
+ .dk-idea-ic{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:11px;background:rgba(197,255,72,.12);color:var(--forest)}
+ .dk-idea-text{flex:1;min-width:0}
+ #app .jl-home>.dk-ideas>button>svg{flex:none;color:var(--ink-3)}
+ #app .jl-home>.dk-ideas>button[aria-pressed=true]>svg{color:var(--forest)}
+}
+
+/* Trip agent conversation: plan on the left, chat panel on the right */
+@media(min-width:1024px){
+ #app[data-route=trip-chat]>.bar .tch-avatar-header{display:none}
+ #app .tch-page.tch-desk{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:24px;align-items:stretch;max-width:1450px;width:100%;margin:0 auto;padding:8px 56px 32px;min-height:0}
+ .tch-aside{display:flex;flex-direction:column;gap:16px;min-height:0;overflow-y:auto;scrollbar-width:thin}
+ .tch-aside-card{display:flex;flex-direction:column;gap:10px;padding:20px;border:1px solid var(--dx-glass-line);border-radius:24px;background:var(--dx-glass);box-shadow:var(--dx-glass-shadow)}
+ .tch-aside-card h2{color:var(--ink);font:800 22px var(--font);letter-spacing:-.4px}
+ .tch-aside-day .tch-priorities{margin:0;padding:0;border:0;background:none}
+ .tch-aside-day .tch-priorities h2{display:none}
+ .tch-aside-day .tch-priorities ol{display:grid;gap:8px;margin:0;padding:0;list-style:none;counter-reset:tchs}
+ .tch-aside-day .tch-priorities li{counter-increment:tchs;display:grid;grid-template-columns:26px 1fr;column-gap:10px;padding:10px 12px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.03)}
+ .tch-aside-day .tch-priorities li:before{content:counter(tchs);grid-row:span 2;display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:rgba(197,255,72,.14);color:var(--forest);font:800 12px var(--font)}
+ .tch-aside-day .tch-priorities li span{color:var(--ink);font-size:14px;font-weight:700}
+ .tch-aside-day .tch-priorities li small{color:var(--ink-3);font-size:12.5px}
+ .tch-aside-empty{color:var(--ink-3);font-size:13.5px}
+ .tch-aside-can ul{display:grid;gap:9px;margin:2px 0 0;padding:0;list-style:none}
+ .tch-aside-can li{display:flex;align-items:center;gap:9px;color:var(--ink-2);font-size:14px}
+ .tch-aside-can li svg{flex:none;color:var(--forest)}
+ .tch-aside-can p{color:var(--ink-3);font-size:12.5px;line-height:1.5}
+ .tch-card{display:flex;flex-direction:column;gap:14px;min-height:0;padding:22px;border:1px solid var(--dx-glass-line);border-radius:26px;background:radial-gradient(420px 220px at 100% 0,rgba(197,255,72,.07),transparent 70%),var(--dx-glass);box-shadow:var(--dx-glass-shadow)}
+ .tch-card>.tch-history{flex:1;min-height:240px;padding:4px 6px 4px 0}
+ .tch-card .tch-welcome{max-width:80%;padding:16px 18px;border:1px solid rgba(255,255,255,.1);border-radius:6px 20px 20px 20px;background:rgba(255,255,255,.05);color:var(--ink);font-size:15px;line-height:1.55}
+ .tch-card .tch-messages{display:flex;flex-direction:column;gap:14px}
+ .tch-card .tch-message{max-width:82%;padding:14px 16px;border:1px solid rgba(255,255,255,.1);border-radius:6px 20px 20px 20px;background:rgba(255,255,255,.05)}
+ .tch-card .tch-message.tch-user{align-self:flex-end;border-color:rgba(197,255,72,.35);border-radius:20px 6px 20px 20px;background:rgba(197,255,72,.1)}
+ .tch-card .tch-speaker{margin-bottom:6px;color:var(--forest);font:800 11px var(--font);letter-spacing:.12em;text-transform:uppercase}
+ .tch-card .tch-message.tch-user .tch-speaker{color:var(--ink-3)}
+ .tch-card .tch-message>p{color:var(--ink);font-size:14.5px;line-height:1.55}
+ .tch-card .tch-error{border-radius:16px}
+ .tch-card>.tch-composer{flex:none;align-items:center;margin:0;border-top:1px solid rgba(255,255,255,.16)!important;padding:8px 8px 8px 16px;border-radius:22px}
+ .tch-card>.tch-composer textarea{margin:8px 0;max-height:140px;padding:0!important;border:0!important;outline:0!important;box-shadow:none!important;background:none!important;color:var(--ink);font:15px/1.45 var(--font)}
+ .tch-aside-day [data-tch-priorities]:empty:after{content:'Your saved stops for this day show up here once the agent has read your plan.';color:var(--ink-3);font-size:13.5px;line-height:1.5}
+ .tch-card>.tch-composer .tch-send{width:44px;height:44px;border-radius:14px}
 }

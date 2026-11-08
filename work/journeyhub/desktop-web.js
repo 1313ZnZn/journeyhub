@@ -62,6 +62,51 @@
     if(on){video.muted=true;if(calm?.matches)video.pause();else video.play()?.catch?.(()=>{});}
     else dkFilmTimer=setTimeout(()=>video.pause(),900);
   }
+  // Nav highlight that glides from the previous tab to the current one.
+  let dkInkLast=null;
+  function dkInk(nav){
+    const tab=nav.querySelector(':scope>.tab[aria-current=page]');
+    if(!tab){dkInkLast=null;return;}
+    let ink=nav.querySelector(':scope>.dx-ink');
+    if(!ink){nav.insertAdjacentHTML('afterbegin','<span class="dx-ink" aria-hidden="true"></span>');ink=nav.firstElementChild;}
+    nav.classList.add('has-ink');
+    const n=nav.getBoundingClientRect(),r=tab.getBoundingClientRect(),to={x:r.left-n.left,y:r.top-n.top,w:r.width};
+    const place=p=>{ink.style.transform='translate('+p.x+'px,'+p.y+'px)';ink.style.width=p.w+'px';};
+    if(dkInkLast&&!calm?.matches&&(dkInkLast.x!==to.x||dkInkLast.w!==to.w)){
+      ink.style.transition='none';place(dkInkLast);void ink.offsetWidth;ink.style.transition='';requestAnimationFrame(()=>place(to));
+    }else place(to);
+    dkInkLast=to;
+  }
+  // Numbers in the summary cards count up when a page opens.
+  function dkCount(){
+    if(calm?.matches)return;
+    const cells=app.querySelectorAll('.screen :is(.sd-kpi>b,.kpi>b)');
+    for(const cell of cells){
+      const walker=document.createTreeWalker(cell,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+      for(const node of nodes){
+        const text=node.nodeValue;if(!/\d/.test(text))continue;
+        const parts=text.split(/(\d[\d,]*(?:\.\d+)?)/);
+        const start=performance.now(),dur=900;
+        const frame=now=>{
+          if(!node.isConnected)return;
+          const t=Math.min(1,(now-start)/dur),k=1-Math.pow(1-t,3);
+          node.nodeValue=parts.map((part,i)=>{
+            if(i%2===0)return part;
+            const value=Number(part.replace(/,/g,'')),dec=(part.split('.')[1]||'').length,v=value*k;
+            const out=v.toFixed(dec);return part.includes(',')?Number(out).toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec}):out;
+          }).join('');
+          if(t<1)requestAnimationFrame(frame);else node.nodeValue=text;
+        };
+        requestAnimationFrame(frame);
+      }
+    }
+  }
+  // Glass panels: a light that follows the pointer.
+  document.addEventListener('pointermove',e=>{
+    if(!wide?.matches)return;
+    const panel=e.target.closest?.('.sd-card,.sd-kpi,.dk-agent,.jl-composer,.jl-details,.cal-month');if(!panel)return;
+    const r=panel.getBoundingClientRect();panel.style.setProperty('--mx',(e.clientX-r.left)+'px');panel.style.setProperty('--my',(e.clientY-r.top)+'px');
+  },{passive:true});
   function dkSync(){
     const route=state.route||'';
     if(app.dataset.route!==route)app.dataset.route=route;
@@ -76,12 +121,13 @@
       nav=app.querySelector(':scope>.tabbar');
       nav.dataset.dkAdded='1';
     }else if(!shell&&nav?.dataset.dkAdded){nav.remove();nav=null;}
-    if(shell&&nav){dkDecorateNav(nav);dkLiftActions(nav);dkEyebrow();}
+    if(shell&&nav){dkDecorateNav(nav);dkLiftActions(nav);dkEyebrow();dkInk(nav);}
     if(wide?.matches){dkBackdrop();dkFilm(route);}
     if(route!==lastRoute){
       if(lastRoute!==null&&wide?.matches&&!calm?.matches){
         app.dataset.enter='1';clearTimeout(enterTimer);
-        enterTimer=setTimeout(()=>{delete app.dataset.enter;},700);
+        enterTimer=setTimeout(()=>{delete app.dataset.enter;},1500);
+        dkCount();
       }
       lastRoute=route;
     }
@@ -89,7 +135,30 @@
 
   // On wide screens the home page shows trip details as a side panel, always open.
   const dkJourney=V.journey;
-  V.journey=function(){if(wide?.matches){if(typeof jlDetailsOpen!=='undefined')jlDetailsOpen=true;if(typeof jhHomeOptionsOpen!=='undefined')jhHomeOptionsOpen=true;}return dkJourney.apply(this,arguments);};
+  // Under the chat box, three full-sentence ideas replace the short interest tags; a click
+  // adds the sentence to the message box (and a second click takes it out again).
+  const dkIdeas=[['food','I want to eat where locals eat, from street food stalls to small family restaurants.'],['globe','Show me the city’s culture and art: museums, temples and creative neighbourhoods.'],['sun','Plan a relaxed day outdoors with parks, riverside walks and the best views.']];
+  V.journey=function(){
+    if(!wide?.matches)return dkJourney.apply(this,arguments);
+    if(typeof jlDetailsOpen!=='undefined')jlDetailsOpen=true;if(typeof jhHomeOptionsOpen!=='undefined')jhHomeOptionsOpen=true;
+    const view=dkJourney.apply(this,arguments);
+    if(!view?.body||!view.body.includes('jl-suggestions'))return view;
+    const t=document.createElement('template');t.innerHTML=view.body;
+    const box=t.content.querySelector('.jl-suggestions');
+    if(box){
+      const lines=String(ag.prefs.prompt||'').split('\n');
+      box.className='jl-suggestions dk-ideas';box.setAttribute('aria-label','Ideas to start with');
+      box.innerHTML='<span class="dk-ideas-label">Not sure where to start? Try one of these</span>'+dkIdeas.map(([icon,text],i)=>'<button type="button" data-act="dkHomeIdea" data-a="'+i+'" aria-pressed="'+lines.includes(text)+'">'+'<span class="dk-idea-ic">'+ic(icon,17)+'</span><span class="dk-idea-text">'+esc(text)+'</span>'+ic(lines.includes(text)?'check':'plus',16)+'</button>').join('');
+    }
+    view.body=t.innerHTML;return view;
+  };
+  A.dkHomeIdea=i=>{
+    const text=dkIdeas[+i]?.[1];if(!text)return;
+    const lines=String(ag.prefs.prompt||'').split('\n'),has=lines.includes(text);
+    ag.prefs.prompt=(has?lines.filter(x=>x!==text):[...lines.filter(Boolean),text]).join('\n').slice(0,1200);
+    if(typeof jpSavePrefs==='function')jpSavePrefs();render();
+    const field=app.querySelector('.jl-composer textarea');if(field){field.focus();field.setSelectionRange(field.value.length,field.value.length);}
+  };
   const dkJlDetails=A.jlDetails;
   A.jlDetails=function(){if(wide?.matches&&state.route==='journey'){const d=document.querySelector('.jl-home>.jl-details');if(d){d.open=true;d.querySelector('input,select,button')?.focus();return;}}return dkJlDetails.apply(this,arguments);};
 
@@ -227,6 +296,33 @@
     const after=view.after;view.after=function(){if(after)after.apply(this,arguments);const box=app.querySelector('#dk-agent-msg');if(box){box.value=dkAgentDraft;dkAgentSize(box);}};
     return view;
   };
+  // Trip agent conversation (desktop): the day at a glance on the left, the chat in a panel on
+  // the right with the same suggestions as the Calendar panel, so both look and work alike.
+  const dkChat=V['trip-chat'];
+  V['trip-chat']=function(){
+    const view=dkChat.apply(this,arguments);
+    if(!wide?.matches||!view?.body?.includes('tch-history'))return view;
+    const t=document.createElement('template');t.innerHTML=view.body;
+    const page=t.content.querySelector('.tch-page'),history=page?.querySelector('.tch-history'),composer=page?.querySelector('.tch-composer'),priorities=history?.querySelector('[data-tch-priorities]');
+    if(!page||!history||!composer)return view;
+    const day=state.params?.day,label=day?'Day '+day:'this day';
+    const aside=document.createElement('aside');aside.className='tch-aside';
+    aside.innerHTML='<section class="tch-aside-card"><span class="dk-agent-kicker">'+ic('calendar',13)+'Your plan</span><h2>'+esc(label)+'</h2><div class="tch-aside-day"></div></section><section class="tch-aside-card tch-aside-can"><span class="dk-agent-kicker">'+ic('sparkle',13)+'What I can do</span><ul><li>'+ic('clock',15)+'Check opening hours and timing</li><li>'+ic('map',15)+'Reorder stops to cut travel</li><li>'+ic('food',15)+'Add places to eat that fit the route</li><li>'+ic('wallet',15)+'Find ways to spend less</li></ul><p>Changes are suggested first. Nothing changes until you tap Apply.</p></section>';
+    if(priorities)aside.querySelector('.tch-aside-day').append(priorities);else aside.querySelector('.tch-aside-day').innerHTML='<p class="tch-aside-empty">Your saved stops for '+esc(label)+' appear here.</p>';
+    const card=document.createElement('section');card.className='tch-card';card.setAttribute('aria-label','Conversation with your trip agent');
+    card.innerHTML='<header class="dk-agent-head">'+tchAvatar('dk-agent-avatar')+'<span><strong>Trip agent</strong><small>Planning '+esc(label)+' with you</small></span><i class="dk-agent-dot" title="Ready"></i></header>';
+    const chips=document.createElement('div');chips.className='dk-agent-chips tch-chips';
+    chips.innerHTML=dkAgentPrompts.map((p,i)=>'<button type="button" data-act="dkChatIdea" data-a="'+i+'">'+ic(p[0],15)+p[1]+'</button>').join('');
+    composer.classList.add('dk-agent-input');
+    card.append(history,chips,composer);
+    page.classList.add('tch-desk');page.replaceChildren(aside,card);
+    view.body=t.innerHTML;return view;
+  };
+  A.dkChatIdea=i=>{
+    const p=dkAgentPrompts[+i],ctx=typeof tchActive==='function'?tchActive():null;if(!p||!ctx)return;
+    const day=state.params?.day;ctx.draft=p[2].replace('{day}',day?'Day '+day:'this day');void A.tchSend();
+  };
+
   // Trip agent chat panel on the Calendar: suggestions and a message box open the trip
   // conversation and send the message there, so travelers can start talking right away.
   let dkAgentDraft='',dkAgentTarget=null,dkAgentTimer=null;
@@ -276,6 +372,24 @@
   const dkSignInNow=A.dkSignIn,dkContinueNow=A.dkContinue;
   A.dkSignIn=mode=>dkLeave(mode,'signin',()=>dkSignInNow(mode));
   A.dkContinue=mode=>dkLeave(mode,'continue',()=>dkContinueNow(mode));
+
+  // Background updates (status polls, snapshot syncs) re-render the page even when nothing on
+  // it changed, which rebuilds maps and images and makes the page flicker. On these pages a
+  // render that the traveler did not trigger is skipped when the page would look the same.
+  const dkSteady=new Set(['orders','place-plan','reserved-trips','trip-history','s-today','s-insights','s-sessions','s-orders','s-bookings']);
+  let dkLastSig='',dkUserAt=0;
+  for(const type of ['pointerdown','click','keydown','input','change','submit'])document.addEventListener(type,()=>{dkUserAt=performance.now();},true);
+  const dkInnerRender=render;
+  render=function(){
+    let sig='';
+    if(wide?.matches&&state.role&&dkSteady.has(state.route)&&typeof V[state.route]==='function'){
+      try{const v=V[state.route]();sig=JSON.stringify([state.role,state.route,state.params,v.bar||'',v.body||'',v.foot||'',v.tabs?tabbar():'',sheetView(),toastView()]);}catch{sig='';}
+      const userDriven=performance.now()-dkUserAt<1200;
+      if(sig&&!userDriven&&sig===dkLastSig&&app.dataset.route===state.route&&app.querySelector(':scope>.screen'))return;
+    }
+    dkLastSig=sig;
+    return dkInnerRender.apply(this,arguments);
+  };
 
   new MutationObserver(dkSync).observe(app,{childList:true});
   wide?.addEventListener?.('change',()=>{dkClose();render();});

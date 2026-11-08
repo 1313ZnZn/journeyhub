@@ -1,0 +1,69 @@
+/* Desktop motion shared by every page, in the spirit of Explore: the city backdrop drifts with
+   scroll, page content cascades in, panels rise as they scroll into view, glass panels catch a
+   soft light under the pointer, and the nav highlight glides between tabs.
+   Only transform/opacity-type properties animate, so the work stays on the compositor. */
+@media(min-width:1024px) and (prefers-reduced-motion:no-preference){
+ /* Backdrop: composited fog, and a slow parallax tied to the page scroll */
+ .dx-fog svg{will-change:transform;backface-visibility:hidden}
+ body{timeline-scope:--dxs}
+ #app[data-shell=on]>.screen{scroll-timeline:--dxs block}
+ @supports (animation-timeline:scroll()){
+  .dx-bg-scene{animation:dxSceneScroll linear both;animation-timeline:--dxs;animation-range:0 900px;will-change:transform}
+  .dx-fog{animation:dxFogScroll linear both;animation-timeline:--dxs;animation-range:0 900px}
+ }
+ @keyframes dxSceneScroll{to{translate:0 -36px;scale:1.05}}
+ @keyframes dxFogScroll{to{translate:0 -60px;opacity:.75}}
+
+ /* Page entrance: header first, then content in a cascade */
+ #app[data-enter]>.bar :is(.bar-title,h1){animation:dmTitle .7s var(--dx-ease) both}
+ #app[data-enter]>.bar .bar-sub{animation:dmTitle .7s var(--dx-ease) .08s both}
+ #app[data-enter]>.bar[data-dx-eyebrow]:before{animation:dmFade .6s ease both}
+ @keyframes dmTitle{from{opacity:0;translate:0 22px;clip-path:inset(0 0 100% 0)}to{opacity:1;translate:0 0;clip-path:inset(0 0 -20% 0)}}
+ @keyframes dmFade{from{opacity:0}}
+ #app[data-enter] :is(.sd-kpis,.sd-grid,.sd-side,.sd-order-grid,.jl-home,.cal-side,.dk-ideas,.sd-subtabs)>*{animation:dmRise .7s var(--dx-ease) both;animation-delay:calc(.1s + var(--dm-i,0) * 55ms)}
+ :is(.sd-kpis,.sd-grid,.sd-side,.sd-order-grid,.jl-home,.cal-side,.dk-ideas)>:nth-child(2){--dm-i:1}
+ :is(.sd-kpis,.sd-grid,.sd-side,.sd-order-grid,.jl-home,.cal-side,.dk-ideas)>:nth-child(3){--dm-i:2}
+ :is(.sd-kpis,.sd-grid,.sd-side,.sd-order-grid,.jl-home,.cal-side,.dk-ideas)>:nth-child(4){--dm-i:3}
+ :is(.sd-kpis,.sd-grid,.sd-side,.sd-order-grid,.jl-home,.cal-side,.dk-ideas)>:nth-child(n+5){--dm-i:4}
+ @keyframes dmRise{from{opacity:0;translate:0 26px;scale:.985}}
+
+ /* Panels further down rise in as they scroll into view */
+ @supports (animation-timeline:view()){
+  #app[data-shell=on] .screen :is(.sd-card,.sd-order,.card,.tl-day,.cal-inline-map,.dk-agent,.ta-card,.sf-session-card,.ub-staff-page .li){animation:dmView linear both;animation-timeline:view();animation-range:entry 0px entry 200px}
+  #app[data-enter][data-shell=on] .screen :is(.sd-grid,.sd-side,.cal-side)>:is(.sd-card,.dk-agent,.cal-inline-map){animation:dmRise .7s var(--dx-ease) both;animation-delay:calc(.1s + var(--dm-i,0) * 55ms);animation-timeline:auto}
+ }
+ @keyframes dmView{from{opacity:0;translate:0 40px;scale:.97}to{opacity:1;translate:0 0;scale:1}}
+
+ /* Glass panels: a soft light follows the pointer, and they lift slightly */
+ :is(.sd-card,.sd-kpi,.dk-agent,.jl-composer,.jl-details,.cal-month){position:relative;isolation:isolate}
+ :is(.sd-card,.sd-kpi,.dk-agent,.jl-composer,.jl-details,.cal-month)::after{content:'';position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;background:radial-gradient(420px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,.075),transparent 60%);opacity:0;transition:opacity .35s ease}
+ :is(.sd-card,.sd-kpi,.dk-agent,.jl-composer,.jl-details,.cal-month):hover::after{opacity:1}
+ :is(.sd-card,.dk-agent,.cal-month,.sd-order){transition:transform .35s var(--dx-ease),border-color .25s,box-shadow .35s}
+ :is(.sd-card,.dk-agent,.cal-month):hover{border-color:rgba(255,255,255,.18);box-shadow:0 28px 70px rgba(0,0,0,.32)}
+ .sd-order:hover{transform:translateY(-3px)}
+
+ /* Nav: the active highlight glides to the new tab */
+ #app[data-shell=on]>.tabbar{position:relative}
+ .dx-ink{position:absolute;top:0;left:0;z-index:0;height:40px;border-radius:14px;background:#26301d;box-shadow:0 0 14px rgba(197,255,72,.07);pointer-events:none;transition:transform .5s var(--dx-ease),width .5s var(--dx-ease)}
+ #app[data-shell=on]>.tabbar.has-ink .tab[aria-current=page]{background:transparent;box-shadow:none}
+ #app[data-shell=on]>.tabbar .tab{position:relative;z-index:1}
+
+ /* Meters and rings fill in on arrival */
+ #app[data-enter] :is(.sd-meter i,.meter>span){animation:dmGrow 1s var(--dx-ease) .25s both;transform-origin:left center}
+ @keyframes dmGrow{from{scale:0 1}}
+ #app[data-enter] .sd-ring circle:last-child{animation:dmRing 1.2s var(--dx-ease) .2s both}
+ @keyframes dmRing{from{stroke-dasharray:0 400}}
+ #app[data-enter] .sd-chart .bars i{animation:dmBar .9s var(--dx-ease) both;transform-origin:bottom}
+ #app[data-enter] .sd-chart .bars .wk:nth-child(2) i{animation-delay:.08s}
+ #app[data-enter] .sd-chart .bars .wk:nth-child(3) i{animation-delay:.16s}
+ #app[data-enter] .sd-chart .bars .wk:nth-child(4) i{animation-delay:.24s}
+ @keyframes dmBar{from{scale:1 0}}
+}
+
+/* Performance: live backdrop blur behind every panel re-renders whenever the fog or the page
+   moves. In-app panels use a richer tint instead, so motion stays smooth. */
+@media(min-width:1024px){
+ :root{--dx-glass:linear-gradient(160deg,rgba(36,33,50,.86),rgba(18,17,26,.82))}
+ #app[data-shell=on] :not(.dk-palette *){-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+ #app[data-shell=on]>.tabbar{background:rgba(16,14,24,.86)}
+}

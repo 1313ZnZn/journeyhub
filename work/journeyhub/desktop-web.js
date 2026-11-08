@@ -62,6 +62,51 @@
     if(on){video.muted=true;if(calm?.matches)video.pause();else video.play()?.catch?.(()=>{});}
     else dkFilmTimer=setTimeout(()=>video.pause(),900);
   }
+  // Nav highlight that glides from the previous tab to the current one.
+  let dkInkLast=null;
+  function dkInk(nav){
+    const tab=nav.querySelector(':scope>.tab[aria-current=page]');
+    if(!tab){dkInkLast=null;return;}
+    let ink=nav.querySelector(':scope>.dx-ink');
+    if(!ink){nav.insertAdjacentHTML('afterbegin','<span class="dx-ink" aria-hidden="true"></span>');ink=nav.firstElementChild;}
+    nav.classList.add('has-ink');
+    const n=nav.getBoundingClientRect(),r=tab.getBoundingClientRect(),to={x:r.left-n.left,y:r.top-n.top,w:r.width};
+    const place=p=>{ink.style.transform='translate('+p.x+'px,'+p.y+'px)';ink.style.width=p.w+'px';};
+    if(dkInkLast&&!calm?.matches&&(dkInkLast.x!==to.x||dkInkLast.w!==to.w)){
+      ink.style.transition='none';place(dkInkLast);void ink.offsetWidth;ink.style.transition='';requestAnimationFrame(()=>place(to));
+    }else place(to);
+    dkInkLast=to;
+  }
+  // Numbers in the summary cards count up when a page opens.
+  function dkCount(){
+    if(calm?.matches)return;
+    const cells=app.querySelectorAll('.screen :is(.sd-kpi>b,.kpi>b)');
+    for(const cell of cells){
+      const walker=document.createTreeWalker(cell,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+      for(const node of nodes){
+        const text=node.nodeValue;if(!/\d/.test(text))continue;
+        const parts=text.split(/(\d[\d,]*(?:\.\d+)?)/);
+        const start=performance.now(),dur=900;
+        const frame=now=>{
+          if(!node.isConnected)return;
+          const t=Math.min(1,(now-start)/dur),k=1-Math.pow(1-t,3);
+          node.nodeValue=parts.map((part,i)=>{
+            if(i%2===0)return part;
+            const value=Number(part.replace(/,/g,'')),dec=(part.split('.')[1]||'').length,v=value*k;
+            const out=v.toFixed(dec);return part.includes(',')?Number(out).toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec}):out;
+          }).join('');
+          if(t<1)requestAnimationFrame(frame);else node.nodeValue=text;
+        };
+        requestAnimationFrame(frame);
+      }
+    }
+  }
+  // Glass panels: a light that follows the pointer.
+  document.addEventListener('pointermove',e=>{
+    if(!wide?.matches)return;
+    const panel=e.target.closest?.('.sd-card,.sd-kpi,.dk-agent,.jl-composer,.jl-details,.cal-month');if(!panel)return;
+    const r=panel.getBoundingClientRect();panel.style.setProperty('--mx',(e.clientX-r.left)+'px');panel.style.setProperty('--my',(e.clientY-r.top)+'px');
+  },{passive:true});
   function dkSync(){
     const route=state.route||'';
     if(app.dataset.route!==route)app.dataset.route=route;
@@ -76,12 +121,13 @@
       nav=app.querySelector(':scope>.tabbar');
       nav.dataset.dkAdded='1';
     }else if(!shell&&nav?.dataset.dkAdded){nav.remove();nav=null;}
-    if(shell&&nav){dkDecorateNav(nav);dkLiftActions(nav);dkEyebrow();}
+    if(shell&&nav){dkDecorateNav(nav);dkLiftActions(nav);dkEyebrow();dkInk(nav);}
     if(wide?.matches){dkBackdrop();dkFilm(route);}
     if(route!==lastRoute){
       if(lastRoute!==null&&wide?.matches&&!calm?.matches){
         app.dataset.enter='1';clearTimeout(enterTimer);
-        enterTimer=setTimeout(()=>{delete app.dataset.enter;},700);
+        enterTimer=setTimeout(()=>{delete app.dataset.enter;},1500);
+        dkCount();
       }
       lastRoute=route;
     }

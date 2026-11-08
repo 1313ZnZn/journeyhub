@@ -40,9 +40,9 @@
  .ex-scene.ex-front.is-on { transform: none; }
  .ex-back-stack { z-index: 1; }
  .ex-front-stack { z-index: 3; }
- .ex-kb { position: absolute; inset: 0; animation: exKenBurns 26s ease-in-out infinite alternate; transform-origin: 62% 72%; }
+ .ex-kb { position: absolute; inset: 0; will-change: transform; backface-visibility: hidden; animation: exKenBurns 26s ease-in-out infinite alternate; transform-origin: 62% 72%; }
  @keyframes exKenBurns { from { transform: scale(1); } to { transform: scale(1.055) translateX(-1%); } }
- .ex-tw { fill: #ffe2a8; animation: exTwinkle 3.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
+ .ex-tw { fill: #ffe2a8; opacity: .7; }
  @keyframes exTwinkle { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
  /* giant title sits between the sky and the skyline */
@@ -55,7 +55,7 @@
  .ex-fog { position: absolute; left: 0; right: 0; bottom: -4%; z-index: 4; pointer-events: none; }
  .ex-fog-a { height: 70%; }
  .ex-fog-b { height: 48%; }
- .ex-fog svg { position: absolute; left: 0; bottom: 0; width: 220%; height: 100%; display: block; }
+ .ex-fog svg { position: absolute; left: 0; bottom: 0; width: 220%; height: 100%; display: block; will-change: transform; backface-visibility: hidden; }
  .ex-fog-a svg { opacity: .78; animation: exDriftA 80s ease-in-out infinite alternate; }
  .ex-fog-b svg { opacity: .95; animation: exDriftB 56s ease-in-out infinite alternate; }
  @keyframes exDriftA { from { transform: translateX(0); } to { transform: translateX(-42%); } }
@@ -68,7 +68,7 @@
  .ex-orbit-wrap { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
  .ex-orbit { position: absolute; right: var(--orbit-right); top: var(--orbit-top); width: 0; height: 0; }
  .ex-ring { position: absolute; border-radius: 50%; left: calc(-1 * var(--r)); top: calc(-1 * var(--r)); width: calc(2 * var(--r)); height: calc(2 * var(--r)); border: 1px solid rgba(255, 255, 255, .3); }
- .ex-ring.r1 { --r: var(--R); animation: exSpin 48s linear infinite; }
+ .ex-ring.r1 { --r: var(--R); will-change: transform; animation: exSpin 48s linear infinite; }
  .ex-ring.r1::after { content: ""; position: absolute; top: -4px; left: calc(50% - 4px); width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, .85); box-shadow: 0 0 12px rgba(255, 255, 255, .8); }
  .ex-ring.r2 { --r: calc(var(--R) + 84px); border-color: rgba(255, 255, 255, .13); }
  @keyframes exSpin { to { transform: rotate(-360deg); } }
@@ -100,16 +100,16 @@
  .ex-bars { display: flex; gap: 6px; }
  .ex-bar { position: relative; width: 46px; height: 3px; padding: 0; border: 0; border-radius: 3px; background: rgba(255, 255, 255, .28); overflow: hidden; cursor: pointer; }
  .ex-bar::before { content: ""; position: absolute; inset: -12px 0; }
- .ex-bar i { position: absolute; inset: 0 auto 0 0; width: 0; background: #fff; border-radius: 3px; }
- .ex-bar.is-on i { width: 100%; }
+ .ex-bar i { position: absolute; inset: 0; transform: scaleX(0); transform-origin: left center; background: #fff; border-radius: 3px; }
+ .ex-bar.is-on i { transform: none; }
  .ex-bar.is-on.is-play i { animation: exFill 7s linear both; }
- @keyframes exFill { from { width: 0; } to { width: 100%; } }
- .ex-play { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid rgba(255, 255, 255, .35); border-radius: 50%; background: rgba(20, 16, 30, .3); color: #fff; cursor: pointer; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+ @keyframes exFill { from { transform: scaleX(0); } to { transform: none; } }
+ .ex-play { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid rgba(255, 255, 255, .35); border-radius: 50%; background: rgba(20, 16, 30, .55); color: #fff; cursor: pointer; }
  .ex-play:hover { background: rgba(20, 16, 30, .5); }
 
  /* ---------- search pill (sticky) ---------- */
  .ex-search-wrap { position: sticky; top: calc(var(--dx-nav, 72px) + 12px); z-index: 30; width: 100%; max-width: calc(1200px + 2 * 32px); margin: -168px auto 0; padding: 0 32px; }
- .ex-search { display: flex; align-items: center; gap: 4px; min-height: 84px; padding: 10px; border-radius: 28px; background: rgba(252, 248, 243, .88); color: #1d1b24; -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); box-shadow: 0 22px 60px rgba(10, 8, 22, .38), inset 0 1px 0 rgba(255, 255, 255, .8); animation: exRiseIn 1s cubic-bezier(.16, .84, .24, 1) .2s both; }
+ .ex-search { display: flex; align-items: center; gap: 4px; min-height: 84px; padding: 10px; border-radius: 28px; background: rgba(252, 248, 243, .96); color: #1d1b24;  box-shadow: 0 22px 60px rgba(10, 8, 22, .38), inset 0 1px 0 rgba(255, 255, 255, .8); animation: exRiseIn 1s cubic-bezier(.16, .84, .24, 1) .2s both; }
  @keyframes exRiseIn { from { opacity: 0; transform: translateY(28px); } }
  .ex-seg { display: flex; align-items: center; gap: 12px; flex: 1 1 0; min-width: 0; min-height: 62px; padding: 8px 16px; border: 0; border-radius: 20px; background: transparent; color: inherit; font-family: var(--font); text-align: left; cursor: pointer; transition: background .2s; }
  .ex-seg:hover, .ex-seg:focus-within { background: rgba(29, 27, 36, .06); }
@@ -129,7 +129,7 @@
 
  /* quick links under the pill */
  .ex-quick { position: relative; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; animation: exRiseIn 1s cubic-bezier(.16, .84, .24, 1) .35s both; }
- .ex-pill { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 999px; background: rgba(22, 19, 32, .5); color: #f2eef8; font: 650 14px var(--font); text-decoration: none; cursor: pointer; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); transition: background .2s, border-color .2s; }
+ .ex-pill { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 999px; background: rgba(22, 19, 32, .72); color: #f2eef8; font: 650 14px var(--font); text-decoration: none; cursor: pointer;  transition: background .2s, border-color .2s; }
  .ex-pill:hover { background: rgba(32, 29, 44, .72); color: #fff; }
  .ex-pill small { color: rgba(242, 238, 248, .68); font-size: 13px; font-weight: 500; }
  .ex-pill.is-key { border-color: rgba(197, 255, 72, .38); background: rgba(197, 255, 72, .12); color: var(--forest); }
@@ -160,7 +160,7 @@
  .ex-card-text strong { font-size: 19px; line-height: 1.22; letter-spacing: -.3px; font-weight: 750; text-wrap: balance; }
  .ex-card-text small { display: flex; align-items: center; gap: 5px; font-size: 13px; color: rgba(255, 255, 255, .8); }
  .ex-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
- .ex-chip { padding: 3px 8px; border-radius: 8px; background: rgba(255, 255, 255, .16); color: #fff; font-size: 12px; font-weight: 650; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+ .ex-chip { padding: 3px 8px; border-radius: 8px; background: rgba(16, 14, 24, .55); color: #fff; font-size: 12px; font-weight: 650;  }
  .ex-chip.is-star { background: rgba(255, 210, 120, .22); color: #ffe2a6; }
  .ex-heart { position: absolute; top: 12px; right: 12px; z-index: 2; display: grid; place-items: center; width: 42px; height: 42px; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .9); color: #1d1b24; cursor: pointer; transition: transform .2s, background .2s; }
  .ex-heart:hover { transform: scale(1.06); }
@@ -198,6 +198,10 @@
  .ex-close { position: fixed; z-index: 2; top: 18px; right: 18px; display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border: 1px solid rgba(255, 255, 255, .2); border-radius: 50%; background: rgba(20, 18, 30, .6); color: #fff; cursor: pointer; opacity: 0; transition: opacity .3s ease .3s; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
  .ex-detail.is-to .ex-close { opacity: 1; }
 
+ .ex-page.is-past .ex-kb, .ex-page.is-past .ex-fog svg, .ex-page.is-past .ex-ring.r1, .ex-page.is-past .ex-halo::before, .ex-page.is-past .ex-halo::after { animation-play-state: paused; }
+ /* The nav sits over the moving scene here: a solid tint instead of a live blur. */
+ #app[data-shell=on]:has(.ex-page)>.tabbar { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(16, 14, 24, .86); }
+
  /* ---------- scroll choreography ---------- */
  @supports (animation-timeline: scroll()) {
    .ex-back-stack { animation: exParBack linear both; animation-timeline: --exs; animation-range: 0px 720px; }
@@ -205,7 +209,7 @@
    .ex-front-stack { animation: exParFront linear both; animation-timeline: --exs; animation-range: 0px 720px; }
    @keyframes exParFront { to { transform: translateY(60px) scale(1.1); } }
    .ex-giant-wrap { animation: exTitleOut linear both; animation-timeline: --exs; animation-range: 0px 440px; }
-   @keyframes exTitleOut { to { transform: translateY(-70px); opacity: .05; filter: blur(8px); } }
+   @keyframes exTitleOut { to { transform: translateY(-70px); opacity: .05; } }
    .ex-fog { animation: exFogUp linear both; animation-timeline: --exs; animation-range: 0px 560px; }
    @keyframes exFogUp { to { transform: translateY(-46%) scaleY(1.35); } }
    .ex-veil { animation: exVeil linear both; animation-timeline: --exs; animation-range: 40px 600px; }

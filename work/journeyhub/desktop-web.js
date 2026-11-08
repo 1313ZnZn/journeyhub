@@ -280,18 +280,20 @@
   const dkOrders=V.orders;
   V.orders=function(){
     const view=dkOrders.apply(this,arguments);
-    if(!wide?.matches||!view?.body||!view.body.includes('cal-inline-map'))return view;
+    if(!wide?.matches||!view?.body||!/cal-inline-map|tch-entry/.test(view.body))return view;
     const t=document.createElement('template');t.innerHTML=view.body;
     const page=t.content.querySelector('.cal-page'),month=page?.querySelector(':scope>.cal-month'),map=t.content.querySelector('.cal-inline-map');
-    if(!page||!month||!map)return view;
+    const entry=t.content.querySelector('.tch-entry'),open=entry?.querySelector('button[data-act]');
+    if(!page||!month||(!map&&!(entry&&open)))return view;
     const side=document.createElement('div');side.className='cal-side';
     month.replaceWith(side);side.append(month);
-    // The trip agent becomes a chat panel under the month; the map takes its place on the right.
-    const entry=t.content.querySelector('.tch-entry'),open=entry?.querySelector('button[data-act]');
+    // The trip agent always becomes a chat panel under the month, whether or not the day has a
+    // map yet; when it does, the map takes the agent's former place on the right.
     if(entry&&open){
       const panel=document.createElement('div');panel.innerHTML=dkAgentPanel(open);
-      entry.replaceWith(map);side.append(panel.firstElementChild);
-    }else side.append(map);
+      if(map)entry.replaceWith(map);else entry.remove();
+      side.append(panel.firstElementChild);
+    }else if(map)side.append(map);
     view.body=t.innerHTML;
     const after=view.after;view.after=function(){if(after)after.apply(this,arguments);const box=app.querySelector('#dk-agent-msg');if(box){box.value=dkAgentDraft;dkAgentSize(box);}};
     return view;
@@ -376,13 +378,15 @@
   // Background updates (status polls, snapshot syncs) re-render the page even when nothing on
   // it changed, which rebuilds maps and images and makes the page flicker. On these pages a
   // render that the traveler did not trigger is skipped when the page would look the same.
-  const dkSteady=new Set(['orders','place-plan','reserved-trips','trip-history','s-today','s-insights','s-sessions','s-orders','s-bookings']);
+  const dkSteady=new Set(['welcome','login','orders','place-plan','reserved-trips','trip-history','s-today','s-insights','s-sessions','s-orders','s-bookings']);
   let dkLastSig='',dkUserAt=0;
   for(const type of ['pointerdown','click','keydown','input','change','submit'])document.addEventListener(type,()=>{dkUserAt=performance.now();},true);
   const dkInnerRender=render;
   render=function(){
     let sig='';
-    if(wide?.matches&&state.role&&dkSteady.has(state.route)&&typeof V[state.route]==='function'){
+    // The connecting screen is not the page itself: never treat it as already showing the page.
+    const real=typeof MODE==='undefined'||!(MODE.kind==='connecting'||(MODE.kind==='live'&&(!allReady()||catalogEmpty())));
+    if(real&&wide?.matches&&(state.role||state.route==='welcome'||state.route==='login')&&dkSteady.has(state.route)&&typeof V[state.route]==='function'){
       try{const v=V[state.route]();sig=JSON.stringify([state.role,state.route,state.params,v.bar||'',v.body||'',v.foot||'',v.tabs?tabbar():'',sheetView(),toastView()]);}catch{sig='';}
       const userDriven=performance.now()-dkUserAt<1200;
       if(sig&&!userDriven&&sig===dkLastSig&&app.dataset.route===state.route&&app.querySelector(':scope>.screen'))return;

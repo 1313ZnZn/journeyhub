@@ -84,14 +84,17 @@
   }
   function chipsFor(stage){
     const chip=(act,a,icon,label,primary)=>'<button type="button" class="pip-chip'+(primary?' is-primary':'')+'" data-act="'+act+'"'+(a!=null?' data-a="'+esc(String(a))+'"':'')+'>'+icon+' '+esc(label)+'</button>';
-    if(stage===0&&!(live()&&pd.busy))return chip('pipIdea','0','🍜','Food first')+chip('pipIdea','1','🚶','Easy walking')+chip('pipIdea','2','🌙','Evenings out');
+    if(stage===0&&!(live()&&pd.busy)){
+      const ideas=typeof window.jhHomeIdeas==='function'?window.jhHomeIdeas():[],em={food:'🍜',globe:'🏛️',sun:'🌿'};
+      return '<span class="pip-chips-label">Not sure where to start? Tap one</span>'+ideas.map((x,i)=>'<button type="button" class="pip-idea" data-act="pipIdea" data-a="'+i+'"><span aria-hidden="true">'+(em[x.icon]||'✨')+'</span>'+esc(x.text)+'</button>').join('')+chip('pipSurprise',null,'✨','Just plan it for me');
+    }
     if(stage===1&&live()&&!pd.busy){const n=pd.wanted.length;return (n?chip('pdFinish',null,'✨','Plan '+plural(n,'place'),true):'')+(pd.undo.length?chip('pdUndo',null,'↩️','Undo'):'');}
     if(stage===2&&live()&&pd.plan&&!pd.busy)return chip('tuTab','itinerary','🗓️','Open the timetable')+(pd.sample?'':chip('tcConfirm',null,'🎒','Create my trip',true));
     if(stage===3&&window.jhCalendarAgent?.target?.())return window.jhCalendarAgent.prompts().map((p,i)=>chip('pipAsk',i,{clock:'🕘',map:'🧭',food:'🍜',leaf:'🌿',wallet:'💸'}[p.icon]||'✨',p.label)).join('');
     return '';
   }
   function composerFor(stage){
-    if(stage===0&&!(live()&&pd.busy))return {ph:'Tell Pip where you want to go…',act:'idea'};
+    if(stage===0&&!(live()&&pd.busy)){const i=ag.prefs||{};return {ph:'What would you love on this trip'+(i.city?' to '+i.city:'')+'?',act:'idea'};}
     if(stage===3&&window.jhCalendarAgent?.target?.())return {ph:'Ask Pip to change '+(window.jhCalendarAgent.target().day||'this day')+'…',act:'calendar'};
     return null;
   }
@@ -186,8 +189,9 @@
     }
     sync();
   });
-  const IDEAS=['We love food — local favourites first, please.','Easy walking only, with places to sit.','We like evenings out: night views, markets and late food.'];
-  A.pipIdea=i=>{const t=IDEAS[+i];if(!t)return;const input=dock?.querySelector('[data-pip-input]');if(input){input.value=(input.value?input.value+' ':'')+t;input.focus();}};
+  A.pipIdea=i=>{const t=(typeof window.jhHomeIdeas==='function'?window.jhHomeIdeas():[])[+i]?.text;if(!t)return;const input=dock?.querySelector('[data-pip-input]');if(input){input.value=(input.value?input.value+' ':'')+t;input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();input.setSelectionRange(input.value.length,input.value.length);}};
+  // No words needed: plan from the trip details alone.
+  A.pipSurprise=()=>{ag.prefs.prompt='';if(typeof jpSavePrefs==='function')jpSavePrefs();void A.jpRequirements();};
   A.pipAsk=i=>{const p=window.jhCalendarAgent?.prompts()[+i];if(!p)return;say('me',p.label);say('pip','On it — opening our chat for **'+(window.jhCalendarAgent.target()?.day||'this day')+'** 🧭');window.jhCalendarAgent.ask(i);};
   // A search started from the page or from Pip goes into the new trip's conversation.
   const pipStart=A.jpRequirements;

@@ -138,12 +138,20 @@
   // Under the chat box, three full-sentence ideas replace the short interest tags; a click
   // adds the sentence to the message box (and a second click takes it out again).
   const dkIdeas=[['food','I want to eat where locals eat, from street food stalls to small family restaurants.'],['globe','Show me the city’s culture and art: museums, temples and creative neighbourhoods.'],['sun','Plan a relaxed day outdoors with parks, riverside walks and the best views.']];
+  window.jhHomeIdeas=()=>dkIdeas.map(([icon,text])=>({icon,text}));
   V.journey=function(){
     if(!wide?.matches)return dkJourney.apply(this,arguments);
     if(typeof jlDetailsOpen!=='undefined')jlDetailsOpen=true;if(typeof jhHomeOptionsOpen!=='undefined')jhHomeOptionsOpen=true;
     const view=dkJourney.apply(this,arguments);
     if(!view?.body||!view.body.includes('jl-suggestions'))return view;
     const t=document.createElement('template');t.innerHTML=view.body;
+    // With Pip open, Pip is the one place to type: the page keeps the title and trip details.
+    if(typeof window.jhPipShowing==='function'&&window.jhPipShowing()){
+      const home=t.content.querySelector('.jl-home');
+      t.content.querySelectorAll('.jl-composer,.jl-suggestions').forEach(el=>el.remove());
+      if(home){home.classList.add('is-pip');home.querySelector('.jl-copy')?.insertAdjacentHTML('beforeend','<p class="jl-pip-hint">Set your trip details, then tell <b>Pip</b> what you love <span aria-hidden="true">→</span></p>');}
+      view.body=t.innerHTML;return view;
+    }
     const box=t.content.querySelector('.jl-suggestions');
     if(box){
       const lines=String(ag.prefs.prompt||'').split('\n');

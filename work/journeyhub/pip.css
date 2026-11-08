@@ -141,3 +141,30 @@
 @media(min-width:1024px){
  .fc.has-piles .fc-pull{left:auto;right:12px;transform:none;translate:none}
 }
+/* Home with Pip: the page holds the title and trip details; Pip holds the conversation. */
+@media(min-width:1024px){
+ #app .jl-home.is-pip{grid-template-columns:minmax(0,720px);grid-template-rows:auto auto auto auto;justify-content:center;row-gap:18px;min-height:0;padding-top:4px}
+ #app .jl-home.is-pip>*{grid-column:1!important;grid-row:auto!important}
+ #app .jl-home.is-pip>.jl-copy{margin-bottom:0}
+ #app .jl-home.is-pip>.jl-copy h1{font-size:clamp(40px,3.6vw,58px)}
+ #app .jl-home.is-pip>.jl-details{align-self:start}
+ #app .jl-home.is-pip>.jl-connection{text-align:center}
+ #app .jl-home.is-pip>.jl-connection>*{justify-content:center;text-align:center;margin-inline:auto}
+ .jl-pip-hint{margin-top:10px;color:var(--ink-2);font-size:15px}
+ .jl-pip-hint b{color:var(--forest)}
+ .pip-chips-label{flex-basis:100%;margin:2px 0 2px 2px;color:var(--ink-3);font-size:12px;font-weight:650}
+ .pip-idea{display:flex;align-items:flex-start;gap:9px;width:100%;padding:10px 12px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.04);color:var(--ink);text-align:left;font:600 12.5px/1.4 var(--font);cursor:pointer;transition:border-color .15s,background .15s,transform .15s}
+ .pip-idea>span{font-size:16px;line-height:1.2}
+ .pip-idea:hover{border-color:rgba(197,255,72,.5);background:rgba(197,255,72,.06);transform:translateX(2px)}
+}
+@media(min-width:1024px){
+ #app .jl-home.is-pip{grid-template-columns:minmax(0,660px);row-gap:14px}
+ #app .jl-home.is-pip>.jl-copy{width:100%;max-width:none}
+ #app .jl-home.is-pip>.jl-copy:before{display:none}
+ #app .jl-home.is-pip>.jl-copy h1{margin-top:0;font-size:clamp(38px,3.2vw,52px)}
+ .jl-pip-hint{margin-top:8px;white-space:nowrap}
+ #app .jl-home.is-pip .jh-destination-cards>*{height:64px!important}
+ #app .jl-home.is-pip .ag-prompts{display:none!important}
+ #app .jl-home.is-pip .jh-home-options-body small{font-size:11.5px;color:var(--ink-3)}
+ #app .jl-home.is-pip>.jl-details{padding:18px 20px}
+}

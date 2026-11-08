@@ -108,6 +108,7 @@
     const input=root.querySelector('#home-q');if(input)input.value='';
     const results=root.querySelector('[data-region=homeResults]');if(results)results.innerHTML='';
     root.querySelector('[data-dx-list]').outerHTML=listing();
+    document.dispatchEvent(new CustomEvent('jh:painted'));
   }
   function setPlaying(on){
     playing=on;

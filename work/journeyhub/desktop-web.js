@@ -296,6 +296,33 @@
     const after=view.after;view.after=function(){if(after)after.apply(this,arguments);const box=app.querySelector('#dk-agent-msg');if(box){box.value=dkAgentDraft;dkAgentSize(box);}};
     return view;
   };
+  // Trip agent conversation (desktop): the day at a glance on the left, the chat in a panel on
+  // the right with the same suggestions as the Calendar panel, so both look and work alike.
+  const dkChat=V['trip-chat'];
+  V['trip-chat']=function(){
+    const view=dkChat.apply(this,arguments);
+    if(!wide?.matches||!view?.body?.includes('tch-history'))return view;
+    const t=document.createElement('template');t.innerHTML=view.body;
+    const page=t.content.querySelector('.tch-page'),history=page?.querySelector('.tch-history'),composer=page?.querySelector('.tch-composer'),priorities=history?.querySelector('[data-tch-priorities]');
+    if(!page||!history||!composer)return view;
+    const day=state.params?.day,label=day?'Day '+day:'this day';
+    const aside=document.createElement('aside');aside.className='tch-aside';
+    aside.innerHTML='<section class="tch-aside-card"><span class="dk-agent-kicker">'+ic('calendar',13)+'Your plan</span><h2>'+esc(label)+'</h2><div class="tch-aside-day"></div></section><section class="tch-aside-card tch-aside-can"><span class="dk-agent-kicker">'+ic('sparkle',13)+'What I can do</span><ul><li>'+ic('clock',15)+'Check opening hours and timing</li><li>'+ic('map',15)+'Reorder stops to cut travel</li><li>'+ic('food',15)+'Add places to eat that fit the route</li><li>'+ic('wallet',15)+'Find ways to spend less</li></ul><p>Changes are suggested first. Nothing changes until you tap Apply.</p></section>';
+    if(priorities)aside.querySelector('.tch-aside-day').append(priorities);else aside.querySelector('.tch-aside-day').innerHTML='<p class="tch-aside-empty">Your saved stops for '+esc(label)+' appear here.</p>';
+    const card=document.createElement('section');card.className='tch-card';card.setAttribute('aria-label','Conversation with your trip agent');
+    card.innerHTML='<header class="dk-agent-head">'+tchAvatar('dk-agent-avatar')+'<span><strong>Trip agent</strong><small>Planning '+esc(label)+' with you</small></span><i class="dk-agent-dot" title="Ready"></i></header>';
+    const chips=document.createElement('div');chips.className='dk-agent-chips tch-chips';
+    chips.innerHTML=dkAgentPrompts.map((p,i)=>'<button type="button" data-act="dkChatIdea" data-a="'+i+'">'+ic(p[0],15)+p[1]+'</button>').join('');
+    composer.classList.add('dk-agent-input');
+    card.append(history,chips,composer);
+    page.classList.add('tch-desk');page.replaceChildren(aside,card);
+    view.body=t.innerHTML;return view;
+  };
+  A.dkChatIdea=i=>{
+    const p=dkAgentPrompts[+i],ctx=typeof tchActive==='function'?tchActive():null;if(!p||!ctx)return;
+    const day=state.params?.day;ctx.draft=p[2].replace('{day}',day?'Day '+day:'this day');void A.tchSend();
+  };
+
   // Trip agent chat panel on the Calendar: suggestions and a message box open the trip
   // conversation and send the message there, so travelers can start talking right away.
   let dkAgentDraft='',dkAgentTarget=null,dkAgentTimer=null;

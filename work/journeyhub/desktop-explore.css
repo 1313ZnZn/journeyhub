@@ -161,9 +161,9 @@
  /* Calendar: month and the day's route map together in the left column */
  #app[data-route=orders] .cal-page>.cal-side{grid-column:1;grid-row:1/span 30;position:static;display:grid;gap:16px;align-content:start;min-width:0}
  #app[data-route=orders] .cal-side>.cal-month{position:static}
- #app[data-route=orders] .cal-side>.cal-inline-map{margin:0;padding:16px;border:1px solid var(--dx-glass-line);border-radius:26px;background:var(--dx-glass);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);box-shadow:var(--dx-glass-shadow)}
- #app[data-route=orders] .cal-side .cal-map-shell{border-radius:18px;overflow:hidden}
- #app[data-route=orders] .cal-side .cal-map-canvas{height:300px}
+ #app[data-route=orders] .cal-inline-map{margin:0 0 6px;padding:16px;border:1px solid var(--dx-glass-line);border-radius:26px;background:var(--dx-glass);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);box-shadow:var(--dx-glass-shadow)}
+ #app[data-route=orders] .cal-map-shell{border-radius:18px;overflow:hidden}
+ #app[data-route=orders] .cal-map-canvas{height:320px}
  @media(max-width:1239px){#app[data-route=orders] .cal-page>.cal-side{grid-row:auto;position:static}}
 
  /* Page-specific carry-overs from the previous desktop theme */
@@ -325,4 +325,32 @@
  #app .jl-home>.jl-home-library{grid-row:5}
  #app .jl-home>.jl-details>.ag-form{width:100%;max-width:none;margin:0;padding:0!important;grid-template-columns:minmax(0,1fr)!important}
  #app .jl-home>.jl-connection>*{justify-content:flex-start;text-align:left;margin-inline:0}
+}
+
+/* Calendar trip agent: a chat panel under the month */
+@media(min-width:1024px){
+ #app[data-route=orders] .dk-agent{display:flex;flex-direction:column;gap:16px;padding:22px;border:1px solid var(--dx-glass-line);border-radius:26px;background:radial-gradient(320px 180px at 100% 0,rgba(197,255,72,.08),transparent 70%),var(--dx-glass);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);box-shadow:var(--dx-glass-shadow)}
+ .dk-agent-head{display:flex;align-items:center;gap:14px;padding-bottom:16px;border-bottom:1px solid var(--dx-hair)}
+ .dk-agent-head .dk-agent-avatar{flex:none;width:52px;height:52px}
+ .dk-agent-head>span{flex:1;min-width:0}
+ .dk-agent-head strong{display:block;color:var(--ink);font:800 18px var(--font);letter-spacing:-.2px}
+ .dk-agent-head small{display:block;margin-top:3px;color:var(--ink-3);font-size:13px}
+ .dk-agent-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--forest);box-shadow:0 0 0 5px rgba(197,255,72,.14)}
+ .dk-agent-msg{display:flex;flex-direction:column;gap:8px;max-width:92%;padding:16px 18px;border:1px solid rgba(255,255,255,.1);border-radius:6px 20px 20px 20px;background:rgba(255,255,255,.05)}
+ .dk-agent-kicker{display:inline-flex;align-items:center;gap:6px;color:var(--forest);font:800 11px var(--font);letter-spacing:.14em;text-transform:uppercase}
+ .dk-agent-msg p{color:var(--ink);font-size:14.5px;line-height:1.55}
+ .dk-agent-msg p+p{color:var(--ink-2)}
+ .dk-agent-chips{display:flex;flex-wrap:wrap;gap:8px}
+ .dk-agent-chips button{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:0 14px;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(255,255,255,.04);color:var(--ink);font:650 13px var(--font);cursor:pointer;transition:border-color .18s,background .18s,transform .18s var(--dx-ease)}
+ .dk-agent-chips button svg{color:var(--forest)}
+ .dk-agent-chips button:hover:not(:disabled){border-color:rgba(197,255,72,.55);background:rgba(197,255,72,.08);transform:translateY(-1px)}
+ .dk-agent-input{display:flex;align-items:flex-end;gap:10px;padding:8px 8px 8px 16px;border:1px solid rgba(255,255,255,.16);border-radius:22px;background:rgba(8,8,14,.4);transition:border-color .18s}
+ .dk-agent-input:focus-within{border-color:rgba(197,255,72,.6)}
+ .dk-agent-input textarea{flex:1;min-height:40px;max-height:140px;padding:9px 0;border:0;outline:0;background:none;color:var(--ink);font:15px/1.45 var(--font);resize:none}
+ .dk-agent-input textarea::placeholder{color:var(--ink-3)}
+ .dk-agent-send{display:grid;place-items:center;flex:none;width:44px;height:44px;border:0;border-radius:14px;background:var(--forest);color:var(--forest-ink);cursor:pointer;box-shadow:0 8px 22px rgba(197,255,72,.18)}
+ .dk-agent-send svg{transform:rotate(-90deg)}
+ .dk-agent-send:hover:not(:disabled){background:#d2ff73}
+ .dk-agent :disabled{opacity:.5;cursor:default}
+ .dk-agent-foot{color:var(--ink-3);font-size:12.5px;line-height:1.5}
 }

@@ -216,8 +216,48 @@
     const page=t.content.querySelector('.cal-page'),month=page?.querySelector(':scope>.cal-month'),map=t.content.querySelector('.cal-inline-map');
     if(!page||!month||!map)return view;
     const side=document.createElement('div');side.className='cal-side';
-    month.replaceWith(side);side.append(month,map);
-    view.body=t.innerHTML;return view;
+    month.replaceWith(side);side.append(month);
+    // The trip agent becomes a chat panel under the month; the map takes its place on the right.
+    const entry=t.content.querySelector('.tch-entry'),open=entry?.querySelector('button[data-act]');
+    if(entry&&open){
+      const panel=document.createElement('div');panel.innerHTML=dkAgentPanel(open);
+      entry.replaceWith(map);side.append(panel.firstElementChild);
+    }else side.append(map);
+    view.body=t.innerHTML;
+    const after=view.after;view.after=function(){if(after)after.apply(this,arguments);const box=app.querySelector('#dk-agent-msg');if(box){box.value=dkAgentDraft;dkAgentSize(box);}};
+    return view;
+  };
+  // Trip agent chat panel on the Calendar: suggestions and a message box open the trip
+  // conversation and send the message there, so travelers can start talking right away.
+  let dkAgentDraft='',dkAgentTarget=null,dkAgentTimer=null;
+  const dkAgentPrompts=[['clock','Check timing','Check whether the times on {day} work, including opening hours and travel between stops.'],['map','Optimise route','Reorder {day} so there is less travel between places.'],['food','Add local food','Add a well-rated local food stop to {day} that fits the route.'],['leaf','Slower pace','Make {day} more relaxed, with fewer stops and longer breaks.'],['wallet','Save money','Find ways to lower the cost of {day} without losing the highlights.']];
+  function dkAgentPanel(open){
+    const day=open.dataset.act==='tchStart'?open.dataset.c:open.dataset.b,label=day?'Day '+day:'this day',busy=open.disabled;
+    dkAgentTarget={act:open.dataset.act,a:open.dataset.a,b:open.dataset.b,c:open.dataset.c,day:label};
+    return '<section class="dk-agent" aria-label="Trip agent"><header class="dk-agent-head">'+(typeof tchAvatar==='function'?tchAvatar('dk-agent-avatar'):'')+'<span><strong>Trip agent</strong><small>Your personal travel assistant</small></span><i class="dk-agent-dot" title="Ready"></i></header>'+
+      '<div class="dk-agent-msg"><span class="dk-agent-kicker">'+ic('sparkle',13)+'Agent</span><p>Hi! I can change '+esc(label)+' for you: move stops, check opening hours, add food or slow the pace down.</p><p>Tap a suggestion or tell me what you would like, for example “make '+esc(label)+' more relaxed”.</p></div>'+
+      '<div class="dk-agent-chips">'+dkAgentPrompts.map((p,i)=>'<button type="button" data-act="dkAgentAsk" data-a="'+i+'"'+(busy?' disabled':'')+'>'+ic(p[0],15)+p[1]+'</button>').join('')+'</div>'+
+      '<div class="dk-agent-input"><textarea id="dk-agent-msg" rows="1" maxlength="1800" placeholder="Try: make '+esc(label)+' more relaxed…" aria-label="Message your trip agent"></textarea><button type="button" class="dk-agent-send" data-act="dkAgentAsk" aria-label="Send to trip agent"'+(busy?' disabled':'')+'>'+ic('right',20)+'</button></div>'+
+      '<p class="dk-agent-foot">Changes are suggested first. Nothing is booked or changed until you confirm.</p></section>';
+  }
+  function dkAgentSize(box){box.style.height='auto';box.style.height=Math.min(140,box.scrollHeight)+'px';}
+  document.addEventListener('input',e=>{if(e.target.id==='dk-agent-msg'){dkAgentDraft=e.target.value;dkAgentSize(e.target);}});
+  document.addEventListener('keydown',e=>{if(e.target.id==='dk-agent-msg'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();A.dkAgentAsk();}});
+  A.dkAgentAsk=function(i){
+    const t=dkAgentTarget;if(!t)return;
+    const preset=dkAgentPrompts[+i],message=(preset?preset[2].replace('{day}',t.day):dkAgentDraft).trim();
+    if(!message){app.querySelector('#dk-agent-msg')?.focus();return;}
+    if(!preset)dkAgentDraft='';
+    clearInterval(dkAgentTimer);
+    if(t.act==='tchStart')A.tchStart(t.a,t.b,t.c);else A.tchOpen(t.a,t.b);
+    // Send once the conversation has loaded; give up if the traveler leaves or it takes too long.
+    let tries=0;
+    dkAgentTimer=setInterval(()=>{
+      tries++;const ctx=state.route==='trip-chat'&&typeof tchActive==='function'?tchActive():null;
+      if(tries>100||(tries>20&&state.route!=='trip-chat')){clearInterval(dkAgentTimer);return;}
+      if(!ctx||!ctx.loaded||ctx.busy||(typeof tchRunning==='function'&&tchRunning(ctx)))return;
+      clearInterval(dkAgentTimer);ctx.draft=message;void A.tchSend();
+    },150);
   };
 
   // Leaving the landing page: the headline lifts away, the chosen ticket rises toward where

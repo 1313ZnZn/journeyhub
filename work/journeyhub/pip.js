@@ -53,6 +53,10 @@
   // Other desktop features (the place debate) speak through Pip and use its connection.
   window.jhPipSay=(text,extra={})=>{if(!visible())return;say('pip',text,extra);sync();};
   window.jhPipPost=payload=>pipPost(payload);
+  // Bring Pip out (once per reason) when it has something the traveler needs to act on.
+  window.jhPipSync=()=>sync();
+  window.jhPipOpen=()=>{if(!openPref){openPref=true;try{localStorage.setItem('jh-pip-open','1');}catch{}}sync();};
+  window.jhPipOnce=(marker,text,extra={})=>{const key=tripKey();if(!visible()||!key)return false;let said=false;once(key,marker,m=>{say('pip',text,{...extra,marker:m},key);said=true;});if(said)sync();return said;};
   const once=(key,marker,fn)=>{if(!key)return;const msgs=load(key);if(msgs.some(m=>m.marker===marker))return;fn(marker);};
 
   // Light formatting: **bold** only; everything else is escaped.
@@ -77,6 +81,9 @@
     if(stage<=2&&live()&&pd.busy&&pd.phase==='plan')return '<div class="pip-card pip-scout">'+avatar('is-scout')+'<div class="pip-card-body"><strong>Planning your days…</strong><div class="pip-bar is-indet"><i></i></div><small>Fitting your Must go places, travel time and opening hours.</small></div></div>';
     const fix=(stage===1||stage===2)&&typeof window.jhPlanFixCard==='function'?window.jhPlanFixCard():'';
     if(fix)return '<div class="pip-card pip-fix">'+fix+'</div>';
+    // After the trip is created Pip shows what can be booked and the total to pay.
+    const booking=stage===2&&typeof window.jhPipBookingCard==='function'?window.jhPipBookingCard():'';
+    if(booking)return booking;
     if(stage===1&&live()&&!pd.busy){
       const maybe=typeof window.jhFanMaybe==='function'?window.jhFanMaybe().length:0,must=pd.wanted.length,cap=typeof jhPickCap==='function'?jhPickCap():8;
       return '<div class="pip-card pip-piles"><div class="pip-pile"><span>🧳</span><b>'+must+'</b><small>of '+cap+' Must go</small></div><div class="pip-pile"><span>🤔</span><b>'+maybe+'</b><small>Maybe</small></div><div class="pip-pile"><span>🙅</span><b>'+pd.skipped.length+'</b><small>Not this time</small></div></div>';
@@ -100,6 +107,7 @@
       return '<span class="pip-chips-label">Not sure where to start? Tap one</span>'+ideas.map((x,i)=>'<button type="button" class="pip-idea" data-act="pipIdea" data-a="'+i+'"><span aria-hidden="true">'+(em[x.icon]||'✨')+'</span>'+esc(x.text)+'</button>').join('')+chip('pipSurprise',null,'✨','Just plan it for me');
     }
     if(stage===1&&live()&&!pd.busy){const n=pd.wanted.length,m=typeof window.jhDebateReady==='function'&&window.jhDebateReady();return (n?chip('pdFinish',null,'✨','Plan '+plural(n,'place'),true):'')+(m?chip('pdbOpen',null,'🎤','Let two Maybes debate'):'')+(pd.undo.length?chip('pdUndo',null,'↩️','Undo'):'');}
+    if(stage===2&&live()&&pd.plan&&!pd.busy&&typeof window.jhPipBookingChips==='function'&&window.jhPipBookingChips()!=null)return window.jhPipBookingChips();
     if(stage===2&&live()&&pd.plan&&!pd.busy)return chip('tuTab','itinerary','🗓️','Open the timetable')+(pd.sample?'':chip('tcConfirm',null,'🎒','Create my trip',true));
     if(stage===3&&window.jhCalendarAgent?.target?.())return window.jhCalendarAgent.prompts().map((p,i)=>chip('pipAsk',i,{clock:'🕘',map:'🧭',food:'🍜',leaf:'🌿',wallet:'💸'}[p.icon]||'✨',p.label)).join('');
     return '';
@@ -122,7 +130,7 @@
     if(live()&&pd.places.length&&!pd.busy&&stage===1)once(key,'found',m=>say('pip','I found **'+plural(pd.places.length,'place')+'** in '+(pd.input?.city||'the city')+' 🎉 Deal each card: **Must go**, **Maybe**, or **Not this time**. Drag it, or press 1 · 2 · 3.',{marker:m,heads:pd.places.slice(0,5).map(p=>p.id)},key));
     if(live()&&pd.plan&&stage===2){
       const e=pd.plan.estimate,cost=e&&Number.isFinite(e.totalMinor)?' · est. '+(e.currency||'CNY')+' '+Math.round(e.totalMinor/100):'';
-      once(key,'plan:'+(pd.plan.stops||[]).map(s=>s.id).join(','),m=>say('pip','Your **'+plural(Number(pd.plan.days)||1,'day')+'** are ready 🗺️ '+plural((pd.plan.stops||[]).length,'stop')+cost+'. Have a look at the timetable — drag things around if you like — then create your trip.',{marker:m,heads:(pd.plan.stops||[]).map(s=>s.id)},key));
+      once(key,'plan:'+(pd.historyId||(pd.plan.stops||[]).map(s=>s.id).join(',')),m=>say('pip','Your **'+plural(Number(pd.plan.days)||1,'day')+'** are ready 🗺️ '+plural((pd.plan.stops||[]).length,'stop')+cost+'. Have a look at the timetable — drag things around if you like — then create your trip.',{marker:m,heads:(pd.plan.stops||[]).map(s=>s.id)},key));
     }
     if(live()&&pd.error&&!pd.busy&&(stage===1||stage===2))once(key,'err:'+pd.error,m=>{say('pip','Hmm, that didn’t quite fit 🤔 Here’s what we can do 👇',{marker:m},key);
       // A problem needs the traveler: bring Pip out if it was tucked away.

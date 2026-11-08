@@ -149,7 +149,12 @@
     if(typeof window.jhPipShowing==='function'&&window.jhPipShowing()){
       const home=t.content.querySelector('.jl-home');
       t.content.querySelectorAll('.jl-composer,.jl-suggestions').forEach(el=>el.remove());
-      if(home){home.classList.add('is-pip');home.querySelector('.jl-copy')?.insertAdjacentHTML('beforeend','<p class="jl-pip-hint">Set your trip details, then tell <b>Pip</b> what you love <span aria-hidden="true">→</span></p>');}
+      if(home){
+        home.classList.add('is-pip');
+        home.querySelector('.jl-copy')?.insertAdjacentHTML('beforeend','<p class="jl-pip-hint">Tell <b>Pip</b> what you love — it scouts, helps you choose and plans the days.</p>');
+        // Opened from Pip's trip chips as a panel over the page.
+        home.querySelector('.jl-details')?.insertAdjacentHTML('afterbegin','<button type="button" class="jl-trip-done" data-act="pipTrip">'+ic('check',15)+'Done</button>');
+      }
       view.body=t.innerHTML;return view;
     }
     const box=t.content.querySelector('.jl-suggestions');

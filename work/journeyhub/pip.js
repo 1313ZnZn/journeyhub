@@ -135,15 +135,38 @@
   // Rendering the dock (outside #app).
   function ensure(){
     if(dock)return;
-    document.body.insertAdjacentHTML('beforeend','<aside class="pip" aria-label="Pip, your trip companion" hidden><header class="pip-head">'+avatar('is-head')+'<div><strong>Pip</strong><small data-pip-sub></small></div><button type="button" class="pip-min" data-pip-toggle aria-label="Hide Pip">'+ic('right',16)+'</button></header><div class="pip-steps" data-pip-steps></div><div class="pip-thread" data-pip-thread role="log" aria-live="polite"></div><div class="pip-live" data-pip-live></div><div class="pip-chips" data-pip-chips></div><form class="pip-composer" data-pip-form hidden><textarea rows="1" maxlength="1200" data-pip-input aria-label="Message Pip"></textarea><button type="submit" class="pip-send" aria-label="Send">'+ic('right',18)+'</button></form></aside>'+
+    document.body.insertAdjacentHTML('beforeend','<aside class="pip" aria-label="Pip, your trip companion" hidden><header class="pip-head">'+avatar('is-head')+'<div><strong>Pip</strong><small data-pip-sub></small></div><button type="button" class="pip-min" data-pip-toggle aria-label="Hide Pip">'+ic('right',16)+'</button></header><div class="pip-steps" data-pip-steps></div><div class="pip-thread" data-pip-thread role="log" aria-live="polite"></div><div class="pip-live" data-pip-live></div><div class="pip-chips" data-pip-chips></div><div class="pip-trip" data-pip-trip></div><form class="pip-composer" data-pip-form hidden><textarea rows="1" maxlength="1200" data-pip-input aria-label="Message Pip"></textarea><button type="submit" class="pip-send" aria-label="Send">'+ic('right',18)+'</button></form></aside>'+
       '<button type="button" class="pip-fab" data-pip-toggle hidden aria-label="Show Pip">'+avatar('is-fab')+'<span class="pip-peek" data-pip-peek hidden></span><i class="pip-dot" hidden></i></button>');
     dock=document.body.querySelector('aside.pip');toggle=document.body.querySelector('.pip-fab');
   }
+  // On the AI Journey page Pip is the main conversation, in the centre; elsewhere it docks on
+  // the right. Moving between the two animates from one place to the other.
+  const centreRoute=()=>state.route==='journey';
+  function place(centre){
+    const was=dock.classList.contains('is-center');
+    if(was===centre)return;
+    const shown=!dock.hidden,before=shown?dock.getBoundingClientRect():null;
+    dock.classList.toggle('is-center',centre);
+    if(!before||calm?.matches)return;
+    const after=dock.getBoundingClientRect();if(!after.width)return;
+    dock.animate([{transformOrigin:'top left',transform:'translate('+(before.left-after.left)+'px,'+(before.top-after.top)+'px) scale('+(before.width/after.width)+','+(before.height/after.height)+')'},{transformOrigin:'top left',transform:'none'}],{duration:620,easing:'cubic-bezier(.2,.8,.2,1)'});
+    dock.querySelectorAll('.pip-thread,.pip-live,.pip-chips,.pip-trip,.pip-composer').forEach(el=>el.animate([{opacity:0},{opacity:0,offset:.35},{opacity:1}],{duration:620}));
+  }
+  function tripChips(){
+    const i=ag.prefs||{},days=Number(i.days)||1,date=i.date&&typeof agDate==='function'?agDate(i.date):i.date||'';
+    const budget=i.budgetAmount?(i.budgetCurrency||'CNY')+' '+i.budgetAmount:'No budget limit';
+    const items=[['📍',i.city||'Choose a city'],['📅',date],['👥',plural(Number(i.guests)||1,'guest')],['🕘',plural(days,'day')+' · '+(i.dayStart||'09:00')+'–'+(i.dayEnd||'21:00')],[i.transport==='walk'?'🚶':'🚕',i.transport==='walk'?'Walking':'Car / taxi'],['💰',budget]];
+    return '<span class="pip-trip-label">Your trip</span>'+items.filter(x=>x[1]).map(([e,t])=>'<button type="button" class="pip-trip-chip" data-act="pipTrip"><span aria-hidden="true">'+e+'</span>'+esc(t)+'</button>').join('')+'<button type="button" class="pip-trip-edit" data-act="pipTrip">'+ic('sliders',14)+'Edit</button>';
+  }
+  A.pipTrip=()=>{const on=!document.body.classList.contains('pip-trip-open');document.body.classList.toggle('pip-trip-open',on);if(on)app.querySelector('.jl-home>.jl-details')?.scrollTo?.(0,0);};
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('pip-trip-open'))document.body.classList.remove('pip-trip-open');});
   function sync(){
-    const show=visible();
-    document.body.classList.toggle('pip-on',show&&openPref);
+    const show=visible(),centre=show&&centreRoute();
+    document.body.classList.toggle('pip-on',show&&openPref&&!centre);
+    document.body.classList.toggle('pip-center',centre&&openPref);
+    if(!centre)document.body.classList.remove('pip-trip-open');
     if(!show){if(dock){dock.hidden=true;toggle.hidden=true;}return;}
-    ensure();migrate();
+    ensure();migrate();place(centre);
     const stage=stageOf(),key=tripKey();
     notice(stage,key);
     dock.hidden=!openPref;toggle.hidden=openPref;
@@ -159,6 +182,7 @@
     const changed=set('[data-pip-thread]',thread,'thread')||last.key!==key;last.key=key;
     if(changed&&(atBottom||true))requestAnimationFrame(()=>{threadEl.scrollTop=threadEl.scrollHeight;});
     set('[data-pip-live]',liveHTML,'live');set('[data-pip-chips]',chips,'chips');
+    set('[data-pip-trip]',centre?tripChips():'','trip');
     const form=dock.querySelector('[data-pip-form]'),input=form.querySelector('textarea');
     form.hidden=!composer;if(composer){input.placeholder=composer.ph;form.dataset.mode=composer.act;}
     // Something new while Pip is tucked away: a dot on the button.

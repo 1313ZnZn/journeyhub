@@ -168,3 +168,43 @@
  #app .jl-home.is-pip .jh-home-options-body small{font-size:11.5px;color:var(--ink-3)}
  #app .jl-home.is-pip>.jl-details{padding:18px 20px}
 }
+/* Pip in the centre of the AI Journey page */
+@media(min-width:1024px){
+ .pip.is-center{top:calc(var(--dx-nav,72px) + 150px);bottom:20px;left:50%;right:auto;width:min(760px,calc(100vw - 80px));margin-left:calc(min(760px,calc(100vw - 80px)) / -2);border-radius:30px;box-shadow:0 40px 100px rgba(0,0,0,.5),0 0 0 1px rgba(197,255,72,.08);animation:none}
+ .pip.is-center .pip-head{padding:18px 20px 10px 22px}
+ .pip.is-center .pip-head .tch-avatar{width:58px;height:58px}
+ .pip.is-center .pip-head strong{font-size:20px}
+ .pip.is-center .pip-min{display:none}
+ .pip.is-center .pip-steps{margin:0 20px 12px}
+ .pip.is-center .pip-thread{padding:8px 22px 12px;gap:11px}
+ .pip.is-center .pip-bub{font-size:15px;max-width:80%}
+ .pip.is-center .pip-msg .tch-avatar{width:34px;height:34px}
+ .pip.is-center .pip-chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 20px 10px}
+ .pip.is-center .pip-chips .pip-chips-label{grid-column:1/-1}
+ .pip.is-center .pip-chips .pip-chip{grid-column:1/-1;justify-self:start}
+ .pip.is-center .pip-idea{height:100%}
+ .pip-trip:empty{display:none}
+ .pip-trip{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 20px 10px;padding:10px 12px;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:rgba(255,255,255,.03)}
+ .pip-trip-label{margin-right:4px;color:var(--ink-3);font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+ .pip-trip-chip,.pip-trip-edit{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid rgba(255,255,255,.12);border-radius:999px;background:rgba(255,255,255,.04);color:var(--ink);font:650 12px var(--font);cursor:pointer}
+ .pip-trip-chip:hover,.pip-trip-edit:hover{border-color:rgba(197,255,72,.5)}
+ .pip-trip-edit{margin-left:auto;border-color:rgba(197,255,72,.45);color:var(--forest)}
+ .pip.is-center .pip-composer{margin:0 18px 18px;padding:8px 8px 8px 18px;border-radius:22px}
+ .pip.is-center .pip-composer textarea{font-size:15.5px;min-height:46px}
+ .pip.is-center .pip-send{width:44px;height:44px;border-radius:15px}
+ /* The page behind: only the title; trip details open as a panel from Pip */
+ body.pip-center #app .jl-home.is-pip{display:block;min-height:0;padding-top:0}
+ body.pip-center #app .jl-home.is-pip>:not(.jl-copy):not(.jl-details){display:none!important}
+ body.pip-center #app .jl-home.is-pip>.jl-copy{text-align:center}
+ body.pip-center #app .jl-home.is-pip>.jl-copy h1{font-size:clamp(36px,3vw,48px)}
+ body.pip-center #app .jl-home.is-pip>.jl-details{position:fixed;z-index:70;top:calc(var(--dx-nav,72px) + 70px);left:50%;width:min(680px,calc(100vw - 80px));max-height:calc(100vh - var(--dx-nav,72px) - 100px);overflow:auto;transform:translateX(-50%);box-shadow:0 40px 120px rgba(0,0,0,.7);opacity:0;pointer-events:none;translate:0 16px;transition:opacity .25s,translate .35s cubic-bezier(.2,.8,.2,1)}
+ body.pip-center.pip-trip-open #app .jl-home.is-pip>.jl-details{opacity:1;pointer-events:auto;translate:0 0}
+ body.pip-center.pip-trip-open #app.device{z-index:61}
+ body.pip-center.pip-trip-open #app .jl-home.is-pip>.jl-details{box-shadow:0 0 0 100vmax rgba(8,7,14,.6),0 40px 120px rgba(0,0,0,.7)}
+ .jl-trip-done{display:none}
+ body.pip-center .jl-trip-done{position:absolute;top:16px;right:16px;z-index:2;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:0;border-radius:999px;background:var(--forest);color:var(--forest-ink);font:800 13px var(--font);cursor:pointer}
+}
+@media(min-width:1024px){
+ body.pip-center #app .jl-home.is-pip>.jl-details{background:linear-gradient(165deg,#25212f,#17151f)!important;-webkit-backdrop-filter:none;backdrop-filter:none}
+ body.pip-center .jl-pip-hint{white-space:normal}
+}

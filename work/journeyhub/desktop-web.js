@@ -89,7 +89,30 @@
 
   // On wide screens the home page shows trip details as a side panel, always open.
   const dkJourney=V.journey;
-  V.journey=function(){if(wide?.matches){if(typeof jlDetailsOpen!=='undefined')jlDetailsOpen=true;if(typeof jhHomeOptionsOpen!=='undefined')jhHomeOptionsOpen=true;}return dkJourney.apply(this,arguments);};
+  // Under the chat box, three full-sentence ideas replace the short interest tags; a click
+  // adds the sentence to the message box (and a second click takes it out again).
+  const dkIdeas=[['food','I want to eat where locals eat, from street food stalls to small family restaurants.'],['globe','Show me the city’s culture and art: museums, temples and creative neighbourhoods.'],['sun','Plan a relaxed day outdoors with parks, riverside walks and the best views.']];
+  V.journey=function(){
+    if(!wide?.matches)return dkJourney.apply(this,arguments);
+    if(typeof jlDetailsOpen!=='undefined')jlDetailsOpen=true;if(typeof jhHomeOptionsOpen!=='undefined')jhHomeOptionsOpen=true;
+    const view=dkJourney.apply(this,arguments);
+    if(!view?.body||!view.body.includes('jl-suggestions'))return view;
+    const t=document.createElement('template');t.innerHTML=view.body;
+    const box=t.content.querySelector('.jl-suggestions');
+    if(box){
+      const lines=String(ag.prefs.prompt||'').split('\n');
+      box.className='jl-suggestions dk-ideas';box.setAttribute('aria-label','Ideas to start with');
+      box.innerHTML='<span class="dk-ideas-label">Not sure where to start? Try one of these</span>'+dkIdeas.map(([icon,text],i)=>'<button type="button" data-act="dkHomeIdea" data-a="'+i+'" aria-pressed="'+lines.includes(text)+'">'+'<span class="dk-idea-ic">'+ic(icon,17)+'</span><span class="dk-idea-text">'+esc(text)+'</span>'+ic(lines.includes(text)?'check':'plus',16)+'</button>').join('');
+    }
+    view.body=t.innerHTML;return view;
+  };
+  A.dkHomeIdea=i=>{
+    const text=dkIdeas[+i]?.[1];if(!text)return;
+    const lines=String(ag.prefs.prompt||'').split('\n'),has=lines.includes(text);
+    ag.prefs.prompt=(has?lines.filter(x=>x!==text):[...lines.filter(Boolean),text]).join('\n').slice(0,1200);
+    if(typeof jpSavePrefs==='function')jpSavePrefs();render();
+    const field=app.querySelector('.jl-composer textarea');if(field){field.focus();field.setSelectionRange(field.value.length,field.value.length);}
+  };
   const dkJlDetails=A.jlDetails;
   A.jlDetails=function(){if(wide?.matches&&state.route==='journey'){const d=document.querySelector('.jl-home>.jl-details');if(d){d.open=true;d.querySelector('input,select,button')?.focus();return;}}return dkJlDetails.apply(this,arguments);};
 

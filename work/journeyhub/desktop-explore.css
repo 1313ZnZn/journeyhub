@@ -357,7 +357,7 @@
 
 /* Home trip details: every option visible at once in a compact grid, balanced with the chat box. */
 @media(min-width:1024px){
- #app .jl-home{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);grid-template-rows:auto 1fr auto auto auto}
+ #app .jl-home{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);grid-template-rows:auto auto auto 1fr auto}
  #app .jl-home>.jl-details{padding:20px 22px}
  #app .jl-home>.jl-details>summary{margin-bottom:12px}
  #app .jl-home .jl-details .ag-form{gap:12px!important}
@@ -373,7 +373,20 @@
  #app .jl-home .jh-home-options-body :is(small,.ag-prompts){grid-column:1/-1}
  #app .jl-home .jh-home-options-body small{margin-top:-4px!important;font-size:12px}
  #app .jl-home .jh-home-sample{justify-self:start;margin:0}
- #app .jl-home>.jl-composer{grid-row:2;align-self:stretch;display:flex;flex-direction:column}
- #app .jl-home>.jl-composer textarea{flex:1 1 auto;height:auto!important;min-height:160px;max-height:none!important}
+ #app .jl-home>.jl-composer{grid-row:2;align-self:start}
+ #app .jl-home>.jl-composer textarea{min-height:96px!important;height:96px}
  #app .jl-home .jh-home-options-body .jp-budget-scope{grid-column:span 2}
+}
+
+/* Home: full-sentence ideas under the chat box, stacked */
+@media(min-width:1024px){
+ #app .jl-home>.dk-ideas{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+ .dk-ideas-label{align-self:flex-start;text-align:left;margin:2px 0 2px 4px;color:var(--ink-3);font-size:12.5px;font-weight:650}
+ #app .jl-home>.dk-ideas>button{display:flex;align-items:center;gap:12px;width:100%;min-height:58px;margin:0;padding:10px 16px 10px 12px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(20,18,30,.5);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);color:var(--ink);text-align:left;font:600 14px/1.4 var(--font);white-space:normal;cursor:pointer;transition:border-color .18s,background .18s,transform .18s var(--dx-ease)}
+ #app .jl-home>.dk-ideas>button:hover{border-color:rgba(197,255,72,.5);background:rgba(197,255,72,.06);transform:translateX(3px)}
+ #app .jl-home>.dk-ideas>button[aria-pressed=true]{border-color:rgba(197,255,72,.7);background:rgba(197,255,72,.1)}
+ .dk-idea-ic{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:11px;background:rgba(197,255,72,.12);color:var(--forest)}
+ .dk-idea-text{flex:1;min-width:0}
+ #app .jl-home>.dk-ideas>button>svg{flex:none;color:var(--ink-3)}
+ #app .jl-home>.dk-ideas>button[aria-pressed=true]>svg{color:var(--forest)}
 }

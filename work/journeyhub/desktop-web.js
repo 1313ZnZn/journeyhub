@@ -138,12 +138,25 @@
   // Under the chat box, three full-sentence ideas replace the short interest tags; a click
   // adds the sentence to the message box (and a second click takes it out again).
   const dkIdeas=[['food','I want to eat where locals eat, from street food stalls to small family restaurants.'],['globe','Show me the city’s culture and art: museums, temples and creative neighbourhoods.'],['sun','Plan a relaxed day outdoors with parks, riverside walks and the best views.']];
+  window.jhHomeIdeas=()=>dkIdeas.map(([icon,text])=>({icon,text}));
   V.journey=function(){
     if(!wide?.matches)return dkJourney.apply(this,arguments);
     if(typeof jlDetailsOpen!=='undefined')jlDetailsOpen=true;if(typeof jhHomeOptionsOpen!=='undefined')jhHomeOptionsOpen=true;
     const view=dkJourney.apply(this,arguments);
     if(!view?.body||!view.body.includes('jl-suggestions'))return view;
     const t=document.createElement('template');t.innerHTML=view.body;
+    // With Pip open, Pip is the one place to type: the page keeps the title and trip details.
+    if(typeof window.jhPipShowing==='function'&&window.jhPipShowing()){
+      const home=t.content.querySelector('.jl-home');
+      t.content.querySelectorAll('.jl-composer,.jl-suggestions').forEach(el=>el.remove());
+      if(home){
+        home.classList.add('is-pip');
+        home.querySelector('.jl-copy')?.insertAdjacentHTML('beforeend','<p class="jl-pip-hint">Tell <b>Pip</b> what you love — it scouts, helps you choose and plans the days.</p>');
+        // Opened from Pip's trip chips as a panel over the page.
+        home.querySelector('.jl-details')?.insertAdjacentHTML('afterbegin','<button type="button" class="jl-trip-done" data-act="pipTrip">'+ic('check',15)+'Done</button>');
+      }
+      view.body=t.innerHTML;return view;
+    }
     const box=t.content.querySelector('.jl-suggestions');
     if(box){
       const lines=String(ag.prefs.prompt||'').split('\n');
@@ -280,6 +293,7 @@
   const dkOrders=V.orders;
   V.orders=function(){
     const view=dkOrders.apply(this,arguments);
+    dkAgentTarget=null;
     if(!wide?.matches||!view?.body||!/cal-inline-map|tch-entry/.test(view.body))return view;
     const t=document.createElement('template');t.innerHTML=view.body;
     const page=t.content.querySelector('.cal-page'),month=page?.querySelector(':scope>.cal-month'),map=t.content.querySelector('.cal-inline-map');
@@ -289,10 +303,12 @@
     month.replaceWith(side);side.append(month);
     // The trip agent always becomes a chat panel under the month, whether or not the day has a
     // map yet; when it does, the map takes the agent's former place on the right.
+    // With the Pip companion open, the conversation lives in Pip; the map stays under the month.
+    const pip=typeof window.jhPipShowing==='function'&&window.jhPipShowing();
     if(entry&&open){
       const panel=document.createElement('div');panel.innerHTML=dkAgentPanel(open);
-      if(map)entry.replaceWith(map);else entry.remove();
-      side.append(panel.firstElementChild);
+      if(pip){entry.remove();if(map)side.append(map);}
+      else{if(map)entry.replaceWith(map);else entry.remove();side.append(panel.firstElementChild);}
     }else if(map)side.append(map);
     view.body=t.innerHTML;
     const after=view.after;view.after=function(){if(after)after.apply(this,arguments);const box=app.querySelector('#dk-agent-msg');if(box){box.value=dkAgentDraft;dkAgentSize(box);}};
@@ -338,6 +354,8 @@
       '<div class="dk-agent-input"><textarea id="dk-agent-msg" rows="1" maxlength="1800" placeholder="Try: make '+esc(label)+' more relaxed…" aria-label="Message your trip agent"></textarea><button type="button" class="dk-agent-send" data-act="dkAgentAsk" aria-label="Send to trip agent"'+(busy?' disabled':'')+'>'+ic('right',20)+'</button></div>'+
       '<p class="dk-agent-foot">Changes are suggested first. Nothing is booked or changed until you confirm.</p></section>';
   }
+  // Pip uses the selected Calendar day's trip conversation through these.
+  window.jhCalendarAgent={target:()=>dkAgentTarget,prompts:()=>dkAgentPrompts.map(p=>({icon:p[0],label:p[1]})),ask:i=>A.dkAgentAsk(i),say:text=>{dkAgentDraft=String(text||'');A.dkAgentAsk();}};
   function dkAgentSize(box){box.style.height='auto';box.style.height=Math.min(140,box.scrollHeight)+'px';}
   document.addEventListener('input',e=>{if(e.target.id==='dk-agent-msg'){dkAgentDraft=e.target.value;dkAgentSize(e.target);}});
   document.addEventListener('keydown',e=>{if(e.target.id==='dk-agent-msg'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();A.dkAgentAsk();}});

@@ -22,6 +22,7 @@
     const task=pd.plannerTask||(typeof ptu!=='undefined'?ptu.task:null),error=task?.error||{},d=error.details||{};
     const text=String(pd.error||error.message||'');
     let reason=d.reason;
+    if(!reason&&(/RATE/.test(String(error.code||''))||/too many requests|rate limit|talked a lot/i.test(text)))reason='rate';
     if(!reason&&(error.code==='PLAN_DATE_CONFLICT'||/already have a plan/i.test(text)))reason='date_conflict';
     if(!reason){
       if(/exceed the group budget/i.test(text))reason='over_budget';
@@ -50,6 +51,19 @@
     let suggest=addDays(from,days);if(!suggest||suggest<min)suggest=min;
     return '<form class="pf-budget pf-date'+(primary?' is-primary':'')+'" data-pf-date><label for="pf-date-value"><strong>Plan on another date</strong><small>Same places, '+(days>1?days+' days':'one day')+' from the date you choose</small></label><div class="pf-budget-row"><input id="pf-date-value" type="date" min="'+min+'" max="'+max+'" value="'+suggest+'" required><button type="submit" class="pf-go">'+ic('check',16)+'Plan on this date</button></div></form>';
   }
+  // Change the trip's details right here, then plan the same picks again.
+  function tripForm(x){
+    const i=x.input,min=addDays(today(),1)||today(),max=addDays(today(),365),days=Math.min(4,Math.max(1,Number(i.days)||1));
+    const budget=i.budgetAmount!=null?i.budgetAmount:i.budgetCnyMinor!=null?Math.round(i.budgetCnyMinor/100):'';
+    const field=(label,html)=>'<label class="pf-field"><small>'+label+'</small>'+html+'</label>';
+    return '<form class="pf-budget pf-trip" data-pf-trip><strong>Trip details</strong><div class="pf-trip-grid">'+
+      field('Date','<input name="date" type="date" min="'+min+'" max="'+max+'" value="'+esc(i.date&&i.date>=min?i.date:min)+'" required>')+
+      field('Days','<select name="days">'+[1,2,3,4].map(n=>'<option value="'+n+'"'+(n===days?' selected':'')+'>'+n+'</option>').join('')+'</select>')+
+      field('Day starts','<input name="dayStart" type="time" value="'+esc(i.dayStart||'09:00')+'" required>')+
+      field('Day ends','<input name="dayEnd" type="time" value="'+esc(i.dayEnd||'21:00')+'" required>')+
+      field('Budget (CNY, group)','<input name="budget" type="number" min="1" max="1000000" step="1" inputmode="numeric" placeholder="No limit" value="'+esc(String(budget))+'">')+
+      '</div><p class="pf-trip-error" role="alert" hidden></p><div class="pf-trip-actions"><button type="submit" class="pf-go">'+ic('check',16)+'Plan with these details</button><button type="button" class="pf-link" data-act="pfEditCancel">Cancel</button></div></form>';
+  }
   function dialogHTML(inline=false){
     const x=issue(),days=Number(x.input.days)||1,end=x.input.dayEnd||'21:00',opts=[];let title,lead,facts='';
     const removeOpt=primary=>option('pfRemove',null,'minus','Put a few places back','Choose which places to drop in your picks, then press Done.',primary);
@@ -73,6 +87,15 @@
       if(days<4)opts.push(option('pfAddDay',days+1,'calendar','Add a day','Spread your places over '+(days+1)+' days.',!opts.length));
       for(const id of x.ids.slice(0,2))opts.push(option('pfRemoveOne',id,'minus','Put back '+nameOf(id),'It is the hardest to fit.'));
       opts.push(removeOpt(!opts.length));
+    }else if(pd.pfEditing){
+      title='Change your trip details';
+      lead='Your picks stay as they are. Change what you need and we’ll plan again.';
+      opts.push(tripForm(x));
+    }else if(x.reason==='rate'){
+      title='Planning needs a short break';
+      lead='You’ve planned and searched a lot in the last hour. Your picks are saved — try again in a few minutes.';
+      opts.push(option('pfRetry',null,'refresh','Try again','Plan the same places once more.',true));
+      opts.push(option('pfEdit',null,'sliders','Change trip details','Date, days, hours or budget.'));
     }else if(x.reason==='date_conflict'){
       title='You already have a trip '+(x.conflict?'on '+(typeof agDate==='function'?agDate(x.conflict):x.conflict):'on these dates');
       lead='Your Calendar already has a plan for '+(x.conflict?'that day':'those days')+'. Choose another date for these picks, or open Calendar to change the existing plan.';
@@ -119,7 +142,7 @@
     if(pd.busy)return;
     pd.planAdjust={...(pd.planAdjust||{}),...adjust};
     pd.input={...(pd.input||{}),...adjust,...(Object.hasOwn(adjust,'budgetAmount')?{budgetCnyMinor:adjust.budgetAmount==null?null:Math.round(adjust.budgetAmount*100)}:{})};
-    pd.error='';pd.fixShownFor=null;pd.fixRemove=false;
+    pd.error='';pd.fixShownFor=null;pd.fixRemove=false;pd.pfEditing=false;
     return A.pdFinish();
   };
   A.pfClose=()=>{close();render();};
@@ -129,12 +152,29 @@
   A.pfLater=t=>replan({dayEnd:/^([01]\d|2[0-3]):[0-5]\d$/.test(t)?t:'22:00'});
   A.pfAddDay=n=>replan({days:Math.min(4,Math.max(1,Number(n)||1))});
   A.pfRetry=()=>{pd.error='';pd.fixShownFor=null;return A.pdFinish();};
+  // The page's own "Edit trip preferences" button edits in place too while a fix is showing.
+  const pfPtuEdit=A.ptuEdit;
+  A.ptuEdit=function(){if(wide?.matches&&pd.mode&&pd.error&&state.route==='ai-picks')return A.pfEdit();return pfPtuEdit?.apply(this,arguments);};
+  A.pfEditCancel=()=>{pd.pfEditing=false;render();};
   A.pfCalendar=()=>{close();go('orders');};
-  A.pfEdit=()=>{close();if(typeof A.ptuEdit==='function')A.ptuEdit();else go('place-search');};
+  // Edit in place on the card screen instead of leaving for the home page.
+  A.pfEdit=()=>{pd.pfEditing=true;pd.fixShownFor=null;render();setTimeout(()=>document.querySelector('[data-pf-trip] input')?.focus(),60);};
   document.addEventListener('submit',e=>{
     if(!e.target.matches?.('[data-pf-budget]'))return;e.preventDefault();
     const n=Number(e.target.querySelector('input').value);if(!Number.isFinite(n)||n<1||n>1000000){e.target.querySelector('input').focus();return;}
     replan({budgetAmount:Math.round(n),budgetCurrency:'CNY',budgetScope:'group'});
+  });
+  document.addEventListener('submit',e=>{
+    if(!e.target.matches?.('[data-pf-trip]'))return;e.preventDefault();
+    const f=e.target,v=n=>f.elements[n]?.value?.trim()||'',err=f.querySelector('.pf-trip-error');
+    const show=m=>{err.textContent=m;err.hidden=false;};
+    const date=v('date'),days=Number(v('days')),start=v('dayStart'),end=v('dayEnd'),budget=v('budget');
+    const d=f.elements.date;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date<d.min||date>d.max)return show('Choose a date within the next year.');
+    if(!/^\d{2}:\d{2}$/.test(start)||!/^\d{2}:\d{2}$/.test(end)||hhmm(end)-hhmm(start)<180)return show('Leave at least 3 hours between the start and end of each day.');
+    const n=Number(budget);if(budget&&(!Number.isFinite(n)||n<1||n>1000000))return show('Enter a budget between 1 and 1,000,000, or leave it empty.');
+    pd.pfEditing=false;
+    replan({date,days:Math.min(4,Math.max(1,days||1)),dayStart:start,dayEnd:end,budgetAmount:budget?Math.round(n):null,budgetCurrency:'CNY',budgetScope:'group'});
   });
   document.addEventListener('submit',e=>{
     if(!e.target.matches?.('[data-pf-date]'))return;e.preventDefault();

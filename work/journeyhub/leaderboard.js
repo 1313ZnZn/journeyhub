@@ -7,6 +7,8 @@
   const TTL=5*60*1000;
   const boards=new Map(); // city -> {data, at, loading, error}
   let shown=null;          // city chosen in the section (null = follow Explore's city)
+  let tab='must';          // sidebar board: 'must' or 'debates'
+  const pipOn=()=>typeof window.jhPipShowing==='function'&&window.jhPipShowing();
   const signedIn=()=>typeof jhUser!=='undefined'&&!!jhUser;
   const head=(p,size)=>typeof jhBuddyHead==='function'?jhBuddyHead({id:p.placeId,name:p.name,kind:String(p.kind||'').replace(/ /g,'_')},size):'';
 
@@ -15,7 +17,7 @@
     if(!signedIn()||typeof window.jhPipPost!=='function'||b?.loading||(b?.data&&Date.now()-b.at<TTL)||(b?.error&&Date.now()-b.at<30000))return;
     const rec={...(b||{}),loading:true};boards.set(city,rec);
     window.jhPipPost({action:'leaderboard',city}).then(data=>{boards.set(city,{data,at:Date.now(),loading:false});},e=>{boards.set(city,{...rec,loading:false,error:e.message||'The leaderboard is unavailable.',at:Date.now()});})
-      .finally(()=>{paintExplore();if(state.route==='ai-picks')render();});
+      .finally(()=>{paintExplore();window.jhPipSync?.();if(state.route==='ai-picks')render();});
   }
   const exploreCity=()=>{const t=document.querySelector('#app [data-dx-city]')?.textContent?.trim();return CITIES.includes(t)?t:'Shanghai';};
   const currentCity=()=>shown||exploreCity();
@@ -44,20 +46,36 @@
   }
   function paintExplore(){const el=document.querySelector('#app [data-lb]');if(!el)return;const html=sectionInner();if(el.dataset.html!==html){el.innerHTML=html;el.dataset.html=html;}}
 
-  A.lbCity=c=>{if(!CITIES.includes(c))return;shown=c;paintExplore();};
-  A.lbRetry=()=>{boards.delete(currentCity());paintExplore();};
+  A.lbCity=c=>{if(!CITIES.includes(c))return;shown=c;paintExplore();window.jhPipSync?.();};
+  A.lbTab=t=>{tab=t==='debates'?'debates':'must';window.jhPipSync?.();};
+  A.lbRetry=()=>{boards.delete(currentCity());paintExplore();window.jhPipSync?.();};
   A.lbSignIn=()=>openLogin('traveler',{route:'home'});
   // Follow the city Explore is showing, unless the traveler picked one in the section.
-  document.addEventListener('jh:painted',()=>{if(state.route==='home')paintExplore();});
+  document.addEventListener('jh:painted',()=>{if(state.route==='home'){paintExplore();window.jhPipSync?.();}});
 
   const lbHome=V.home;
   V.home=function(){
     const view=lbHome.apply(this,arguments);
-    if(!wide?.matches||state.role==='staff'||!view?.body?.includes('</main></div>'))return view;
+    // With Pip's sidebar showing, the leaderboard lives there instead.
+    if(!wide?.matches||state.role==='staff'||pipOn()||!view?.body?.includes('</main></div>'))return view;
     const inner=sectionInner();
     view.body=view.body.replace(/<\/main><\/div>$/,'<section class="lb" data-lb aria-label="This week on JourneyHub">'+inner+'</section></main></div>');
     setTimeout(paintExplore,0); // pick up the city Explore actually shows once it is on screen
     return view;
+  };
+
+  // In Pip's sidebar on Explore: one board at a time, for the city on screen.
+  window.jhLeaderboardCard=()=>{
+    if(!wide?.matches)return '';
+    const city=currentCity();
+    const cities='<div class="lb-tabs is-side" role="tablist" aria-label="City">'+CITIES.map(c=>'<button type="button" role="tab" aria-selected="'+(c===city)+'" data-act="lbCity" data-a="'+c+'">'+c+'</button>').join('')+'</div>';
+    const boardsTabs='<div class="lb-switch" role="tablist" aria-label="Leaderboard"><button type="button" role="tab" aria-selected="'+(tab==='must')+'" data-act="lbTab" data-a="must">🧳 Must go</button><button type="button" role="tab" aria-selected="'+(tab==='debates')+'" data-act="lbTab" data-a="debates">🎤 Debates</button></div>';
+    let body;
+    if(!signedIn())body='<p class="lb-empty">Sign in to see what travelers pick this week.</p><button type="button" class="lb-go" data-act="lbSignIn">Sign in</button>';
+    else{load(city);const b=boards.get(city);
+      body=!b?.data?(b?.error?'<p class="lb-empty" role="alert">'+esc(b.error)+' <button type="button" class="lb-link" data-act="lbRetry">Try again</button></p>':'<div class="lb-board is-side-loading"></div>')
+        :tab==='must'?mustHTML(b.data.mustGo||[]):debateHTML(b.data.debates||[]);}
+    return '<div class="pip-card lb-side"><div class="pip-card-body"><strong>🏆 This week in '+esc(city)+'</strong>'+cities+boardsTabs+body+'<small class="lb-note">Last 7 days · all travelers · counts only.</small></div></div>';
   };
 
   // On the card screen: a badge when the focused place is in this week's Must go top five.

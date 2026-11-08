@@ -259,3 +259,14 @@
 }
 @media(min-width:1024px) and (prefers-reduced-motion:reduce){.fc-chip.is-new,.fc-dealt .tch-avatar,.fc.is-fixing .fc-pile[data-pile=want] .fc-chip{animation:none}}
 @media(min-width:1024px){.fc-stage.is-dragging{overflow:visible;z-index:50}}
+@media(min-width:1024px){
+ /* AI Journey: earlier trips and memories under the trip details */
+ .pip-lib{display:none}
+ .pip.is-center .pip-lib{order:6;display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:760px;margin:14px auto 0}
+ .pip-lib-card{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:12px 14px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.04);color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:transform .2s,border-color .2s,background .2s}
+ .pip-lib-card:hover{transform:translateY(-2px);border-color:rgba(197,255,72,.45);background:rgba(197,255,72,.06)}
+ .pip-lib-ic{display:grid;place-items:center;width:36px;height:36px;border-radius:12px;background:rgba(255,255,255,.07);font-size:18px}
+ .pip-lib-card strong{display:block;font-size:14px}
+ .pip-lib-card small{display:block;color:var(--ink-3);font-size:12px}
+ .pip-lib-card svg{color:var(--ink-3)}
+}

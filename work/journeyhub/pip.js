@@ -7,7 +7,7 @@
   const wide=window.matchMedia?.('(min-width:1024px)');
   const calm=window.matchMedia?.('(prefers-reduced-motion:reduce)');
   const STAGES=[['💭','Idea'],['🃏','Choose'],['🗺️','Plan'],['🎒','Go'],['📸','Remember']];
-  const ROUTE_STAGE={journey:0,'place-search':0,'ai-picks':1,'place-plan':2,orders:3,memories:4,'memory-trip':4,'memory-photo':4};
+  const ROUTE_STAGE={home:0,journey:0,'place-search':0,'ai-picks':1,'place-plan':2,orders:3,memories:4,'memory-trip':4,'memory-photo':4};
   let openPref=true;try{openPref=localStorage.getItem('jh-pip-open')!=='0';}catch{}
   let dock=null,toggle=null,last={key:'',stage:-1,thread:'',live:'',chips:'',head:''},peekTimer=null,typingTimer=null;
 
@@ -92,6 +92,7 @@
       return '<div class="pip-card pip-piles"><div class="pip-pile"><span>🧳</span><b>'+must+'</b><small>of '+cap+' Must go</small></div><div class="pip-pile"><span>🤔</span><b>'+maybe+'</b><small>Maybe</small></div><div class="pip-pile"><span>🙅</span><b>'+pd.skipped.length+'</b><small>Not this time</small></div></div>';
     }
     if(stage===4)return typeof window.jhMemoryLive==='function'?window.jhMemoryLive():'';
+    if(state.route==='home')return typeof window.jhLeaderboardCard==='function'?window.jhLeaderboardCard():'';
     if(stage===3){
       const t=window.jhCalendarAgent?.target?.();
       if(!t)return '<div class="pip-card"><small>Pick a day with a trip in the calendar and I’ll help you adjust it.</small></div>';
@@ -107,7 +108,7 @@
         if(chatBusy)return '';
         return (lastPip?.quick||[]).map((q,i)=>chip('pipQuick',i,'💬',q)).join('')+chip('pipScout',null,'🔎','Start scouting',!!lastPip?.ready);
       }
-      if(centreRoute())return ideas.map((x,i)=>chip('pipIdea',i,(short[x.icon]||['✨'])[0],(short[x.icon]||[0,'An idea'])[1])).join('')+chip('pipSurprise',null,'✨','Just plan it for me');
+      if(centreRoute()||state.route==='home')return ideas.map((x,i)=>chip('pipIdea',i,(short[x.icon]||['✨'])[0],(short[x.icon]||[0,'An idea'])[1])).join('')+chip('pipSurprise',null,'✨','Just plan it for me');
       return '<span class="pip-chips-label">Not sure where to start? Tap one</span>'+ideas.map((x,i)=>'<button type="button" class="pip-idea" data-act="pipIdea" data-a="'+i+'"><span aria-hidden="true">'+(em[x.icon]||'✨')+'</span>'+esc(x.text)+'</button>').join('')+chip('pipSurprise',null,'✨','Just plan it for me');
     }
     if(stage===1&&live()&&!pd.busy){const n=pd.wanted.length,m=typeof window.jhDebateReady==='function'&&window.jhDebateReady();return (n?chip('pdFinish',null,'✨','Plan '+plural(n,'place'),true):'')+(m?chip('pdbOpen',null,'🎤','Let two Maybes debate'):'')+(pd.undo.length?chip('pdUndo',null,'↩️','Undo'):'');}
@@ -160,7 +161,7 @@
   // Rendering the dock (outside #app).
   function ensure(){
     if(dock)return;
-    document.body.insertAdjacentHTML('beforeend','<aside class="pip" aria-label="Pip, your trip companion" hidden><header class="pip-head">'+avatar('is-head')+'<div><strong>Pip</strong><small data-pip-sub></small></div><button type="button" class="pip-min" data-pip-toggle aria-label="Hide Pip">'+ic('right',16)+'</button></header><div class="pip-steps" data-pip-steps></div><div class="pip-hello" data-pip-hello>'+avatar('is-hello')+'<h1>Where shall we go?</h1><p>Tell me what you love — I’ll scout places, help you choose and plan the days.</p></div><div class="pip-thread" data-pip-thread role="log" aria-live="polite"></div><div class="pip-live" data-pip-live></div><div class="pip-chips" data-pip-chips></div><div class="pip-trip" data-pip-trip></div><form class="pip-composer" data-pip-form hidden><textarea rows="1" maxlength="1200" data-pip-input aria-label="Message Pip"></textarea><button type="submit" class="pip-send" aria-label="Send">'+ic('right',18)+'</button></form></aside>'+
+    document.body.insertAdjacentHTML('beforeend','<aside class="pip" aria-label="Pip, your trip companion" hidden><header class="pip-head">'+avatar('is-head')+'<div><strong>Pip</strong><small data-pip-sub></small></div><button type="button" class="pip-min" data-pip-toggle aria-label="Hide Pip">'+ic('right',16)+'</button></header><div class="pip-steps" data-pip-steps></div><div class="pip-hello" data-pip-hello>'+avatar('is-hello')+'<h1>Where shall we go?</h1><p>Tell me what you love — I’ll scout places, help you choose and plan the days.</p></div><div class="pip-thread" data-pip-thread role="log" aria-live="polite"></div><div class="pip-live" data-pip-live></div><div class="pip-chips" data-pip-chips></div><div class="pip-trip" data-pip-trip></div><div class="pip-lib" data-pip-lib></div><form class="pip-composer" data-pip-form hidden><textarea rows="1" maxlength="1200" data-pip-input aria-label="Message Pip"></textarea><button type="submit" class="pip-send" aria-label="Send">'+ic('right',18)+'</button></form></aside>'+
       '<button type="button" class="pip-fab" data-pip-toggle hidden aria-label="Show Pip">'+avatar('is-fab')+'<span class="pip-peek" data-pip-peek hidden></span><i class="pip-dot" hidden></i></button>');
     dock=document.body.querySelector('aside.pip');toggle=document.body.querySelector('.pip-fab');
   }
@@ -183,6 +184,12 @@
     const items=[['📍',i.city||'Choose a city'],['📅',date],['👥',plural(Number(i.guests)||1,'guest')],['🕘',plural(days,'day')+' · '+(i.dayStart||'09:00')+'–'+(i.dayEnd||'21:00')],[i.transport==='walk'?'🚶':'🚕',i.transport==='walk'?'Walking':'Car / taxi'],['💰',budget]];
     return '<span class="pip-trip-label">Your trip</span>'+items.filter(x=>x[1]).map(([e,t])=>'<button type="button" class="pip-trip-chip" data-act="pipTrip"><span aria-hidden="true">'+e+'</span>'+esc(t)+'</button>').join('')+'<button type="button" class="pip-trip-edit" data-act="pipTrip">'+ic('sliders',14)+'Edit</button>';
   }
+  // Earlier trips live here too: unfinished searches and saved plans, and travel memories.
+  function libraryHTML(){
+    const n=typeof th!=='undefined'&&Array.isArray(th.items)?th.items.length:0;
+    return '<button type="button" class="pip-lib-card" data-act="go" data-a="trip-history"><span class="pip-lib-ic" aria-hidden="true">🗂️</span><span><strong>Trip history</strong><small>'+(n?plural(n,'saved search')+' & plans · pick up where you left off':'Unfinished searches and saved plans')+'</small></span>'+ic('right',16)+'</button>'+
+      '<button type="button" class="pip-lib-card" data-act="jmMine"><span class="pip-lib-ic" aria-hidden="true">📸</span><span><strong>Travel memories</strong><small>Photos, stories and Pip’s recaps</small></span>'+ic('right',16)+'</button>';
+  }
   A.pipTrip=()=>{const on=!document.body.classList.contains('pip-trip-open');document.body.classList.toggle('pip-trip-open',on);if(on)app.querySelector('.jl-home>.jl-details')?.scrollTo?.(0,0);};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('pip-trip-open'))document.body.classList.remove('pip-trip-open');});
   function sync(){
@@ -203,7 +210,7 @@
     const empty=centre&&!msgs.length&&!(live()&&pd.busy)&&!chatBusy;
     dock.classList.toggle('is-empty',empty);
     if(empty)thread='';
-    else if(!msgs.length)thread=messageHTML({from:'pip',text:stage===0?'Hi, I’m **Pip** 👋 Tell me where you’d like to go and what you love — I’ll scout places, help you choose and plan the days.':stage===3?'Hi again 👋 Pick a day in the calendar and I can check timings, tweak the route or add food.':stage===4?(state.route==='memories'?'Hi, I’m **Pip**, your memory keeper 📸 I can look back over all your trips and find what you keep coming back to.':'Hi, I’m **Pip**, your memory keeper 📸 I can turn this trip’s stops, notes and photo times into a short story — and ask you one question to remember it by.'):'Hi, I’m **Pip** 👋 I’ll help you with this trip.'},0,[{}]);
+    else if(!msgs.length)thread=messageHTML({from:'pip',text:stage===0&&state.route==='home'?'Hi, I’m **Pip** 👋 Here’s what travelers are picking this week. Tell me what you love and I’ll plan a trip around it.':stage===0?'Hi, I’m **Pip** 👋 Tell me where you’d like to go and what you love — I’ll scout places, help you choose and plan the days.':stage===3?'Hi again 👋 Pick a day in the calendar and I can check timings, tweak the route or add food.':stage===4?(state.route==='memories'?'Hi, I’m **Pip**, your memory keeper 📸 I can look back over all your trips and find what you keep coming back to.':'Hi, I’m **Pip**, your memory keeper 📸 I can turn this trip’s stops, notes and photo times into a short story — and ask you one question to remember it by.'):'Hi, I’m **Pip** 👋 I’ll help you with this trip.'},0,[{}]);
     const liveHTML=liveCard(stage),chips=chipsFor(stage),composer=composerFor(stage);
     const set=(sel,html,prop)=>{if(last[prop]===html)return false;last[prop]=html;dock.querySelector(sel).innerHTML=html;return true;};
     set('[data-pip-sub]',headLine(),'head');
@@ -216,6 +223,7 @@
      if(set('[data-pip-live]',liveHTML,'live')){liveEl.scrollTop=keep[0];const list=liveEl.querySelector('.pb-list');if(list)list.scrollTop=keep[1];}}
     set('[data-pip-chips]',chips,'chips');
     set('[data-pip-trip]',centre?tripChips():'','trip');
+    set('[data-pip-lib]',centre?libraryHTML():'','lib');
     const form=dock.querySelector('[data-pip-form]'),input=form.querySelector('textarea');
     form.hidden=!composer;if(composer){input.placeholder=composer.ph;form.dataset.mode=composer.act;}
     // Something new while Pip is tucked away: a dot on the button.

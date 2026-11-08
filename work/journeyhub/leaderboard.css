@@ -35,3 +35,20 @@
  @keyframes lbShine{to{background-position:-200% 0}}
 }
 @media(min-width:1024px) and (prefers-reduced-motion:reduce){.lb-list li,.lb-badge,.lb-boards.is-loading .lb-board{animation:none}}
+@media(min-width:1024px){
+ /* In Pip's sidebar on Explore */
+ .pip .lb-side .pip-card-body{display:grid;gap:10px;width:100%}
+ .pip .lb-side>.pip-card-body>strong{font-size:15px}
+ .pip .lb-tabs.is-side{justify-content:stretch}
+ .pip .lb-tabs.is-side button{flex:1;padding:6px 8px;font-size:12px}
+ .lb-switch{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+ .lb-switch button{padding:7px 8px;border:1px solid rgba(255,255,255,.12);border-radius:10px;background:none;color:var(--ink-2);font:750 12.5px var(--font);cursor:pointer}
+ .lb-switch button[aria-selected=true]{border-color:rgba(255,183,77,.55);background:rgba(255,183,77,.12);color:#ffd08a}
+ .pip .lb-side .lb-list li{grid-template-columns:24px 30px minmax(0,1fr) auto;gap:8px;padding:7px 8px}
+ .pip .lb-side .lb-bar{width:44px}
+ .pip .lb-side .lb-name strong{font-size:13px}
+ .pip .lb-side .lb-name small{font-size:11.5px}
+ .pip .lb-side .lb-rank{font-size:16px}
+ .pip .lb-side .lb-go{justify-self:start;height:34px;font-size:13px}
+ .lb-board.is-side-loading{min-height:220px;background:linear-gradient(90deg,rgba(255,255,255,.03),rgba(255,255,255,.08),rgba(255,255,255,.03)) 0 0/200% 100%;animation:lbShine 1.4s linear infinite}
+}

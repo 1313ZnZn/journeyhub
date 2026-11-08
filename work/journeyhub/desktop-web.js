@@ -11,6 +11,7 @@
     if(nav.querySelector('.dx-brand'))return;
     const home=state.role==='staff'?'s-today':'journey';
     nav.insertAdjacentHTML('afterbegin','<button type="button" class="dx-brand" data-act="tab" data-a="'+home+'" aria-label="Journey Hub home">'+mark(30)+'<span>Journey Hub</span></button>');
+    if(state.role==='staff')nav.querySelector('.dx-brand').insertAdjacentHTML('afterend','<span class="dx-ws">Staff workspace</span>');
     nav.insertAdjacentHTML('beforeend','<div class="dx-actions"><button type="button" class="dk-search" data-dk-palette aria-haspopup="dialog">'+ic('search',16)+'<span>Search</span><kbd>'+(isMac?'⌘K':'Ctrl K')+'</kbd></button></div>');
   }
   const dxGlobal=':scope>:is(.fx-switch,.sn-entry,[data-act=bell],[data-act=go][data-a=bag])';
@@ -19,6 +20,12 @@
     if(!bar||!slot)return;
     const order=['fx-switch','bell','bag','sn-entry'],rank=el=>order.findIndex(k=>el.classList.contains(k)||el.dataset.act===k||el.dataset.a===k);
     [...bar.querySelectorAll(dxGlobal)].sort((a,b)=>rank(a)-rank(b)).forEach(el=>slot.appendChild(el));
+    // Staff: the traveler switch and an initials avatar sit on the right, as in the staff design.
+    if(state.role==='staff'){
+      const sw=nav.querySelector(':scope>.tab[data-act=role]');
+      if(sw){sw.classList.add('dx-switch');sw.querySelector('.tab-pill')?.remove();sw.innerHTML=ic('swap',16)+'<span>Traveler view</span>';slot.appendChild(sw);}
+      if(!slot.querySelector('.dx-avatar')){const name=String(me()?.name||'Staff').trim(),initials=name.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();slot.insertAdjacentHTML('beforeend','<button type="button" class="dx-avatar" data-act="staffMenu" aria-label="Staff account, '+esc(name)+'">'+esc(initials)+'</button>');}
+    }
     // Travelers see currency, notifications and bag on every page, as in the design.
     if(state.role==='traveler'){
       const have=sel=>slot.querySelector(sel);
@@ -30,7 +37,7 @@
     }
   }
   // Eyebrow over the page title names the section, unless the title already does.
-  const dxSections={journey:'AI Journey',home:'Explore',orders:'Calendar',me:'Account','s-today':'Hub operations','s-orders':'Hub operations','s-sessions':'Hub operations','s-insights':'Hub operations'};
+  const dxSections={journey:'AI Journey',home:'Explore',orders:'Calendar',me:'Account','s-today':'Staff workspace','s-orders':'Staff workspace','s-sessions':'Staff workspace','s-bookings':'Staff workspace','s-insights':'Performance & planning'};
   function dkEyebrow(){
     const bar=app.querySelector(':scope>.bar');if(!bar)return;
     const section=dxSections[TAB_OF[state.route]||state.route],title=bar.querySelector('.bar-title,h1')?.textContent.trim();
@@ -62,6 +69,7 @@
     const shell=!!wide?.matches&&screen&&!!state.role&&!bare.has(route);
     const mode=shell?'on':'off';
     if(app.dataset.shell!==mode)app.dataset.shell=mode;
+    document.body.classList.toggle('dx-staff',shell&&state.role==='staff');
     let nav=app.querySelector(':scope>.tabbar');
     if(shell&&!nav){
       app.insertAdjacentHTML('beforeend',tabbar());
@@ -78,6 +86,12 @@
       lastRoute=route;
     }
   }
+
+  // On wide screens the home page shows trip details as a side panel, always open.
+  const dkJourney=V.journey;
+  V.journey=function(){if(wide?.matches&&typeof jlDetailsOpen!=='undefined')jlDetailsOpen=true;return dkJourney.apply(this,arguments);};
+  const dkJlDetails=A.jlDetails;
+  A.jlDetails=function(){if(wide?.matches&&state.route==='journey'){const d=document.querySelector('.jl-home>.jl-details');if(d){d.open=true;d.querySelector('input,select,button')?.focus();return;}}return dkJlDetails.apply(this,arguments);};
 
   // Command palette
   const travelerItems=[['AI Journey','journey','Plan a trip'],['Explore','home','Places and experiences'],['Shopping','shop','Local stores'],['Calendar','orders','Your schedule'],['Reservations','reserved-trips','Saved bookings'],['Trip history','trip-history','Searches and plans'],['Travel memories','memories','Photos and stories'],['Saved','saved','Places you liked'],['Purchases','purchases','Orders and delivery'],['Demo wallet','demo-wallet','Virtual credits'],['Display currency','currency','Prices and rates'],['Me','me','Profile and settings']];

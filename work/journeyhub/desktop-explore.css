@@ -310,3 +310,19 @@
  .gh-film,.gh-film video,.gh-film-shade,.gh.is-leaving *{transition:none!important}
  .gh-panel{transform:translateX(-50%)}
 }
+
+/* AI Journey home: trip details on the left, the chat box on the right, title across both. */
+@media(min-width:1024px){
+ #app .jl-home{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-auto-rows:auto;column-gap:28px;row-gap:16px;align-items:start;align-content:center;justify-content:center;max-width:1240px}
+ #app .jl-home>*{width:100%;max-width:none;grid-column:1/-1}
+ #app .jl-home>.jl-copy{justify-self:center}
+ #app .jl-home>.jl-details{grid-column:1;grid-row:2/span 3;align-self:stretch;margin:0;padding:22px 24px;border:1px solid var(--dx-glass-line);border-top:1px solid var(--dx-glass-line)!important;border-radius:26px;background:var(--dx-glass)!important;-webkit-backdrop-filter:blur(22px) saturate(1.2);backdrop-filter:blur(22px) saturate(1.2);box-shadow:var(--dx-glass-shadow)}
+ #app .jl-home>.jl-details>summary{justify-content:flex-start;min-height:0;margin:0 0 16px;padding:0;color:var(--ink)!important;font-size:19px;font-weight:800;letter-spacing:-.3px;pointer-events:none}
+ #app .jl-home>.jl-details>summary:after{content:none}
+ #app .jl-home>.jl-composer{grid-column:2;grid-row:2;align-self:start}
+ #app .jl-home>.jl-suggestions{grid-column:2;grid-row:3;justify-content:flex-start}
+ #app .jl-home>.jl-connection{grid-column:2;grid-row:4;max-width:none;text-align:left}
+ #app .jl-home>.jl-home-library{grid-row:5}
+ #app .jl-home>.jl-details>.ag-form{width:100%;max-width:none;margin:0;padding:0!important;grid-template-columns:minmax(0,1fr)!important}
+ #app .jl-home>.jl-connection>*{justify-content:flex-start;text-align:left;margin-inline:0}
+}

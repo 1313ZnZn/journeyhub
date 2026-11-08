@@ -50,3 +50,8 @@ await assert.rejects(placeDebate({...ctx,value:{token:old,ids:['garden','museum'
 await assert.rejects(placeDebate({...ctx,value:{token,ids:['garden','museum']},fetcher:async()=>new Response('x',{status:500})}),e=>e.code==='AI_UNAVAILABLE');
 await assert.rejects(placeDebate({...ctx,env:()=>'',value:{token,ids:['garden','museum']},fetcher:reply({})}),e=>e.code==='AI_NOT_CONFIGURED');
 console.log('PASS pip debate: input checks, record-only facts, cited keys filtered, quota/expiry/provider errors');
+// A date conflict can be fixed in place: the planner accepts a new date as a change.
+const {plannerAdjust}=await import('./supabase/functions/journeyhub-agent/planner-tasks.mjs');
+assert.deepEqual(plannerAdjust({date:'2026-12-04'}),{date:'2026-12-04'});
+assert.throws(()=>plannerAdjust({city:'Paris'}),/valid change/);
+console.log('PASS planner adjust accepts a new date');

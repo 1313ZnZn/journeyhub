@@ -22,6 +22,7 @@
     const task=pd.plannerTask||(typeof ptu!=='undefined'?ptu.task:null),error=task?.error||{},d=error.details||{};
     const text=String(pd.error||error.message||'');
     let reason=d.reason;
+    if(!reason&&(error.code==='PLAN_DATE_CONFLICT'||/already have a plan/i.test(text)))reason='date_conflict';
     if(!reason){
       if(/exceed the group budget/i.test(text))reason='over_budget';
       else if(/prices could not be estimated/i.test(text))reason='price_unknown';
@@ -33,12 +34,21 @@
     const input={...(pd.input||{}),...d};
     let ids=Array.isArray(d.placeIds)?d.placeIds.filter(id=>pd.wanted.includes(id)):[];
     if(!ids.length&&reason==='closed'){const name=(text.match(/^(.+?) is closed at the planned time/)||[])[1];const p=name&&pd.places.find(x=>x.name===name);if(p)ids=[p.id];}
-    return {reason,text,input,ids,budget:d.budgetCnyMinor??input.budgetCnyMinor??null,subtotal:d.subtotalCnyMinor??null};
+    const conflict=(text.match(/(\d{4}-\d{2}-\d{2})/)||[])[1]||null;
+    return {reason,text,input,ids,conflict,budget:d.budgetCnyMinor??input.budgetCnyMinor??null,subtotal:d.subtotalCnyMinor??null};
   }
   const nameOf=id=>pd.places.find(p=>p.id===id)?.name||'This place';
 
   function option(act,a,icon,title,desc,primary){
     return '<button type="button" class="pf-option'+(primary?' is-primary':'')+'" data-act="'+act+'"'+(a!=null?' data-a="'+esc(String(a))+'"':'')+'><span class="pf-option-ic">'+ic(icon,18)+'</span><span><strong>'+esc(title)+'</strong><small>'+esc(desc)+'</small></span>'+ic('right',16)+'</button>';
+  }
+  const addDays=(iso,n)=>{const d=new Date(iso+'T12:00:00Z');if(!Number.isFinite(d.getTime()))return '';d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);};
+  const today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+  // Pick another date right here; the trip is planned again with the same places.
+  function dateForm(x,primary){
+    const days=Number(x.input.days)||1,from=x.input.date||today(),min=addDays(today(),1)||today(),max=addDays(today(),365);
+    let suggest=addDays(from,days);if(!suggest||suggest<min)suggest=min;
+    return '<form class="pf-budget pf-date'+(primary?' is-primary':'')+'" data-pf-date><label for="pf-date-value"><strong>Plan on another date</strong><small>Same places, '+(days>1?days+' days':'one day')+' from the date you choose</small></label><div class="pf-budget-row"><input id="pf-date-value" type="date" min="'+min+'" max="'+max+'" value="'+suggest+'" required><button type="submit" class="pf-go">'+ic('check',16)+'Plan on this date</button></div></form>';
   }
   function dialogHTML(inline=false){
     const x=issue(),days=Number(x.input.days)||1,end=x.input.dayEnd||'21:00',opts=[];let title,lead,facts='';
@@ -63,12 +73,17 @@
       if(days<4)opts.push(option('pfAddDay',days+1,'calendar','Add a day','Spread your places over '+(days+1)+' days.',!opts.length));
       for(const id of x.ids.slice(0,2))opts.push(option('pfRemoveOne',id,'minus','Put back '+nameOf(id),'It is the hardest to fit.'));
       opts.push(removeOpt(!opts.length));
+    }else if(x.reason==='date_conflict'){
+      title='You already have a trip '+(x.conflict?'on '+(typeof agDate==='function'?agDate(x.conflict):x.conflict):'on these dates');
+      lead='Your Calendar already has a plan for '+(x.conflict?'that day':'those days')+'. Choose another date for these picks, or open Calendar to change the existing plan.';
+      opts.push(dateForm(x,true));
+      opts.push(option('pfCalendar',null,'calendar','Open Calendar','See or delete the plan that is already there.'));
     }else if(x.reason==='closed'){
       const id=x.ids[0];
       title=(id?nameOf(id):'A place')+' is closed that day';
       lead='It isn’t open at a time that fits your trip date.';
       if(id)opts.push(option('pfRemoveOne',id,'minus','Put back '+nameOf(id),'Plan the rest of your picks.',true));
-      opts.push(option('pfEdit',null,'calendar','Choose another date','Change your trip dates and search again.',!id));
+      opts.push(dateForm(x,!id));
     }else if(x.reason==='details'){
       title='Some places are missing locations';
       lead='The planner can’t place these on a route.';
@@ -114,11 +129,18 @@
   A.pfLater=t=>replan({dayEnd:/^([01]\d|2[0-3]):[0-5]\d$/.test(t)?t:'22:00'});
   A.pfAddDay=n=>replan({days:Math.min(4,Math.max(1,Number(n)||1))});
   A.pfRetry=()=>{pd.error='';pd.fixShownFor=null;return A.pdFinish();};
+  A.pfCalendar=()=>{close();go('orders');};
   A.pfEdit=()=>{close();if(typeof A.ptuEdit==='function')A.ptuEdit();else go('place-search');};
   document.addEventListener('submit',e=>{
     if(!e.target.matches?.('[data-pf-budget]'))return;e.preventDefault();
     const n=Number(e.target.querySelector('input').value);if(!Number.isFinite(n)||n<1||n>1000000){e.target.querySelector('input').focus();return;}
     replan({budgetAmount:Math.round(n),budgetCurrency:'CNY',budgetScope:'group'});
+  });
+  document.addEventListener('submit',e=>{
+    if(!e.target.matches?.('[data-pf-date]'))return;e.preventDefault();
+    const input=e.target.querySelector('input'),v=input.value;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(v)||(input.min&&v<input.min)||(input.max&&v>input.max)){input.focus();return;}
+    replan({date:v});
   });
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.querySelector('.pf')){e.preventDefault();A.pfClose();}});
   // Done after putting places back leaves the "fixing" state.

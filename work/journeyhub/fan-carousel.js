@@ -79,7 +79,9 @@
   }
   // Day placement for the planner, only once the traveler has arranged places themselves.
   function dayPlan(){
-    if(!live()||!pd.fcArranged)return null;
+    // Must go is one pile: the travelers is not choosing days yet; the plan decides the order.
+    if(live())return null;
+    if(!pd.fcArranged)return null;
     const {perDay,slots,extra}=slotModel();let at=0;
     const days=perDay.map(n=>{const ids=slots.slice(at,at+n).filter(Boolean);at+=n;return ids;});
     if(extra.length)days[days.length-1].push(...extra);
@@ -87,6 +89,13 @@
   }
   window.jhFanDayPlan=dayPlan;
   function trayHTML(){
+    if(live()){
+      const cap=jhPickCap(),kept=pd.wanted.map(id=>pd.places.find(p=>p.id===id)).filter(Boolean),busy=pd.busy;
+      const done=doneAttrs?'<button type="button" class="fc-done" '+doneAttrs+(busy||!kept.length?' disabled':'')+'>'+ic('check',18)+'<span>'+(kept.length?'Plan '+plural(kept.length,'place'):'Plan my trip')+'</span></button>':'';
+      const chips=kept.length?kept.map(p=>chipHTML(p,'want').replace('class="fc-chip"','class="fc-chip'+(p.id===freshId?' is-new':'')+'"')).join(''):'<p class="fc-pile-empty">Places you must see go here. No need to pick days — the plan sorts the order.</p>';
+      freshId=null;
+      return '<div class="fc-tray fc-pile" data-pile="want" aria-label="Must go"><div class="fc-tray-head"><strong><span class="fc-pile-ic" aria-hidden="true">🧳</span>Must go <b>'+kept.length+'</b> / '+cap+'</strong><span>'+esc(jhPickLimitText(cap))+' Click one to look again.</span></div><div class="fc-chips">'+chips+'</div>'+done+'</div>';
+    }
     const cap=jhPickCap(),{perDay,slots,extra:over}=slotModel(),kept=jhPickKept();let n=0;
     const slot=id=>{
       const i=n++,info=id&&keptInfo(id);
@@ -111,7 +120,7 @@
   function sidePilesHTML(){
     if(!live())return '';
     const maybe=maybeList().map(id=>pd.places.find(p=>p.id===id)).filter(Boolean),skipped=pd.skipped.map(id=>pd.places.find(p=>p.id===id)).filter(Boolean).reverse();
-    return '<div class="fc-pile fc-pile-maybe" data-pile="maybe" aria-label="Maybe"><div class="fc-pile-head"><strong><span class="fc-pile-ic" aria-hidden="true">🤔</span>Maybe <b>'+maybe.length+'</b></strong><span>Drag one to a day, or click to look again.</span></div><div class="fc-chips">'+(maybe.length?maybe.map(p=>chipHTML(p,'maybe')).join(''):'<p class="fc-pile-empty">Unsure about a place? Drop it here.</p>')+'</div></div>'+
+    return '<div class="fc-pile fc-pile-maybe" data-pile="maybe" aria-label="Maybe"><div class="fc-pile-head"><strong><span class="fc-pile-ic" aria-hidden="true">🤔</span>Maybe <b>'+maybe.length+'</b></strong><span>Drag one to Must go, or click to look again.</span></div><div class="fc-chips">'+(maybe.length?maybe.map(p=>chipHTML(p,'maybe')).join(''):'<p class="fc-pile-empty">Unsure about a place? Drop it here.</p>')+'</div></div>'+
       '<div class="fc-pile fc-pile-skip" data-pile="skip" aria-label="Not this time"><div class="fc-pile-head"><strong><span class="fc-pile-ic" aria-hidden="true">🙅</span>Not this time <b>'+skipped.length+'</b></strong><span>Click one to bring it back.</span></div><div class="fc-chips">'+(skipped.length?skipped.slice(0,6).map(p=>chipHTML(p,'skip')).join('')+(skipped.length>6?'<span class="fc-more">+'+(skipped.length-6)+'</span>':''):'<p class="fc-pile-empty">Places you pass on land here.</p>')+'</div></div>';
   }
   function fanHTML(items){
@@ -192,7 +201,7 @@
       ghost.classList.add('fc-flight');ghost.dataset.vote=vote;ghost.setAttribute('aria-hidden','true');
       Object.assign(ghost.style,{position:'fixed',left:box.left+'px',top:box.top+'px',width:box.width+'px',height:box.height+'px',margin:'0',transform:'none',transformOrigin:'0 0',zIndex:'1000',pointerEvents:'none'});
       document.body.append(ghost);
-      const slot=vote==='want'?(pendingSlot!=null&&app.querySelector('.fc-slot[data-slot="'+pendingSlot+'"]:not(.is-kept)'))||app.querySelector('.fc-slot:not(.is-kept)'):app.querySelector('.fc-pile[data-pile="'+vote+'"] .fc-chips'),target=slot?.getBoundingClientRect();
+      const slot=live()?app.querySelector('.fc-pile[data-pile="'+vote+'"] .fc-chips'):vote==='want'?(pendingSlot!=null&&app.querySelector('.fc-slot[data-slot="'+pendingSlot+'"]:not(.is-kept)'))||app.querySelector('.fc-slot:not(.is-kept)'):app.querySelector('.fc-pile[data-pile="'+vote+'"] .fc-chips'),target=slot?.getBoundingClientRect();
       const frames=target
         // Drawn out of the fan, then dropped into the next free slot.
         ?[{transform:'none'},{transform:'translate(0,-90px) scale(1.04) rotate(-2deg)',offset:.32},{transform:'translate('+(target.left-box.left)+'px,'+(target.top-box.top)+'px) scale('+(target.width/box.width)+','+(target.height/box.height)+')'}]
@@ -245,15 +254,15 @@
     if(!drag||drag.id!==e.pointerId)return;
     const tx=e.clientX-drag.sx,ty=e.clientY-drag.sy;
     if(!drag.axis){
-      if(Math.abs(tx)>12&&Math.abs(tx)>Math.abs(ty))drag.axis='x';
-      else if(drag.card&&Math.abs(ty)>12&&Math.abs(ty)>Math.abs(tx)){drag.axis='y';drag.card.classList.add('is-pulling');try{drag.card.setPointerCapture?.(e.pointerId);}catch{}}
+      // The centre card can be picked up and carried anywhere; dragging elsewhere turns the fan.
+      if(drag.card&&Math.hypot(tx,ty)>8){drag.axis='y';drag.card.classList.add('is-pulling');drag.card.closest('.fc-stage')?.classList.add('is-dragging');try{drag.card.setPointerCapture?.(e.pointerId);}catch{}}
+      else if(!drag.card&&Math.abs(tx)>12&&Math.abs(tx)>Math.abs(ty))drag.axis='x';
     }
     if(drag.axis==='x'){const dx=e.clientX-drag.x;if(Math.abs(dx)>=90){drag.x=e.clientX;drag.moved=true;A.fcStep(dx<0?1:-1);}}
     else if(drag.axis==='y'){
       // The centred card follows the pointer up, out of the fan.
       drag.moved=true;drag.pull=Math.max(-220,Math.min(0,ty));
-      drag.card.style.transform='translate('+tx+'px,'+(-18+Math.max(-260,Math.min(140,ty)))+'px) scale('+(1.05+Math.min(.05,-drag.pull/2000))+')';
-      drag.card.classList.toggle('is-ready',drag.pull<=KEEP_AT);
+      drag.card.style.transform='translate('+tx+'px,'+(ty-18)+'px) rotate('+Math.max(-12,Math.min(12,tx/30))+'deg) scale('+Math.max(.62,1-Math.hypot(tx,ty)/900).toFixed(3)+')';
       const over=slotAt(e.clientX,e.clientY,true),pile=over?null:pileAt(e.clientX,e.clientY);
       app.querySelectorAll('.fc-slot.is-target,.fc-pile.is-target').forEach(el=>{if(el!==over&&el!==pile)el.classList.remove('is-target');});
       (over||pile)?.classList.add('is-target');drag.slot=over?+over.dataset.slot:null;drag.pile=pile?pile.dataset.pile:null;
@@ -263,10 +272,13 @@
     if(!drag||drag.id!==e.pointerId)return;
     const g=drag;drag=null;if(g.moved)e.preventDefault?.();
     if(g.axis!=='y')return;
+    app.querySelectorAll('.fc-stage.is-dragging').forEach(el=>el.classList.remove('is-dragging'));
     app.querySelectorAll('.fc-slot.is-target,.fc-pile.is-target').forEach(el=>el.classList.remove('is-target'));
     if(e.type==='pointerup'&&g.pile&&g.slot==null&&g.card.isConnected){A.fcVote(g.pile);if(g.card.isConnected){g.card.classList.remove('is-pulling','is-ready');g.card.style.transform='';}return;}
-    if(e.type==='pointerup'&&(g.pull<=KEEP_AT||g.slot!=null)&&g.card.isConnected){pendingSlot=g.slot;A.fcVote('want');if(g.card.isConnected){g.card.classList.remove('is-pulling','is-ready');g.card.style.transform='';}return;}
-    g.card.classList.remove('is-pulling','is-ready');g.card.style.transform='';
+    if(e.type==='pointerup'&&g.slot!=null&&g.card.isConnected){pendingSlot=g.slot;A.fcVote('want');if(g.card.isConnected){g.card.classList.remove('is-pulling','is-ready');g.card.style.transform='';}return;}
+    // Not dropped on a pile: the card glides back into the fan.
+    const back=g.card.style.transform;g.card.classList.remove('is-pulling','is-ready');g.card.style.transform='';
+    if(back&&!calm?.matches)g.card.animate([{transform:back},{transform:getComputedStyle(g.card).transform}],{duration:380,easing:'cubic-bezier(.2,.9,.3,1.2)'});
   };
   document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);
 
@@ -340,8 +352,19 @@
   const fcPicks=V['ai-picks'];
   V['ai-picks']=function(){
     const view=fcPicks.apply(this,arguments);
-    if(!wide?.matches||!view?.body||!view.body.includes('jp-swipe-card'))return view;
-    const items=deck();if(!items.length)return view;
+    if(!wide?.matches||!view?.body)return view;
+    const items=deck();
+    if(live()&&!items.length&&pd.places.length&&!pd.sample){
+      const doneMatch=view.bar?.match(/<button class="btn-text" (data-act="[^"]+"(?: data-a="[^"]+")?)/);doneAttrs=doneMatch?doneMatch[1]:'data-act="pdFinish"';
+      const root=document.createElement('template');root.innerHTML=view.body;
+      const content=root.content.querySelector('.content')||root.content.firstElementChild;if(!content)return view;
+      content.querySelectorAll('.jp-deck,.jp-swipe-actions,.pd-card-credit,.pd-card-details,.jp-swipe-empty,.jp-done,.jp-small-note,.ix-note').forEach(el=>el.remove());
+      const maybe=maybeList().length;
+      content.insertAdjacentHTML('beforeend','<section class="fc has-piles is-dealt" aria-label="Your piles"><div class="fc-dealt">'+(typeof tchAvatar==='function'?tchAvatar('fc-dealt-av'):'')+'<div><strong>All '+plural(pd.places.length,'card')+' dealt 🎉</strong><p>'+(pd.wanted.length?'Ready to plan your '+plural(pd.wanted.length,'Must go place')+(maybe?', with '+maybe+' in Maybe to fill any free time':'')+'.':'Drag a few places into Must go, then plan your trip.')+' Drag places between piles, or click one to see its card again.</p></div></div><div class="fc-piles">'+trayHTML()+sidePilesHTML()+'</div></section>');
+      view.body=root.innerHTML.replace('jp-swipe-page','jp-swipe-page fc-page');
+      return view;
+    }
+    if(!view.body.includes('jp-swipe-card')||!items.length)return view;
     // The header's Done action is repeated as the tray's main button.
     const doneMatch=view.bar?.match(/<button class="btn-text" (data-act="[^"]+"(?: data-a="[^"]+")?)/);doneAttrs=doneMatch?doneMatch[1]:'';
     const root=document.createElement('template');root.innerHTML=view.body;

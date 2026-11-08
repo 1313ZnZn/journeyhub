@@ -242,3 +242,20 @@
  .pip-composer.is-busy{opacity:.6}
 }
 @media(min-width:1024px){.pip.is-center .pip-chip.is-primary{background:var(--forest);color:var(--forest-ink)}}
+/* Must go as a pile, dealt state, fixing mode */
+@media(min-width:1024px){
+ .fc-chip.is-new{animation:fcChipIn .5s cubic-bezier(.2,1.3,.4,1) both}
+ @keyframes fcChipIn{from{opacity:0;scale:.6}}
+ .fc-piles .fc-tray .fc-chips{flex:1}
+ .fc.is-fixing .fc-pile[data-pile=want] .fc-chip{animation:pfWiggle 1.6s ease-in-out infinite;border-color:rgba(255,155,158,.5)}
+ .fc.is-fixing .fc-pile[data-pile=want] .fc-chip:nth-child(2n){animation-delay:.2s}
+ .fc.is-dealt{display:grid;gap:16px;width:100%}
+ .fc-dealt{display:flex;align-items:center;gap:16px;padding:18px 22px;border:1px solid rgba(197,255,72,.3);border-radius:22px;background:linear-gradient(160deg,rgba(38,44,30,.7),rgba(18,18,26,.7))}
+ .fc-dealt .tch-avatar{width:64px;height:64px;flex:none;color:var(--forest);animation:jhBob 3s ease-in-out infinite}
+ .fc-dealt strong{display:block;font-size:20px;font-weight:800}
+ .fc-dealt p{margin:4px 0 0;color:var(--ink-2);font-size:14px;line-height:1.5}
+ .fc.is-dealt .fc-piles{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .fc-card.is-pulling{cursor:grabbing;z-index:60!important;transition:none!important}
+}
+@media(min-width:1024px) and (prefers-reduced-motion:reduce){.fc-chip.is-new,.fc-dealt .tch-avatar,.fc.is-fixing .fc-pile[data-pile=want] .fc-chip{animation:none}}
+@media(min-width:1024px){.fc-stage.is-dragging{overflow:visible;z-index:50}}

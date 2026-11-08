@@ -30,13 +30,13 @@
       const p=item.place;
       return '<article'+attrs+'>'+pdPhotoHTML(p)+'<div class="fc-shade"></div>'+
         (on?'':'<button type="button" class="fc-peek" data-act="fcFocus" data-a="'+esc(p.id)+'" tabindex="-1" aria-label="Show '+esc(p.name)+'"></button>')+
-        (on?'<span class="fc-pull" aria-hidden="true">'+fcUpIc+'Pull up to keep</span>':'')+
+        (on?'<span class="fc-pull" aria-hidden="true">'+fcUpIc+'Pull up, or drag to a slot</span>':'')+
       '<div class="fc-copy"><span class="fc-tag">'+esc(pd.sample?'Sample place':'Place')+'</span><h2>'+esc(p.name)+'</h2>'+(on&&typeof pdReviewHTML==='function'?pdReviewHTML(p):'')+'</div></article>';
     }
     const e=item.exp;
     return '<article'+attrs+'><img class="fc-photo" src="'+esc(ixPhoto(e))+'" alt="'+esc(ixAlt(e))+'" draggable="false" loading="lazy"><div class="fc-shade"></div>'+
       (on?'':'<button type="button" class="fc-peek" data-act="fcFocus" data-a="'+esc(e.id)+'" tabindex="-1" aria-label="Show '+esc(e.name)+'"></button>')+
-      (on?'<span class="fc-pull" aria-hidden="true">'+fcUpIc+'Pull up to keep</span>':'')+
+      (on?'<span class="fc-pull" aria-hidden="true">'+fcUpIc+'Pull up, or drag to a slot</span>':'')+
       '<div class="fc-copy"><span class="fc-tag">'+esc(e.kind)+'</span><h2>'+esc(e.name)+'</h2><p>'+esc(e.dur)+' · '+fmt(e.price)+' / guest</p></div></article>';
   }
   function infoHTML(item){
@@ -53,17 +53,40 @@
     if(live()){const p=pd.places.find(x=>x.id===id);return p?{name:p.name,img:pdPhotoState(p).urls[0]||''}:null;}
     const e=EXPS[id];return e?{name:e.name,img:ixPhoto(e)}:null;
   }
+  // Kept places sit in the slot the traveler chose: a day and a position in it. New picks
+  // take the slot they were dropped on, or the first free one.
+  let jpSlots=[],pendingSlot=null;
+  const slotStore=()=>live()?(pd.fcSlots||=[]):jpSlots;
+  function slotModel(){
+    const cap=jhPickCap(),perDay=jhPickPerDay(cap),total=perDay.reduce((a,b)=>a+b,0),kept=jhPickKept();
+    const store=slotStore(),slots=Array.from({length:total},(_,i)=>kept.includes(store[i])?store[i]:null);
+    const seen=new Set(),extra=[];
+    slots.forEach((id,i)=>{if(id&&seen.has(id))slots[i]=null;else if(id)seen.add(id);});
+    for(const id of kept){if(seen.has(id))continue;const i=slots.indexOf(null);if(i>=0)slots[i]=id;else extra.push(id);seen.add(id);}
+    store.length=0;store.push(...slots,...extra);
+    return {perDay,slots,extra};
+  }
+  // Day placement for the planner, only once the traveler has arranged places themselves.
+  function dayPlan(){
+    if(!live()||!pd.fcArranged)return null;
+    const {perDay,slots,extra}=slotModel();let at=0;
+    const days=perDay.map(n=>{const ids=slots.slice(at,at+n).filter(Boolean);at+=n;return ids;});
+    if(extra.length)days[days.length-1].push(...extra);
+    return days.some(d=>d.length)?days:null;
+  }
+  window.jhFanDayPlan=dayPlan;
   function trayHTML(){
-    const cap=jhPickCap(),perDay=jhPickPerDay(cap),kept=jhPickKept();let n=0;
-    const slot=()=>{
-      const id=kept[n++],info=id&&keptInfo(id);
-      if(!info)return '<span class="fc-slot" aria-hidden="true">'+ic('plus',16)+'</span>';
-      return '<button type="button" class="fc-slot is-kept'+(id===freshId?' is-new':'')+'" data-act="fcRelease" data-a="'+esc(id)+'" aria-label="Put back '+esc(info.name)+'" title="'+esc(info.name)+'">'+
+    const cap=jhPickCap(),{perDay,slots,extra:over}=slotModel(),kept=jhPickKept();let n=0;
+    const slot=id=>{
+      const i=n++,info=id&&keptInfo(id);
+      if(!info)return '<span class="fc-slot" data-slot="'+i+'" aria-hidden="true">'+ic('plus',16)+'</span>';
+      return '<button type="button" class="fc-slot is-kept'+(id===freshId?' is-new':'')+'" data-slot="'+i+'" data-act="fcRelease" data-a="'+esc(id)+'" aria-label="'+esc(info.name)+'. Drag to another slot, or click to put back." title="'+esc(info.name)+' · drag to move">'+
         (info.img?'<img src="'+esc(info.img)+'" alt="" draggable="false" referrerpolicy="no-referrer">':'')+'<span>'+esc(info.name)+'</span><i>'+ic('x',12)+'</i></button>';
     };
-    const groups=perDay.map((count,d)=>'<div class="fc-day"><small>'+(perDay.length>1?'Day '+(d+1):'Your day')+'</small><div class="fc-slots">'+Array.from({length:count},slot).join('')+'</div></div>').join('');
+    let at=0;
+    const groups=perDay.map((count,d)=>{const ids=slots.slice(at,at+count);at+=count;return '<div class="fc-day"><small>'+(perDay.length>1?'Day '+(d+1):'Your day')+'</small><div class="fc-slots">'+ids.map(slot).join('')+'</div></div>';}).join('');
     // Places kept before the trip got shorter still show, past the last slot.
-    const extra=kept.slice(n).map(()=>slot()).join('');
+    const extra=over.map(slot).join('');
     freshId=null;
     const busy=live()&&pd.busy;
     const done=doneAttrs?'<button type="button" class="fc-done" '+doneAttrs+(busy?' disabled':'')+'>'+ic('check',18)+'<span>'+(kept.length?'Done · plan '+plural(kept.length,'place'):'Done')+'</span></button>':'';
@@ -117,7 +140,7 @@
       ghost.classList.add('fc-flight');ghost.dataset.vote=vote;ghost.setAttribute('aria-hidden','true');
       Object.assign(ghost.style,{position:'fixed',left:box.left+'px',top:box.top+'px',width:box.width+'px',height:box.height+'px',margin:'0',transform:'none',transformOrigin:'0 0',zIndex:'1000',pointerEvents:'none'});
       document.body.append(ghost);
-      const slot=vote==='want'?app.querySelector('.fc-slot:not(.is-kept)'):null,target=slot?.getBoundingClientRect();
+      const slot=vote==='want'?(pendingSlot!=null&&app.querySelector('.fc-slot[data-slot="'+pendingSlot+'"]:not(.is-kept)'))||app.querySelector('.fc-slot:not(.is-kept)'):null,target=slot?.getBoundingClientRect();
       const frames=target
         // Drawn out of the fan, then dropped into the next free slot.
         ?[{transform:'none'},{transform:'translate(0,-90px) scale(1.04) rotate(-2deg)',offset:.32},{transform:'translate('+(target.left-box.left)+'px,'+(target.top-box.top)+'px) scale('+(target.width/box.width)+','+(target.height/box.height)+')'}]
@@ -127,6 +150,9 @@
       if(target)freshId=item.id;
     }
     focusId=items[f+1]?.id||items[f-1]?.id||null;focusIdx=items[f+1]?f:Math.max(0,f-1);
+    // Dropped on a particular slot: the place goes there.
+    if(vote==='want'&&pendingSlot!=null){const store=slotStore();if(!store[pendingSlot]){store[pendingSlot]=item.id;if(live())pd.fcArranged=true;}}
+    pendingSlot=null;
     A.jpPick(item.id,vote);
   };
   function playFlip(){
@@ -161,18 +187,66 @@
     else if(drag.axis==='y'){
       // The centred card follows the pointer up, out of the fan.
       drag.moved=true;drag.pull=Math.max(-220,Math.min(0,ty));
-      drag.card.style.transform='translateY('+(-18+drag.pull)+'px) scale('+(1.05+Math.min(.05,-drag.pull/2000))+')';
+      drag.card.style.transform='translate('+tx+'px,'+(-18+Math.max(-260,Math.min(140,ty)))+'px) scale('+(1.05+Math.min(.05,-drag.pull/2000))+')';
       drag.card.classList.toggle('is-ready',drag.pull<=KEEP_AT);
+      const over=slotAt(e.clientX,e.clientY,true);
+      app.querySelectorAll('.fc-slot.is-target').forEach(el=>{if(el!==over)el.classList.remove('is-target');});
+      over?.classList.add('is-target');drag.slot=over?+over.dataset.slot:null;
     }
   });
   const endDrag=e=>{
     if(!drag||drag.id!==e.pointerId)return;
     const g=drag;drag=null;if(g.moved)e.preventDefault?.();
     if(g.axis!=='y')return;
-    if(e.type==='pointerup'&&g.pull<=KEEP_AT&&g.card.isConnected){A.fcVote('want');if(g.card.isConnected){g.card.classList.remove('is-pulling','is-ready');g.card.style.transform='';}return;}
+    app.querySelectorAll('.fc-slot.is-target').forEach(el=>el.classList.remove('is-target'));
+    if(e.type==='pointerup'&&(g.pull<=KEEP_AT||g.slot!=null)&&g.card.isConnected){pendingSlot=g.slot;A.fcVote('want');if(g.card.isConnected){g.card.classList.remove('is-pulling','is-ready');g.card.style.transform='';}return;}
     g.card.classList.remove('is-pulling','is-ready');g.card.style.transform='';
   };
   document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);
+
+  // Which slot is under the pointer (optionally only free ones), with a little slack.
+  function slotAt(x,y,freeOnly){
+    for(const el of app.querySelectorAll('.fc-slot[data-slot]')){
+      if(freeOnly&&el.classList.contains('is-kept'))continue;
+      const r=el.getBoundingClientRect();if(x>=r.left-8&&x<=r.right+8&&y>=r.top-8&&y<=r.bottom+8)return el;
+    }
+    return null;
+  }
+  // Rearranging: drag a kept place onto another slot to move it there (or swap).
+  let chip=null,chipMoved=false;
+  document.addEventListener('pointerdown',e=>{
+    const el=e.target.closest?.('.fc-slot.is-kept');if(!el||e.button>0||(live()&&pd.busy))return;
+    chip={el,id:el.dataset.a,from:+el.dataset.slot,sx:e.clientX,sy:e.clientY,pid:e.pointerId,ghost:null};
+  });
+  document.addEventListener('pointermove',e=>{
+    if(!chip||chip.pid!==e.pointerId)return;
+    if(!chip.ghost){
+      if(Math.hypot(e.clientX-chip.sx,e.clientY-chip.sy)<6)return;
+      const r=chip.el.getBoundingClientRect();chip.dx=chip.sx-r.left;chip.dy=chip.sy-r.top;
+      chip.ghost=chip.el.cloneNode(true);chip.ghost.classList.add('fc-chip-ghost');chip.ghost.removeAttribute('data-slot');
+      Object.assign(chip.ghost.style,{position:'fixed',left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px',margin:'0',zIndex:'1000',pointerEvents:'none'});
+      document.body.append(chip.ghost);chip.el.classList.add('is-lifted');
+    }
+    chip.ghost.style.transform='translate('+(e.clientX-chip.sx)+'px,'+(e.clientY-chip.sy)+'px) scale(1.06) rotate(-2deg)';
+    const over=slotAt(e.clientX,e.clientY,false);
+    app.querySelectorAll('.fc-slot.is-target').forEach(el=>{if(el!==over)el.classList.remove('is-target');});
+    if(over&&over!==chip.el)over.classList.add('is-target');
+  });
+  const chipEnd=e=>{
+    if(!chip||chip.pid!==e.pointerId)return;
+    const c=chip;chip=null;app.querySelectorAll('.fc-slot.is-target').forEach(el=>el.classList.remove('is-target'));
+    if(!c.ghost)return;
+    chipMoved=true;c.ghost.remove();c.el.classList.remove('is-lifted');
+    const over=e.type==='pointerup'?slotAt(e.clientX,e.clientY,false):null;
+    if(!over||over===c.el)return;
+    const to=+over.dataset.slot,store=slotStore();slotModel();
+    const other=store[to]||null;store[to]=c.id;store[c.from]=other;
+    if(live())pd.fcArranged=true;
+    freshId=c.id;render();
+  };
+  document.addEventListener('pointerup',chipEnd);document.addEventListener('pointercancel',chipEnd);
+  // A drag is not a click: it must not put the place back.
+  document.addEventListener('click',e=>{if(chipMoved&&e.target.closest?.('.fc-slot')){chipMoved=false;e.stopPropagation();e.preventDefault();}else chipMoved=false;},true);
   let lastDragMoved=false;document.addEventListener('pointerup',e=>{lastDragMoved=!!drag?.moved;},true);
   document.addEventListener('click',e=>{if(e.target.closest?.('.fc-stage')&&lastDragMoved){lastDragMoved=false;e.stopPropagation();e.preventDefault();}},true);
   document.addEventListener('wheel',e=>{

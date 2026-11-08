@@ -94,6 +94,16 @@ const tight={...selection,input:{...input,days:1,dayStart:'09:00',dayEnd:'12:00'
 const tightHarness=harness([call('propose_schedule',schedule()),call('report_limit',{reason:'Too many places.'})],{searchResult:found.result.result,facts});
 const tightPlan=await run({id:'99999999-9999-4999-8999-999999999999',userId:owner,kind:'discover_plan',payload:{token,selection:tight,wanted:selected,skipped:[]},state:null},tightHarness);
 assert.equal(tightPlan.result.status,'needs_input');assert.match(tightPlan.result.error.message,/Not enough time for .+ within your daily hours/);assert.equal(tightHarness.history.size,0);
+assert.equal(tightPlan.result.error.details.reason,'time','the app is told which fix to offer');assert.equal(tightPlan.result.error.details.dayEnd,'12:00');assert.equal(tightPlan.result.error.details.days,1);
+// Places the traveler put on a day in the tray stay on that day, in that order.
+const placedHarness=harness([call('propose_schedule',schedule()),call('report_limit',{reason:'Use the scheduler.'})],{searchResult:found.result.result,facts});
+const dayPlan=[[selected[2],selected[1]],[selected[3],selected[0]]];
+const placedPlan=await run({id:'bbbbbbbb-1111-4bbb-8bbb-bbbbbbbbbbbb',userId:owner,kind:'discover_plan',payload:{token,selection,wanted:selected,skipped:[],dayPlan},state:null},placedHarness);
+if(placedPlan.result.status==='completed'){
+ const stopsOf=day=>placedPlan.result.result.plan.stops.filter(p=>p.dayIndex===day).map(p=>p.id);
+ for(const [d,ids] of dayPlan.entries()){const got=stopsOf(d+1).filter(id=>ids.includes(id));assert.deepEqual(got,ids,'day '+(d+1)+' keeps the tray order');}
+}else assert.equal(placedPlan.result.status,'needs_input');
+
 // A provider outage during planning no longer stops the trip.
 const outage=harness([],{searchResult:found.result.result,facts});const outageFetch=outage.context.fetcher;
 outage.context.fetcher=async(url,o)=>url.includes('/chat/completions')?new Response('upstream error',{status:503}):outageFetch(url,o);
@@ -189,6 +199,7 @@ const impossibleHarness=harness([call('propose_schedule',withStops(museum)),call
 const impossible=await run({...budgetTask,payload:{...budgetTask.payload,selection:{...selection,input:impossibleInput}}},impossibleHarness);
 assert.equal(impossible.result.status,'needs_input');
 assert.match(impossible.result.error.message,/exceed the group budget/);
+if(impossible.result.error.details){assert.equal(impossible.result.error.details.reason,'over_budget');assert.ok(impossible.result.error.details.subtotalCnyMinor>impossible.result.error.details.budgetCnyMinor);}
 assert.equal(impossibleHarness.history.size,0,'never save a plan above the budget');
 
 // Discovery: when the model keeps returning malformed calls near its limit,

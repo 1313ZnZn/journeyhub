@@ -85,7 +85,8 @@
   function chipsFor(stage){
     const chip=(act,a,icon,label,primary)=>'<button type="button" class="pip-chip'+(primary?' is-primary':'')+'" data-act="'+act+'"'+(a!=null?' data-a="'+esc(String(a))+'"':'')+'>'+icon+' '+esc(label)+'</button>';
     if(stage===0&&!(live()&&pd.busy)){
-      const ideas=typeof window.jhHomeIdeas==='function'?window.jhHomeIdeas():[],em={food:'🍜',globe:'🏛️',sun:'🌿'};
+      const em={food:'🍜',globe:'🏛️',sun:'🌿'},ideas=typeof window.jhHomeIdeas==='function'?window.jhHomeIdeas():[],short={food:['🍜','Eat like a local'],globe:['🏛️','Culture & art'],sun:['🌿','Relaxed outdoors']};
+      if(centreRoute())return ideas.map((x,i)=>chip('pipIdea',i,(short[x.icon]||['✨'])[0],(short[x.icon]||[0,'An idea'])[1])).join('')+chip('pipSurprise',null,'✨','Just plan it for me');
       return '<span class="pip-chips-label">Not sure where to start? Tap one</span>'+ideas.map((x,i)=>'<button type="button" class="pip-idea" data-act="pipIdea" data-a="'+i+'"><span aria-hidden="true">'+(em[x.icon]||'✨')+'</span>'+esc(x.text)+'</button>').join('')+chip('pipSurprise',null,'✨','Just plan it for me');
     }
     if(stage===1&&live()&&!pd.busy){const n=pd.wanted.length;return (n?chip('pdFinish',null,'✨','Plan '+plural(n,'place'),true):'')+(pd.undo.length?chip('pdUndo',null,'↩️','Undo'):'');}
@@ -135,7 +136,7 @@
   // Rendering the dock (outside #app).
   function ensure(){
     if(dock)return;
-    document.body.insertAdjacentHTML('beforeend','<aside class="pip" aria-label="Pip, your trip companion" hidden><header class="pip-head">'+avatar('is-head')+'<div><strong>Pip</strong><small data-pip-sub></small></div><button type="button" class="pip-min" data-pip-toggle aria-label="Hide Pip">'+ic('right',16)+'</button></header><div class="pip-steps" data-pip-steps></div><div class="pip-thread" data-pip-thread role="log" aria-live="polite"></div><div class="pip-live" data-pip-live></div><div class="pip-chips" data-pip-chips></div><div class="pip-trip" data-pip-trip></div><form class="pip-composer" data-pip-form hidden><textarea rows="1" maxlength="1200" data-pip-input aria-label="Message Pip"></textarea><button type="submit" class="pip-send" aria-label="Send">'+ic('right',18)+'</button></form></aside>'+
+    document.body.insertAdjacentHTML('beforeend','<aside class="pip" aria-label="Pip, your trip companion" hidden><header class="pip-head">'+avatar('is-head')+'<div><strong>Pip</strong><small data-pip-sub></small></div><button type="button" class="pip-min" data-pip-toggle aria-label="Hide Pip">'+ic('right',16)+'</button></header><div class="pip-steps" data-pip-steps></div><div class="pip-hello" data-pip-hello>'+avatar('is-hello')+'<h1>Where shall we go?</h1><p>Tell me what you love — I’ll scout places, help you choose and plan the days.</p></div><div class="pip-thread" data-pip-thread role="log" aria-live="polite"></div><div class="pip-live" data-pip-live></div><div class="pip-chips" data-pip-chips></div><div class="pip-trip" data-pip-trip></div><form class="pip-composer" data-pip-form hidden><textarea rows="1" maxlength="1200" data-pip-input aria-label="Message Pip"></textarea><button type="submit" class="pip-send" aria-label="Send">'+ic('right',18)+'</button></form></aside>'+
       '<button type="button" class="pip-fab" data-pip-toggle hidden aria-label="Show Pip">'+avatar('is-fab')+'<span class="pip-peek" data-pip-peek hidden></span><i class="pip-dot" hidden></i></button>');
     dock=document.body.querySelector('aside.pip');toggle=document.body.querySelector('.pip-fab');
   }
@@ -173,7 +174,10 @@
     const steps=STAGES.map(([e,t],i)=>'<span class="pip-step'+(i<stage?' is-done':'')+(i===stage?' is-on':'')+'"><b>'+(i<stage?'✓':e)+'</b>'+t+'</span>').join('');
     const msgs=load(key);
     let thread=msgs.map(messageHTML).join('');
-    if(!msgs.length)thread=messageHTML({from:'pip',text:stage===0?'Hi, I’m **Pip** 👋 Tell me where you’d like to go and what you love — I’ll scout places, help you choose and plan the days.':stage===3?'Hi again 👋 Pick a day in the calendar and I can check timings, tweak the route or add food.':'Hi, I’m **Pip** 👋 I’ll help you with this trip.'},0,[{}]);
+    const empty=centre&&!msgs.length&&!(live()&&pd.busy);
+    dock.classList.toggle('is-empty',empty);
+    if(empty)thread='';
+    else if(!msgs.length)thread=messageHTML({from:'pip',text:stage===0?'Hi, I’m **Pip** 👋 Tell me where you’d like to go and what you love — I’ll scout places, help you choose and plan the days.':stage===3?'Hi again 👋 Pick a day in the calendar and I can check timings, tweak the route or add food.':'Hi, I’m **Pip** 👋 I’ll help you with this trip.'},0,[{}]);
     const liveHTML=liveCard(stage),chips=chipsFor(stage),composer=composerFor(stage);
     const set=(sel,html,prop)=>{if(last[prop]===html)return false;last[prop]=html;dock.querySelector(sel).innerHTML=html;return true;};
     set('[data-pip-sub]',headLine(),'head');

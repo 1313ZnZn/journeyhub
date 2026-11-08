@@ -330,6 +330,13 @@
     if(Math.abs(wheelSum)>60){wheelAt=now;A.fcStep(wheelSum>0?1:-1);wheelSum=0;}
   },{passive:false});
 
+  // A redraw in the middle of a drag would replace the card or chip being dragged: hold it
+  // until the pointer is released.
+  let fcHeld=false;
+  const fcRender=render;
+  render=function(){if((drag&&drag.axis)||chip?.ghost){fcHeld=true;return;}return fcRender.apply(this,arguments);};
+  const fcFlush=()=>{if(fcHeld&&!drag&&!chip){fcHeld=false;render();}};
+  document.addEventListener('pointerup',()=>setTimeout(fcFlush,0));document.addEventListener('pointercancel',()=>setTimeout(fcFlush,0));
   const fcPicks=V['ai-picks'];
   V['ai-picks']=function(){
     const view=fcPicks.apply(this,arguments);

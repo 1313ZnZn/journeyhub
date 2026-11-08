@@ -208,3 +208,32 @@
  body.pip-center #app .jl-home.is-pip>.jl-details{background:linear-gradient(165deg,#25212f,#17151f)!important;-webkit-backdrop-filter:none;backdrop-filter:none}
  body.pip-center .jl-pip-hint{white-space:normal}
 }
+/* AI Journey as a chat page: Pip fills the centre column without a panel around it. */
+.pip-hello{display:none}
+@media(min-width:1024px){
+ .pip.is-center{top:var(--dx-nav,72px);bottom:0;width:min(820px,calc(100vw - 80px));margin-left:calc(min(820px,calc(100vw - 80px)) / -2);border:0;border-radius:0;background:transparent;box-shadow:none;overflow:visible}
+ .pip.is-center .pip-head{display:none}
+ .pip.is-center .pip-steps{order:0;align-self:center;width:min(420px,100%);margin:16px 0 6px}
+ .pip.is-center .pip-thread{order:1;padding:14px 4px 12px;scrollbar-gutter:stable}
+ .pip.is-center .pip-live{order:2;padding:0 4px 10px}
+ .pip.is-center .pip-chips{order:3;display:flex;justify-content:center;padding:0 4px 10px}
+ .pip.is-center .pip-trip{order:4;justify-content:center;margin:0 4px 10px;padding:0;border:0;background:none}
+ .pip.is-center .pip-trip-edit{margin-left:0}
+ .pip.is-center .pip-composer{order:5;margin:0 0 22px;padding:10px 10px 10px 22px;border-radius:28px;background:rgba(30,27,42,.92);border-color:rgba(255,255,255,.16);box-shadow:0 24px 60px rgba(0,0,0,.35)}
+ .pip.is-center .pip-composer textarea{min-height:52px;font-size:16px;padding:14px 0}
+ .pip.is-center .pip-send{width:46px;height:46px;border-radius:16px}
+ .pip.is-center .pip-chip{padding:9px 14px;font-size:13px;background:rgba(30,27,42,.7)}
+ /* Before the first message: greeting, box and prompts in the middle of the page */
+ .pip.is-center.is-empty{justify-content:center;padding-bottom:9vh}
+ .pip.is-center.is-empty :is(.pip-steps,.pip-thread,.pip-live){display:none}
+ .pip.is-center.is-empty .pip-hello{order:1;display:grid;justify-items:center;gap:10px;margin-bottom:26px;text-align:center}
+ .pip-hello .tch-avatar{width:70px;height:70px;color:var(--forest);animation:jhBob 3s ease-in-out infinite}
+ .pip-hello h1{margin:0;font:800 clamp(40px,3.4vw,54px)/1.05 var(--font);letter-spacing:-.04em;color:var(--ink)}
+ .pip-hello p{margin:0;max-width:640px;color:var(--ink-2);font-size:15.5px;line-height:1.5}
+ .pip.is-center.is-empty .pip-composer{order:2;margin-bottom:14px}
+ .pip.is-center.is-empty .pip-chips{order:3}
+ .pip.is-center.is-empty .pip-trip{order:4;margin-top:6px}
+ /* The page itself shows nothing else on AI Journey */
+ body.pip-center #app .jl-home.is-pip>.jl-copy{display:none}
+}
+@media(min-width:1024px) and (prefers-reduced-motion:reduce){.pip-hello .tch-avatar{animation:none}}

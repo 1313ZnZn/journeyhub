@@ -1,0 +1,46 @@
+/* Pip's booking card: items, total, and the item-by-item payment animation (desktop). */
+@media(min-width:1024px){
+ .pb-card .pip-card-body{display:grid;gap:8px;width:100%}
+ .pb-title{font-size:15px}
+ .pb-title.is-ok{color:var(--forest)}
+ .pb-bar{margin:2px 0}
+ .pb-bar i{transition:width .5s cubic-bezier(.16,.84,.24,1)}
+ .pb-list{display:grid;gap:4px;margin:2px 0 0;padding:0;list-style:none}
+ .pb-row{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:8px;padding:7px 8px;border-radius:12px;background:rgba(255,255,255,.04);transition:background .3s,opacity .3s}
+ .pb-row strong{display:block;overflow:hidden;font-size:13px;text-overflow:ellipsis;white-space:nowrap}
+ .pb-row small{display:block;color:var(--ink-3);font-size:11.5px}
+ .pb-row b{font-size:12.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+ .pb-what{min-width:0}
+ .pb-mark{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.08);color:var(--ink-3);font-size:12px;font-weight:900}
+ .pb-row.is-wait{opacity:.45}
+ .pb-row.is-now{background:rgba(197,255,72,.1);box-shadow:inset 0 0 0 1px rgba(197,255,72,.35)}
+ .pb-row.is-done .pb-mark{background:var(--forest);color:var(--forest-ink);animation:pbPop .35s cubic-bezier(.2,1.6,.4,1) both}
+ .pb-row.is-done b{color:var(--forest)}
+ .pb-card.is-booked .pb-row{animation:pbIn .4s calc(var(--i)*60ms) both}
+ .pb-spin{width:12px;height:12px;border:2px solid rgba(197,255,72,.3);border-top-color:var(--forest);border-radius:50%;animation:pbSpin .7s linear infinite}
+ .pb-total,.pb-wallet{display:flex;justify-content:space-between;align-items:baseline}
+ .pb-total{margin-top:4px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1)}
+ .pb-total span{font-weight:700}
+ .pb-total b{font-size:18px;font-variant-numeric:tabular-nums}
+ .pb-wallet{color:var(--ink-3);font-size:12px}
+ .pb-note{margin:0;color:var(--ink-2);font-size:12px}
+ .pb-error{margin:0;color:#ffb3b3;font-size:12.5px}
+ .pb-actions{display:flex;gap:8px;margin-top:4px}
+ .pb-pay{flex:1;height:40px;border:0;border-radius:12px;background:var(--forest);color:var(--forest-ink);font:800 13.5px var(--font);cursor:pointer}
+ .pb-pay:disabled{opacity:.5;cursor:default}
+ .pb-later{height:40px;padding:0 14px;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:none;color:var(--ink-2);font:700 13px var(--font);cursor:pointer}
+ .pb-later:hover{color:var(--ink);border-color:rgba(255,255,255,.35)}
+ .pb-demo{margin:0;color:var(--ink-3);font-size:11px}
+ @keyframes pbSpin{to{rotate:360deg}}
+ @keyframes pbPop{from{transform:scale(.3)}}
+ @keyframes pbIn{from{opacity:0;transform:translateY(6px)}}
+}
+@media(min-width:1024px) and (prefers-reduced-motion:reduce){
+ .pb-row,.pb-row.is-done .pb-mark,.pb-card.is-booked .pb-row{animation:none}
+ .pb-spin{animation-duration:2s}
+}
+@media(min-width:1024px){
+ /* Keep the title and buttons visible: the item list scrolls on its own. */
+ .pb-list{max-height:min(260px,24vh);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+ .pip-live:has(.pb-card){max-height:70%}
+}

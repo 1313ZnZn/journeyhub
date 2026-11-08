@@ -103,8 +103,9 @@ A.dwTopup=async amount=>{
   catch(error){if(dwCurrent(ctx))ctx.error=dwErrorText(error);}
   finally{if(dwCurrent(ctx)){ctx.busy=false;render();}}
 };
-A.dwBook=async()=>{
-  dwScope();const ctx=dw,source=dwSource(state.params?.sourceType,state.params?.sourceId);if(!ctx.owner||ctx.busy||!source)return;
+// The booking page passes nothing (its route says which trip); Pip passes the trip itself.
+A.dwBook=async(type,id)=>{
+  dwScope();const ctx=dw,source=type&&id?dwSource(type,id):dwSource(state.params?.sourceType,state.params?.sourceId);if(!ctx.owner||ctx.busy||!source)return;
   const record=ctx.quotes[dwKey(source.sourceType,source.sourceId)],quote=record?.quote;
   if(!quote||record.loading||quote.status==='booked'||quote.items.every(i=>i.kind==='unavailable')||quote.totalMinor>(ctx.wallet?.balanceMinor??-1))return;
   const request=dwRequestId(ctx,'book',quote.id);ctx.busy=true;record.error='';ctx.version++;render();

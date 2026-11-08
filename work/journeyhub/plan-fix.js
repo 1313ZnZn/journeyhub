@@ -40,7 +40,7 @@
   function option(act,a,icon,title,desc,primary){
     return '<button type="button" class="pf-option'+(primary?' is-primary':'')+'" data-act="'+act+'"'+(a!=null?' data-a="'+esc(String(a))+'"':'')+'><span class="pf-option-ic">'+ic(icon,18)+'</span><span><strong>'+esc(title)+'</strong><small>'+esc(desc)+'</small></span>'+ic('right',16)+'</button>';
   }
-  function dialogHTML(){
+  function dialogHTML(inline=false){
     const x=issue(),days=Number(x.input.days)||1,end=x.input.dayEnd||'21:00',opts=[];let title,lead,facts='';
     const removeOpt=primary=>option('pfRemove',null,'minus','Put a few places back','Choose which places to drop in your picks, then press Done.',primary);
     if(x.reason==='over_budget'){
@@ -81,10 +81,13 @@
       opts.push(removeOpt(false));
       opts.push(option('pfEdit',null,'sliders','Edit trip preferences','Change dates, hours or budget.'));
     }
-    return '<div class="pf" role="dialog" aria-modal="true" aria-labelledby="pf-title"><div class="pf-scrim" data-act="pfClose"></div><section class="pf-card"><button type="button" class="pf-close" data-act="pfClose" aria-label="Close">'+ic('x',18)+'</button>'+
-      '<span class="pf-kicker">'+ic('alert',14)+'Needs a small change</span><h2 id="pf-title">'+esc(title)+'</h2><p class="pf-lead">'+esc(lead)+'</p>'+facts+
-      '<div class="pf-options">'+opts.join('')+'</div><p class="pf-note">Your picks are saved. Nothing is booked until you confirm.</p></section></div>';
+    const inner='<span class="pf-kicker">'+ic('alert',14)+'Needs a small change</span><h2 id="pf-title">'+esc(title)+'</h2><p class="pf-lead">'+esc(lead)+'</p>'+facts+
+      '<div class="pf-options">'+opts.join('')+'</div><p class="pf-note">Your picks are saved. Nothing is booked until you confirm.</p>';
+    if(inline)return '<section class="pf-card is-inline" aria-labelledby="pf-title">'+inner+'</section>';
+    return '<div class="pf" role="dialog" aria-modal="true" aria-labelledby="pf-title"><div class="pf-scrim" data-act="pfClose"></div><section class="pf-card"><button type="button" class="pf-close" data-act="pfClose" aria-label="Close">'+ic('x',18)+'</button>'+inner+'</section></div>';
   }
+  // The companion shows the same fixes as a card in its conversation instead of a pop-up.
+  window.jhPlanFixCard=()=>wide?.matches&&pd.mode&&!pd.busy&&pd.error&&!pd.sample?dialogHTML(true):'';
   const showing=()=>wide?.matches&&pd.mode&&!pd.busy&&!!pd.error&&pd.fixShownFor!==pd.error&&!pd.sample;
 
   const previous=V['ai-picks'];
@@ -92,7 +95,7 @@
     const view=previous.apply(this,arguments);
     if(!wide?.matches||!pd.mode)return view;
     if(pd.fixRemove)view.body=view.body.replace('class="fc"','class="fc is-fixing"').replace('<div class="fc-days">','<p class="pf-hint">'+ic('info',15)+'Click a place to put it back, then press Done.</p><div class="fc-days">');
-    if(showing())view.body+=dialogHTML();
+    if(showing()&&!(typeof window.jhPipShowing==='function'&&window.jhPipShowing()))view.body+=dialogHTML();
     return view;
   };
 

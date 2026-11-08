@@ -280,6 +280,7 @@
   const dkOrders=V.orders;
   V.orders=function(){
     const view=dkOrders.apply(this,arguments);
+    dkAgentTarget=null;
     if(!wide?.matches||!view?.body||!/cal-inline-map|tch-entry/.test(view.body))return view;
     const t=document.createElement('template');t.innerHTML=view.body;
     const page=t.content.querySelector('.cal-page'),month=page?.querySelector(':scope>.cal-month'),map=t.content.querySelector('.cal-inline-map');
@@ -289,10 +290,12 @@
     month.replaceWith(side);side.append(month);
     // The trip agent always becomes a chat panel under the month, whether or not the day has a
     // map yet; when it does, the map takes the agent's former place on the right.
+    // With the Pip companion open, the conversation lives in Pip; the map stays under the month.
+    const pip=typeof window.jhPipShowing==='function'&&window.jhPipShowing();
     if(entry&&open){
       const panel=document.createElement('div');panel.innerHTML=dkAgentPanel(open);
-      if(map)entry.replaceWith(map);else entry.remove();
-      side.append(panel.firstElementChild);
+      if(pip){entry.remove();if(map)side.append(map);}
+      else{if(map)entry.replaceWith(map);else entry.remove();side.append(panel.firstElementChild);}
     }else if(map)side.append(map);
     view.body=t.innerHTML;
     const after=view.after;view.after=function(){if(after)after.apply(this,arguments);const box=app.querySelector('#dk-agent-msg');if(box){box.value=dkAgentDraft;dkAgentSize(box);}};
@@ -338,6 +341,8 @@
       '<div class="dk-agent-input"><textarea id="dk-agent-msg" rows="1" maxlength="1800" placeholder="Try: make '+esc(label)+' more relaxed…" aria-label="Message your trip agent"></textarea><button type="button" class="dk-agent-send" data-act="dkAgentAsk" aria-label="Send to trip agent"'+(busy?' disabled':'')+'>'+ic('right',20)+'</button></div>'+
       '<p class="dk-agent-foot">Changes are suggested first. Nothing is booked or changed until you confirm.</p></section>';
   }
+  // Pip uses the selected Calendar day's trip conversation through these.
+  window.jhCalendarAgent={target:()=>dkAgentTarget,prompts:()=>dkAgentPrompts.map(p=>({icon:p[0],label:p[1]})),ask:i=>A.dkAgentAsk(i),say:text=>{dkAgentDraft=String(text||'');A.dkAgentAsk();}};
   function dkAgentSize(box){box.style.height='auto';box.style.height=Math.min(140,box.scrollHeight)+'px';}
   document.addEventListener('input',e=>{if(e.target.id==='dk-agent-msg'){dkAgentDraft=e.target.value;dkAgentSize(e.target);}});
   document.addEventListener('keydown',e=>{if(e.target.id==='dk-agent-msg'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();A.dkAgentAsk();}});

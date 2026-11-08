@@ -204,7 +204,10 @@
     const threadEl=dock.querySelector('[data-pip-thread]'),atBottom=threadEl.scrollHeight-threadEl.clientHeight-threadEl.scrollTop<60;
     const changed=set('[data-pip-thread]',thread,'thread')||last.key!==key;last.key=key;
     if(changed&&(atBottom||true))requestAnimationFrame(()=>{threadEl.scrollTop=threadEl.scrollHeight;});
-    set('[data-pip-live]',liveHTML,'live');set('[data-pip-chips]',chips,'chips');
+    // Redrawing the live card keeps the scroll position of the card and any list inside it.
+    {const liveEl=dock.querySelector('[data-pip-live]'),keep=[liveEl.scrollTop,liveEl.querySelector('.pb-list')?.scrollTop||0];
+     if(set('[data-pip-live]',liveHTML,'live')){liveEl.scrollTop=keep[0];const list=liveEl.querySelector('.pb-list');if(list)list.scrollTop=keep[1];}}
+    set('[data-pip-chips]',chips,'chips');
     set('[data-pip-trip]',centre?tripChips():'','trip');
     const form=dock.querySelector('[data-pip-form]'),input=form.querySelector('textarea');
     form.hidden=!composer;if(composer){input.placeholder=composer.ph;form.dataset.mode=composer.act;}

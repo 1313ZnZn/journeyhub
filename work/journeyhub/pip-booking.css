@@ -14,9 +14,9 @@
  .pb-mark{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.08);color:var(--ink-3);font-size:12px;font-weight:900}
  .pb-row.is-wait{opacity:.45}
  .pb-row.is-now{background:rgba(197,255,72,.1);box-shadow:inset 0 0 0 1px rgba(197,255,72,.35)}
- .pb-row.is-done .pb-mark{background:var(--forest);color:var(--forest-ink);animation:pbPop .35s cubic-bezier(.2,1.6,.4,1) both}
+ .pb-row.is-done .pb-mark{background:var(--forest);color:var(--forest-ink)}
+ .pb-row.is-just .pb-mark{animation:pbPop .35s cubic-bezier(.2,1.6,.4,1) both}
  .pb-row.is-done b{color:var(--forest)}
- .pb-card.is-booked .pb-row{animation:pbIn .4s calc(var(--i)*60ms) both}
  .pb-spin{width:12px;height:12px;border:2px solid rgba(197,255,72,.3);border-top-color:var(--forest);border-radius:50%;animation:pbSpin .7s linear infinite}
  .pb-total,.pb-wallet{display:flex;justify-content:space-between;align-items:baseline}
  .pb-total{margin-top:4px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1)}
@@ -33,10 +33,9 @@
  .pb-demo{margin:0;color:var(--ink-3);font-size:11px}
  @keyframes pbSpin{to{rotate:360deg}}
  @keyframes pbPop{from{transform:scale(.3)}}
- @keyframes pbIn{from{opacity:0;transform:translateY(6px)}}
 }
 @media(min-width:1024px) and (prefers-reduced-motion:reduce){
- .pb-row,.pb-row.is-done .pb-mark,.pb-card.is-booked .pb-row{animation:none}
+ .pb-row.is-just .pb-mark{animation:none}
  .pb-spin{animation-duration:2s}
 }
 @media(min-width:1024px){

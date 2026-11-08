@@ -100,8 +100,10 @@ async function initialize(task,ctx){
   if(!s.selected.length||s.choices.wanted.length>16)fail('INSUFFICIENT_PLACES','Keep at least one place available and choose at most sixteen must-visit places.',409);
   s.root=await searchHistoryId(s.selection,payload.token);s.revision=await revisionHistoryId(s.root,s.choices.wanted,s.choices.skipped);s.useAmap=s.selected.every(isAmap);
   const available=await ctx.rpc('journeyhub_plan_dates_check',{p_user_id:owner,p_input:s.input,p_kind:'history',p_id:s.revision});if(available?.available!==true)fail('WORKFLOW_UNAVAILABLE','Your travel dates could not be checked. Please retry.',503);
-  const prior=await ctx.rpc('journeyhub_planner_search_result',{p_user_id:owner,p_history_id:s.root});
-  let labels=[];if(!prior?.places?.length){const row=await getHistory(ctx.rpc,owner,s.root,false);if(row)labels=(await getDisplaySnapshot(ctx.rpc,owner,row))?.payload?.places||[];}
+  // A plan with changed trip details reads its places from the original search.
+  const base=s.selection.baseHistoryId?historyId(s.selection.baseHistoryId):s.root;
+  const prior=await ctx.rpc('journeyhub_planner_search_result',{p_user_id:owner,p_history_id:base});
+  let labels=[];if(!prior?.places?.length){const row=await getHistory(ctx.rpc,owner,base,false);if(row)labels=(await getDisplaySnapshot(ctx.rpc,owner,row))?.payload?.places||[];}
   s.places=s.selected.map(id=>{const p=prior?.places?.find(p=>p.id===id)||labels.find(p=>p.id===id);return p?{...p,detailsPending:![p.lat,p.lng].every(Number.isFinite)}:{id,name:s.selection.englishNames?.[id]||'Selected place',detailsPending:true};});
   s.facts=await ctx.rpc('journeyhub_planner_visit_facts',{p_user_id:owner,p_place_ids:s.selected,p_dates:Array.from({length:s.input.days},(_,i)=>dateAt(s.input,i+1))})||[];
  }else fail('INVALID_INPUT','Choose a supported traveler planning task.');

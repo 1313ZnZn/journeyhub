@@ -33,7 +33,7 @@
     let cls='',mark='',amount=chargeable(item)?dwMoney(item.totalMinor):item.bookingId?'Reserved':item.kind==='free'?'Free':'Check venue';
     if(booked){cls='is-done';mark=chargeable(item)||item.bookingId?'✓':'–';}
     else if(p?.phase==='paying'){cls=i<p.step?'is-done':i===p.step?'is-now':'is-wait';mark=i<p.step?(chargeable(item)?'✓':'–'):i===p.step?'<i class="pb-spin"></i>':'';}
-    return '<li class="pb-row '+cls+'" style="--i:'+i+'"><span class="pb-mark">'+mark+'</span><span class="pb-what"><strong>'+esc(name)+'</strong><small>'+esc([dwKinds[item.kind]?.replace(/^Demo /,'')||'Visit',when].filter(Boolean).join(' · '))+'</small></span><b>'+esc(amount)+'</b></li>';
+    return '<li class="pb-row '+cls+'" data-charge="'+(chargeable(item)||item.bookingId?1:0)+'"><span class="pb-mark">'+mark+'</span><span class="pb-what"><strong>'+esc(name)+'</strong><small>'+esc([dwKinds[item.kind]?.replace(/^Demo /,'')||'Visit',when].filter(Boolean).join(' · '))+'</small></span><b>'+esc(amount)+'</b></li>';
   }
   function cardHTML(){
     const src=trip();if(!src)return '';
@@ -49,7 +49,7 @@
       return '<div class="pip-card pb-card is-later"><div class="pip-card-body"><strong>🕘 Booking saved for later</strong><small>'+payable.length+' item'+(payable.length===1?'':'s')+' · '+dwMoney(quote.totalMinor)+'. Pay whenever you’re ready.</small><div class="pb-actions"><button type="button" class="pb-pay" data-act="pbPay">💳 Pay '+dwMoney(quote.totalMinor)+' now</button></div></div></div>';
     const progress=p?.phase==='paying'?Math.round(Math.min(p.step,items.length)/items.length*100):booked?100:0;
     const head=booked?'<strong class="pb-title is-ok">✅ All booked</strong><small>'+dwMoney(total)+' paid with demo credits · saved to your Calendar</small>'
-      :p?.phase==='paying'?'<strong class="pb-title">💳 Paying…</strong><small>Booking '+Math.min(p.step+1,items.length)+' of '+items.length+'</small>'
+      :p?.phase==='paying'?'<strong class="pb-title">💳 Paying…</strong><small class="pb-sub">Booking '+Math.min(p.step+1,items.length)+' of '+items.length+'</small>'
       :'<strong class="pb-title">🎟️ Ready to book</strong><small>'+payable.length+' to pay in advance for your group</small>';
     let foot='';
     if(booked)foot='<div class="pb-actions"><button type="button" class="pb-pay" data-act="pbCalendar">📅 See it in Calendar</button></div>';
@@ -62,6 +62,19 @@
     return '<div class="pip-card pb-card'+(booked?' is-booked':'')+(p?.phase==='paying'?' is-paying':'')+'"><div class="pip-card-body">'+head+
       '<div class="pip-bar pb-bar"><i style="width:'+progress+'%"></i></div><ol class="pb-list">'+items.map((item,i)=>rowHTML(item,src,i,p,booked)).join('')+'</ol>'+foot+
       '<p class="pb-demo">Demo only · virtual credits, no real payment or tickets.</p></div></div>';
+  }
+  // Each payment step updates the card in place: redrawing it would jump the list back to the
+  // top and replay every finished tick, which looks like the card keeps refreshing.
+  function paint(p,count){
+    const card=document.querySelector('.pb-card.is-paying');if(!card){window.jhPipSync?.();return;}
+    card.querySelectorAll('.pb-row').forEach((row,i)=>{
+      const next=i<p.step?'is-done':i===p.step?'is-now':'is-wait';if(row.classList.contains(next))return;
+      row.classList.remove('is-done','is-now','is-wait');row.classList.add(next);if(next==='is-done')row.classList.add('is-just');
+      row.querySelector('.pb-mark').innerHTML=next==='is-done'?(row.dataset.charge==='1'?'✓':'–'):next==='is-now'?'<i class="pb-spin"></i>':'';
+    });
+    const bar=card.querySelector('.pb-bar i');if(bar)bar.style.width=Math.round(Math.min(p.step,count)/count*100)+'%';
+    const sub=card.querySelector('.pb-sub');if(sub)sub.textContent='Booking '+Math.min(p.step+1,count)+' of '+count;
+    follow();
   }
   // Keep the item being paid in view inside the card's list.
   function follow(){const row=document.querySelector('.pb-list .pb-row.is-now'),list=row?.parentElement;if(!row||!list)return;
@@ -109,12 +122,12 @@
     const ticker=new Promise(resolve=>{
       if(calm?.matches){pay[id].step=items;resolve();return;}
       const tick=()=>{const p=pay[id];if(!p||p.phase!=='paying')return resolve();
-        if(p.step<items-1){p.step++;window.jhPipSync?.();follow();setTimeout(tick,STEP_MS);}else resolve();};
+        if(p.step<items-1){p.step++;paint(p,items);setTimeout(tick,STEP_MS);}else resolve();};
       setTimeout(tick,STEP_MS);
     });
     await Promise.all([request,ticker]);
     if(record.error||recordOf(src)?.quote?.status!=='booked')return fail(record.error||'The booking didn’t complete. Check the Calendar before trying again.');
-    pay[id].step=items;window.jhPipSync?.();
+    pay[id].step=items;paint(pay[id],items);
     await new Promise(r=>setTimeout(r,calm?.matches?0:450));
     pay[id]={phase:'done',step:items,paid:quote.totalMinor};
     const reserved=(recordOf(src).receipts||[]).filter(dwPaid).length;

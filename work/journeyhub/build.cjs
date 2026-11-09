@@ -48,7 +48,6 @@ html=html.replace('<script>','<script src="./vendor/supabase.js"></script>\n<scr
 html=html.replace("const list = Object.keys(EXPS).filter((k) => state.homeCat === 'all' || EXPS[k].cats.includes(state.homeCat));","const list = Object.keys(EXPS).filter((k) => EXPS[k].city === jhCity && (state.homeCat === 'all' || EXPS[k].cats.includes(state.homeCat)));");
 html=html.replaceAll('sDay(s) === day && EXPS[s.exp]',"sDay(s) === day && EXPS[s.exp]?.city === 'Bangkok'");
 html=html.replaceAll('sDay(s) === d && EXPS[s.exp]',"sDay(s) === d && EXPS[s.exp]?.city === 'Bangkok'");
-html=html.replace('Plan, book and shop Bangkok in one place','Explore Bangkok, Shanghai and Singapore');
 html=html.replace("const KEY = 'journey-hub-demo-v3';","const KEY = 'journey-hub-supabase-ui';");
 html=html.replace("const LOCAL_DB_KEY = 'journey-hub-localdb-v3';","const LOCAL_DB_KEY = 'journey-hub-unused-offline';");
 html=html.replace(/const TRAV = .*?;/,"const TRAV = () => traveler() ? traveler().id : null;");

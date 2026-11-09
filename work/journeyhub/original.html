@@ -1505,7 +1505,7 @@ const V = {};
 V.welcome = () => ({
   body: '<div class="welcome"><div class="brandrow">' + mark(32) + '<span class="wordmark">Journey Hub</span></div>' +
     '<div class="hero-img"><img src="' + IMG.wat + '" alt="Wat Arun at sunset beside the Chao Phraya river">' + weave(10) + '</div>' +
-    '<div class="stack-8"><h1 class="display">Plan, book and shop Bangkok in one place</h1><p class="lead">Workshops, food walks and local stores, combined into one day, with purchases delivered to your hotel.</p></div>' +
+    '<div class="stack-8"><h1 class="display">Go local.<br>Travel lighter.</h1><p class="lead">Plan your trip with AI, book local experiences, and combine purchases from different stores into one delivery.</p></div>' +
     '<div class="stack-8"><p class="label">How will you use Journey Hub?</p>' +
     '<button class="role-card" data-act="role" data-a="traveler" style="border:2px solid var(--forest)"><span class="tile-ic">' + ic('explore', 22) + '</span><span class="li-main"><span class="li-title">I\'m traveling</span><span class="meta">' + (traveler() ? 'Signed in as ' + esc(traveler().name) : 'Sign in, or browse as a guest') + '</span></span>' + ic('right', 20) + '</button>' +
     '<button class="role-card" data-act="role" data-a="staff"><span class="tile-ic plain">' + ic('grid', 22) + '</span><span class="li-main"><span class="li-title">I work at a hub or partner store</span><span class="meta">' + (me() ? 'Signed in as ' + esc(me().name) : 'Staff sign-in with your staff ID and PIN') + '</span></span>' + ic('right', 20) + '</button></div>' +

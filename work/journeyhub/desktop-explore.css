@@ -425,3 +425,22 @@
  .tch-aside-day [data-tch-priorities]:empty:after{content:'Your saved stops for this day show up here once the agent has read your plan.';color:var(--ink-3);font-size:13.5px;line-height:1.5}
  .tch-card>.tch-composer .tch-send{width:44px;height:44px;border-radius:14px}
 }
+@media(min-width:1024px){
+ /* Landing headline: "Go local." in walnut, "Travel lighter." in brass. Words rise in one by one,
+    then the letters of "lighter." keep drifting gently, and a brass line draws in under them. */
+ .gh-sky .gh-hl{display:block}
+ .gh-sky .gh-line{display:block}
+ .gh-sky .gh-w{display:inline-block;animation:ghWord .9s calc(.25s + var(--i)*.14s) cubic-bezier(.16,.84,.24,1) both}
+ .gh-sky .gh-lift{position:relative}
+ .gh-sky .gh-lift i{display:inline-block;font-style:normal;animation:ghFloat 3.6s calc(1.4s + var(--l)*.12s) ease-in-out infinite}
+ .gh-sky .gh-lift::after{content:'';position:absolute;left:.04em;right:.32em;bottom:-.13em;height:.06em;border-radius:99px;background:linear-gradient(90deg,var(--brass-ink),color-mix(in srgb,var(--brass-ink) 35%,transparent));transform:scaleX(0);transform-origin:left;animation:ghLine .8s 1.15s cubic-bezier(.65,0,.35,1) forwards}
+ .gh-sky p{animation:ghFade .8s .95s ease both}
+ @keyframes ghWord{from{opacity:0;transform:translateY(.45em) rotate(2deg);filter:blur(10px)}to{opacity:1;transform:none;filter:none}}
+ @keyframes ghFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-.07em)}}
+ @keyframes ghLine{to{transform:scaleX(1)}}
+ @keyframes ghFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+}
+@media(min-width:1024px) and (prefers-reduced-motion:reduce){
+ .gh-sky .gh-w,.gh-sky .gh-lift i,.gh-sky p{animation:none}
+ .gh-sky .gh-lift::after{animation:none;transform:none}
+}

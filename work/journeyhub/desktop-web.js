@@ -420,6 +420,9 @@
       if(sig&&!userDriven&&sig===dkLastSig&&app.dataset.route===state.route&&app.querySelector(':scope>.screen'))return;
     }
     dkLastSig=sig;
+    // A pending navigation flag belongs to the old DOM. Do not replay its entry
+    // animations when a status response or an explicit refresh rebuilds the view.
+    clearTimeout(enterTimer);delete app.dataset.enter;
     return dkInnerRender.apply(this,arguments);
   };
 

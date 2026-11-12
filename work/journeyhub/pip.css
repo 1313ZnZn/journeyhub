@@ -57,7 +57,7 @@
  .fc.has-piles .fc-choice{padding:0 20px;min-height:52px;font-size:15px}
 
  /* Pip dock */
- .pip{position:fixed;z-index:60;top:calc(var(--dx-nav,72px) + 12px);right:12px;bottom:12px;width:368px;display:flex;flex-direction:column;border:1px solid rgba(255,255,255,.12);border-radius:26px;background:linear-gradient(170deg,rgba(35,31,48,.97),rgba(20,18,28,.98));box-shadow:0 30px 80px rgba(0,0,0,.45);color:var(--ink);font-family:var(--font);overflow:hidden;animation:pipIn .45s cubic-bezier(.16,.84,.24,1) both}
+ .pip{position:fixed;z-index:60;top:calc(var(--dx-nav,72px) + 12px);right:12px;bottom:12px;width:368px;display:flex;flex-direction:column;border:1px solid rgba(255,255,255,.12);border-radius:26px;background:linear-gradient(170deg,rgba(35,31,48,.97),rgba(20,18,28,.98));box-shadow:0 30px 80px rgba(0,0,0,.45);color:var(--ink);font-family:var(--font);overflow:hidden}
  @keyframes pipIn{from{opacity:0;translate:24px 0}}
  .pip[hidden],.pip-fab[hidden]{display:none!important}
  .pip-head{display:flex;align-items:center;gap:11px;padding:14px 14px 10px 16px}
@@ -72,7 +72,7 @@
  .pip-step.is-done{color:var(--ink-2)}
  .pip-step.is-on{background:#26301d;color:var(--forest)}
  .pip-thread{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:6px 14px 10px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent}
- .pip-msg{display:flex;align-items:flex-start;gap:8px;animation:pipPop .35s cubic-bezier(.2,1.2,.4,1) both}
+ .pip-msg{display:flex;align-items:flex-start;gap:8px}
  @keyframes pipPop{from{opacity:0;translate:0 8px;scale:.97}}
  .pip-msg .tch-avatar{width:28px;height:28px;color:var(--forest);flex:none}
  .pip-av-gap{width:28px;flex:none}

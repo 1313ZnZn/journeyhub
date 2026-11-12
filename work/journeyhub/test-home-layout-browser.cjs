@@ -50,9 +50,35 @@ async function run(){
       });
       const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
       await page.goto(base,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.HOME_TEST?.ready);
-      // The welcome entry has a continuous hover animation, so invoke its existing action.
-      await page.evaluate(()=>HOME_TEST.A.dkContinue('traveler'));
+      await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.HOME_TEST?.ready);
+      // The actual welcome button must now be stable enough for a normal browser click.
+      await page.evaluate(()=>HOME_TEST.go('welcome'));
+      await page.locator('[data-act=dkContinue][data-a=traveler]').click();
       await page.locator('aside.pip.is-center').waitFor({state:'visible'});
+      // Look at animations on each control and its ancestors, not just its own CSS:
+      // translating a page/card also makes all of its buttons fly in on redraw.
+      for(const route of ['orders','trip-history','welcome']){
+        await page.evaluate(route=>HOME_TEST.go(route),route);
+        await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+        await page.evaluate(()=>HOME_TEST.render());
+        const flying=await page.evaluate(()=>{
+          const found=new Set();
+          for(const control of document.querySelectorAll('#app button,#app input,#app textarea,#app a')){
+            for(let node=control;node&&node!==document.body;node=node.parentElement){
+              for(const animation of node.getAnimations()){
+                if(animation.playState!=='running')continue;
+                // Hover/press transitions are intentional interaction feedback.
+                if(typeof animation.transitionProperty==='string')continue;
+                const frames=animation.effect?.getKeyframes()||[];
+                if(frames.some(frame=>['transform','translate','scale','top','left'].some(key=>frame[key]!==undefined)))found.add(animation.animationName||'scripted layout animation');
+              }
+            }
+          }
+          return [...found];
+        });
+        assert.deepEqual(flying,[],route+' controls must remain stationary on refresh');
+      }
+      await page.evaluate(()=>HOME_TEST.go('journey'));
       for(const width of [1024,1280,1920]){
         await page.setViewportSize({width,height:900});
         for(let repeat=0;repeat<3;repeat++){
@@ -69,7 +95,7 @@ async function run(){
           await page.evaluate(()=>{HOME_TEST.render();HOME_TEST.render();});
           assert(await page.locator('aside.pip [data-pip-input]').isVisible());
         }
-        results.push({motion,width,centered:true,filmHidden:true,reentries:3});
+        results.push({motion,width,centered:true,filmHidden:true,reentries:3,refreshControlsStable:true});
       }
       // Keep the film node available when returning to the welcome page.
       await page.evaluate(()=>HOME_TEST.go('welcome'));

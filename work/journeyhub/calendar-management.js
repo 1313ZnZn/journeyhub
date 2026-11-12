@@ -46,6 +46,59 @@ A.cmAsk=(kind,id)=>{cmScope();if(!cm.loaded||cmHidden(kind,id))return;cmShow(cmR
 A.cmRestore=(kind,id)=>{cmScope();const row=cm.removed.find(item=>item.kind===kind&&item.id===id);if(row)cmShow({...row,action:'restore'});};
 A.cmDismiss=()=>{if(cm.busy)return;cm.confirm=null;if(ui.sheet?.type==='calendar-manage')ui.sheet=null;render();};
 A.cmRefresh=()=>cmLoad(true);
+// Gather every saved itinerary page before asking for destructive confirmation.
+// Search-only history, tickets, purchases and memories are deliberately excluded.
+A.cmAskAll=async()=>{
+  cmScope();const ctx=cm;if(!ctx.owner||!traveler()||ctx.busy||!ctx.loaded)return;
+  ctx.busy=true;ctx.error='';render();
+  try{
+    const stateResult=await agRPC('journeyhub_calendar_state',{});
+    if(!cmCurrent(ctx))return;ctx.removed=cmRows(stateResult);
+    thScope();const history=th,items=[],seen=new Set(),cursors=new Set();let cursor=null;
+    const add=(kind,id)=>{const key=kind+':'+id;if(typeof id!=='string'||seen.has(key)||cmHidden(kind,id))return;seen.add(key);items.push({kind,id,requestId:crypto.randomUUID(),done:false});};
+    do{
+      if(!cmCurrent(ctx)||!thCurrent(history))return;
+      const result=await thRequest({action:'history_list',limit:20,...(cursor?{cursor}:{})},history);
+      if(!cmCurrent(ctx))return;
+      if(!Array.isArray(result.items))throw Error('Your plans could not be listed. No plans were deleted.');
+      result.items.filter(row=>row.status==='itinerary').forEach(row=>add('history',row.id));
+      cursor=result.nextCursor||null;
+      if(cursor){const key=JSON.stringify(cursor);if(cursors.has(key))throw Error('Your plan list did not finish loading. No plans were deleted.');cursors.add(key);}
+    }while(cursor);
+    const runs=await agRPC('journeyhub_agent_list',{p_limit:50});
+    if(!cmCurrent(ctx))return;
+    if(!Array.isArray(runs))throw Error('Your saved agent plans could not load. No plans were deleted.');
+    // The existing RPC is capped at 50. Never silently treat a truncated list as all plans.
+    if(runs.length>=50)throw Error('Your account has too many agent records to list safely in one batch. Delete individual plans first. No plans were deleted.');
+    runs.filter(row=>agPlan(row)?.stops?.length).forEach(row=>add('run',row.id));
+    ctx.confirm={action:'remove-all',items,error:''};ui.sheet={type:'calendar-manage',id:'all-plans'};
+  }catch(error){if(cmCurrent(ctx))ctx.error=cmError(error);}
+  finally{if(cmCurrent(ctx)){ctx.busy=false;render();}}
+};
+function cmRemovedPlan(ctx,item){
+  th.openVersion++;th.opening=null;cal.openVersion++;cal.opening=null;
+  if(tc.owner===ctx.owner)tc.trips=tc.trips.map(trip=>trip.sourceType===item.kind&&trip.sourceId===item.id?{...trip,status:'paused'}:trip);
+  if(item.kind==='history'){
+    if(th.owner===ctx.owner)thForgetHydration(th,item.id);
+    if(pd.historyId===item.id){clearTimeout(pd.historyTimer);pd=pdFresh();}
+  }
+  if(item.kind==='run'&&ag.activeId===item.id){ag.activeId=null;ag.confirmChecked=false;}
+}
+async function cmConfirmAll(ctx,item){
+  if(ctx.busy)return;ctx.busy=true;ctx.loading=false;ctx.version++;item.error='';render();
+  try{
+    for(const plan of item.items){
+      if(!cmCurrent(ctx))return;if(plan.done)continue;
+      const result=await agRPC('journeyhub_calendar_manage',{p_kind:plan.kind,p_id:plan.id,p_action:'remove',p_request_id:plan.requestId});
+      if(!cmCurrent(ctx))return;
+      if(!result?.ok)throw Error('This plan could not be deleted. Please retry.');
+      ctx.removed=cmRows(result);ctx.loaded=true;plan.done=true;cmRemovedPlan(ctx,plan);render();
+    }
+    ctx.confirm=null;if(ui.sheet?.type==='calendar-manage')ui.sheet=null;
+    toast('All '+item.items.length+' saved plans deleted');
+  }catch(error){if(cmCurrent(ctx))item.error=item.items.filter(plan=>plan.done).length+' of '+item.items.length+' plans deleted. '+cmError(error)+' Retry to finish the remaining plans.';}
+  finally{if(cmCurrent(ctx)){ctx.busy=false;render();}}
+}
 async function cmRestoreSource(ctx,item){
   if(!cmCurrent(ctx)||item.kind==='booking')return;
   if(item.kind==='run'){
@@ -70,6 +123,7 @@ async function cmRestoreSource(ctx,item){
 }
 A.cmConfirm=async()=>{
   cmScope();const ctx=cm,item=ctx.confirm;if(!ctx.owner||!item||ctx.busy)return;
+  if(item.action==='remove-all')return cmConfirmAll(ctx,item);
   ctx.busy=true;ctx.loading=false;ctx.version++;item.error='';render();
   try{
     const result=await agRPC('journeyhub_calendar_manage',{p_kind:item.kind,p_id:item.id,p_action:item.action,p_request_id:item.requestId});
@@ -81,10 +135,7 @@ A.cmConfirm=async()=>{
       if(tc.owner===ctx.owner)tc.trips=tc.trips.map(trip=>trip.sourceType==='run'&&(trip.bookings||[]).some(b=>b.bookingId===item.id||b.id===booking.slot)?{...trip,status:'paused',proposal:null,bookings:trip.bookings.map(b=>b.bookingId===item.id||b.id===booking.slot?{...b,status:'cancelled'}:b)}:trip);
     }
     if(['history','run'].includes(item.kind)&&item.action==='remove'){
-      th.openVersion++;th.opening=null;cal.openVersion++;cal.opening=null;
-      if(tc.owner===ctx.owner)tc.trips=tc.trips.map(trip=>trip.sourceType===item.kind&&trip.sourceId===item.id?{...trip,status:'paused'}:trip);
-      if(item.kind==='history'&&pd.historyId===item.id){clearTimeout(pd.historyTimer);pd=pdFresh();}
-      if(item.kind==='run'&&ag.activeId===item.id){ag.activeId=null;ag.confirmChecked=false;}
+      cmRemovedPlan(ctx,item);
     }
     ctx.confirm=null;if(ui.sheet?.type==='calendar-manage')ui.sheet=null;
     toast(item.action==='restore'?'Restored to your calendar':item.action==='cancel'?'Reservation cancelled':item.kind==='booking'?'Removed from calendar':'Plan deleted');
@@ -112,6 +163,10 @@ sheetView=function(){
     return template.innerHTML;
   }
   const item=cm.confirm;if(!item||!cmCurrent(cm))return '';
+  if(item.action==='remove-all'){
+    const count=item.items.length,done=item.items.filter(plan=>plan.done).length;
+    return '<div class="scrim" data-act="scrim"><section class="sheet cm-confirm" role="dialog" aria-modal="true" aria-labelledby="cm-confirm-title"><span class="handle" aria-hidden="true"></span><h2 id="cm-confirm-title">'+(count?'Delete all saved plans?':'No saved plans to delete')+'</h2><p>'+count+' saved plan'+(count===1?'':'s')+' across all dates. Existing reservations, purchases, searches and Travel memories stay unchanged. Deleted plans can be restored from Removed items.</p>'+(cm.busy?'<p role="status">Deleting '+done+' of '+count+'…</p>':'')+(item.error?'<div class="cal-error" role="alert">'+esc(item.error)+'</div>':'')+'<div class="cm-confirm-actions"><button class="btn btn-soft" data-act="cmDismiss"'+(cm.busy?' disabled':'')+'>Back</button>'+(count?'<button class="btn cm-danger" data-act="cmConfirm"'+(cm.busy?' disabled':'')+'>'+(cm.busy?'Deleting…':item.error?'Retry remaining plans':'Delete all '+count+' plans')+'</button>':'')+'</div></section></div>';
+  }
   const restore=item.action==='restore',cancel=item.action==='cancel',booking=item.kind==='booking';
   const heading=restore?'Restore this item?':cancel?'Cancel this reservation?':booking?'Remove from calendar?':'Delete this plan?';
   const explanation=restore?(booking?'Show this reservation again. Its booking status will not change.':'Show the full plan again. Trip support stays paused and no new reservations will be created.'):cancel?'Cancel this JourneyHub reservation, release its seats and pause linked trip support. Other reservations stay unchanged. Reserving again requires a new booking.':booking?'Hide this record from your calendar. Its reservation status and check-in record will stay unchanged.':'Remove all days of this plan and pause its trip support. Existing reservations will stay in your calendar. You can restore the plan from Removed items.';
@@ -138,6 +193,16 @@ agHistoryHTML=function(limit=3,filter=null){
 for(const route of ['trip-history','journey-drafts','reserved-trips','ai-history']){
   const previous=V[route];if(!previous)continue;
   V[route]=()=>{const view=previous();if(cm.error)view.body='<div class="content"><div class="cal-error" role="alert">'+esc(cm.error)+' <button data-act="cmRefresh">Retry calendar settings</button></div></div>'+view.body;return view;};
+}
+for(const route of ['orders','trip-history']){
+  const previous=V[route];
+  V[route]=()=>{
+    const view=previous();if(!jhUser||!traveler())return view;
+    const button='<div class="cm-bulk-actions"><button class="btn btn-soft cm-delete-all" data-act="cmAskAll"'+(!cm.loaded||cm.busy?' disabled':'')+'>'+(cm.busy&&!cm.confirm?'Loading all plans…':'Delete all plans')+'</button></div>';
+    view.body+=button;
+    if(route==='orders'&&cm.error)view.body+='<div class="content"><div class="cal-error" role="alert">'+esc(cm.error)+'</div></div>';
+    return view;
+  };
 }
 const cmOpenRun=A.agOpen;
 A.agOpen=(id,...args)=>{if(cmHidden('run',id))return;return cmOpenRun(id,...args);};

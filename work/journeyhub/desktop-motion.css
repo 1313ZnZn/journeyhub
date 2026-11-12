@@ -1,6 +1,6 @@
-/* Desktop motion shared by every page, in the spirit of Explore: the city backdrop drifts with
-   scroll, page content cascades in, panels rise as they scroll into view, glass panels catch a
-   soft light under the pointer, and the nav highlight glides between tabs.
+/* Desktop motion shared by every page: the city backdrop drifts with scroll,
+   headings fade in, glass panels catch a soft light under the pointer, and the
+   nav highlight glides between tabs. Content and controls keep fixed hit targets.
    Only transform/opacity-type properties animate, so the work stays on the compositor. */
 @media(min-width:1024px) and (prefers-reduced-motion:no-preference){
  /* Backdrop: composited fog, and a slow parallax tied to the page scroll */
@@ -20,19 +20,8 @@
  #app[data-enter]>.bar[data-dx-eyebrow]:before{animation:dmFade .6s ease both}
  @keyframes dmTitle{from{opacity:0;translate:0 22px;clip-path:inset(0 0 100% 0)}to{opacity:1;translate:0 0;clip-path:inset(0 0 -20% 0)}}
  @keyframes dmFade{from{opacity:0}}
- #app[data-enter] :is(.sd-kpis,.sd-grid,.sd-side,.sd-order-grid,.jl-home,.cal-side,.dk-ideas,.sd-subtabs)>*{animation:dmRise .7s var(--dx-ease) both;animation-delay:calc(.1s + var(--dm-i,0) * 55ms)}
- :is(.sd-kpis,.sd-grid,.sd-side,.sd-order-grid,.jl-home,.cal-side,.dk-ideas)>:nth-child(2){--dm-i:1}
- :is(.sd-kpis,.sd-grid,.sd-side,.sd-order-grid,.jl-home,.cal-side,.dk-ideas)>:nth-child(3){--dm-i:2}
- :is(.sd-kpis,.sd-grid,.sd-side,.sd-order-grid,.jl-home,.cal-side,.dk-ideas)>:nth-child(4){--dm-i:3}
- :is(.sd-kpis,.sd-grid,.sd-side,.sd-order-grid,.jl-home,.cal-side,.dk-ideas)>:nth-child(n+5){--dm-i:4}
- @keyframes dmRise{from{opacity:0;translate:0 26px;scale:.985}}
-
- /* Panels further down rise in as they scroll into view */
- @supports (animation-timeline:view()){
-  #app[data-shell=on] .screen :is(.sd-card,.sd-order,.card,.tl-day,.cal-inline-map,.dk-agent,.ta-card,.sf-session-card,.ub-staff-page .li){animation:dmView linear both;animation-timeline:view();animation-range:entry 0px entry 200px}
-  #app[data-enter][data-shell=on] .screen :is(.sd-grid,.sd-side,.cal-side)>:is(.sd-card,.dk-agent,.cal-inline-map){animation:dmRise .7s var(--dx-ease) both;animation-delay:calc(.1s + var(--dm-i,0) * 55ms);animation-timeline:auto}
- }
- @keyframes dmView{from{opacity:0;translate:0 40px;scale:.97}to{opacity:1;translate:0 0;scale:1}}
+ /* Cards, forms and action groups keep fixed hit targets. Animating an ancestor
+    also moved its buttons whenever a status update rebuilt that part of the page. */
 
  /* Glass panels: a soft light follows the pointer, and they lift slightly */
  :is(.sd-card,.sd-kpi,.dk-agent,.jl-composer,.jl-details,.cal-month){position:relative;isolation:isolate}

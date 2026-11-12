@@ -169,7 +169,7 @@
     dock=document.body.querySelector('aside.pip');toggle=document.body.querySelector('.pip-fab');
   }
   // On the AI Journey page Pip is the main conversation, in the centre; elsewhere it docks on
-  // the right. Moving between the two animates from one place to the other.
+  // the right. Both layouts settle immediately so their buttons stay stationary.
   const centreRoute=()=>state.route==='journey';
   A.pipNewTrip=()=>{
     if(chatBusy)return;
@@ -193,14 +193,7 @@
     return '<div class="pip-card"><div class="pip-card-body"><strong>'+esc(day.condition)+(Number.isFinite(day.tempC)?' · '+day.tempC+'°C':'')+'</strong><small>'+esc(advice)+'</small></div></div>';
   }
   function place(centre){
-    const was=dock.classList.contains('is-center');
-    if(was===centre)return;
-    const shown=!dock.hidden,before=shown?dock.getBoundingClientRect():null;
     dock.classList.toggle('is-center',centre);
-    if(!before||calm?.matches)return;
-    const after=dock.getBoundingClientRect();if(!after.width)return;
-    dock.animate([{transformOrigin:'top left',transform:'translate('+(before.left-after.left)+'px,'+(before.top-after.top)+'px) scale('+(before.width/after.width)+','+(before.height/after.height)+')'},{transformOrigin:'top left',transform:'none'}],{duration:620,easing:'cubic-bezier(.2,.8,.2,1)'});
-    dock.querySelectorAll('.pip-thread,.pip-live,.pip-chips,.pip-trip,.pip-composer').forEach(el=>el.animate([{opacity:0},{opacity:0,offset:.35},{opacity:1}],{duration:620}));
   }
   function tripChips(){
     return '<button type="button" class="pip-trip-edit" data-act="pipTrip">'+ic('sliders',16)+' Edit trip details</button><button type="button" class="pip-trip-chip" data-act="pipNewTrip">New trip</button>';

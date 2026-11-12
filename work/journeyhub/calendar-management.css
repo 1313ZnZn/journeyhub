@@ -20,4 +20,7 @@
 .cm-history-actions .cm-manage-btn:disabled{opacity:.5;cursor:wait}
 .cm-removed>.cal-event-meta{margin:0 0 20px}
 .cm-removed-card>.cal-tag{margin-bottom:9px}
+.cm-bulk-actions{display:flex;justify-content:center;padding:12px 20px 28px}
+.cm-bulk-actions .cm-delete-all{color:var(--ink-3);font-size:14px}
+.cm-delete-all:disabled{opacity:.5;cursor:wait}
 @media(max-width:360px){.cal-event-action{gap:5px}.cal-event-action button{font-size:14px}.cal-event-action .cm-manage-btn{font-size:13px}.cm-confirm-actions{gap:8px}}

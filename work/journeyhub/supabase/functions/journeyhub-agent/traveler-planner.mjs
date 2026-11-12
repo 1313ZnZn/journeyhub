@@ -277,6 +277,11 @@ async function finish(s,ctx){
 const VISIT=[[/museum|gallery|exhibition|博物馆|美术馆/i,120],[/restaurant|food|dining|cuisine|cafe|coffee|tea|bakery|dessert|matcha|bar|italian|餐|咖啡|茶/i,75],[/park|garden|nature|zoo|botanic|公园|花园/i,90],[/temple|church|mosque|shrine|寺|庙/i,75],[/market|mall|shop|商场|市场/i,90]];
 const visitMinutes=p=>{const text=[p.kind,p.category,...(p.categories||[])].join(' ');for(const [re,m] of VISIT)if(re.test(text))return m;return 90;};
 const clockOf=n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');
+const diningRole=p=>{
+ const text=[p.kind,p.category,...(p.categories||[]),p.name].join(' ');
+ if(/cafe|coffee|matcha|tea\b|dessert|bakery|咖啡|抹茶/i.test(text))return 'break';
+ return /restaurant|dining|cuisine|italian|餐厅|菜馆/i.test(text)?'meal':'visit';
+};
 // Total places a trip can hold, spread evenly across days (matches the traveler app's picks tray).
 export function tripPlaceCap(input){
  const days=Math.max(1,Math.min(4,Math.round(Number(input.days)||1)));
@@ -309,7 +314,12 @@ export function autoSchedule(s){
  const cap=Math.max(must.length,Math.min(usable.length,tripPlaceCap(s.input)));
  const anchor=must.length?must:usable.slice(0,1);
  const near=p=>Math.min(...anchor.map(a=>estimateTravel(a,p,s.input.transport).durationMinutes));
- const optional=usable.filter(p=>!wanted.includes(p.id)).sort((a,b)=>near(a)-near(b)).slice(0,Math.max(0,cap-must.length));
+ const candidates=usable.filter(p=>!wanted.includes(p.id)).sort((a,b)=>near(a)-near(b));
+ const optional=candidates.slice(0,Math.max(0,cap-must.length));
+ // The must-go tray limit is not a ban on a nearby tea break. Keep at most
+ // one extra break per day; normal hours, route and budget checks still apply.
+ const breaks=Math.max(0,Math.min(16-must.length-optional.length,s.input.days-[...must,...optional].filter(p=>diningRole(p)==='break').length));
+ if(minute(s.input.dayEnd)-minute(s.input.dayStart)>=480)optional.push(...candidates.filter(p=>!optional.includes(p)&&diningRole(p)==='break').slice(0,breaks));
  let pool=[...must,...optional];if(!pool.length)return{infeasible:[],reason:'empty'};
  let days=[];
  if(s.dayPlan){
@@ -330,13 +340,18 @@ export function autoSchedule(s){
   const counts=perDayCounts(tour.length,Math.min(s.input.days,tour.length));let at=0;for(const n of counts){days.push(tour.slice(at,at+n));at+=n;}
  }
  const open=minute(s.input.dayStart),close=minute(s.input.dayEnd),stops=[],overflow=[];
- const place=(day,list)=>{let cursor=open,prev=null;const kept=[];
+ const place=(day,list)=>{let cursor=open,prev=null,meals=0;const kept=[];
+  if(!s.dayPlan){
+   // Keep visits in route order, but separate lunch, tea and dinner.
+   let mealIndex=0;list=list.map((p,i)=>({p,i,rank:diningRole(p)==='meal'?(mealIndex++?3:1):diningRole(p)==='break'?2:0})).sort((a,b)=>a.rank-b.rank||a.i-b.i).map(x=>x.p);
+  }
   for(const p of list){
-   const start=Math.ceil((prev?cursor+gap(prev,p):cursor)/5)*5;let length=visitMinutes(p);
+   const role=diningRole(p),earliest=role==='meal'?(meals?1050:close<735?open:690):role==='break'?(close<885?open:Math.max(open,840)):open;
+   const start=Math.ceil(Math.max(prev?cursor+gap(prev,p):cursor,earliest)/5)*5;let length=role==='break'?45:visitMinutes(p);
    if(start+length>close)length=Math.floor((close-start)/5)*5;
    const fact=s.facts.find(f=>f.id===p.id&&f.date===dateAt(s.input,day)),hours=fact?hoursAssessment(fact,clockOf(start),clockOf(start+Math.max(length,30))):null;
    if(length<45||['closed','conflict'].includes(hours?.status)){if(wanted.includes(p.id))overflow.push(p);continue;}
-   kept.push({p,start,end:start+length});cursor=start+length;prev=p;
+   kept.push({p,start,end:start+length});cursor=start+length;prev=p;if(role==='meal')meals++;
   }
   return kept;};
  const placed=days.map((list,i)=>place(i+1,list));

@@ -141,6 +141,14 @@ function thSavedResult(ctx,result){
   if(ctx.historyId)ctx.historySavedRevision=ctx.historyRevision||0;
   thInvalidate(ctx.historyId);
   if(ctx.historyId&&pdCurrent(ctx)){
+    // Publish the completed plan to Calendar immediately, before the list
+    // refresh. Retire earlier list callbacks so they cannot replace this save.
+    if(ctx.plan?.stops?.length){
+      const items=th.items,previous=items.find(item=>item.id===ctx.historyId);
+      th=thFresh(ctx.owner);
+      const savedAt=result.updatedAt||new Date().toISOString();
+      th.items=[{...previous,id:ctx.historyId,input:ctx.input,status:'itinerary',placeCount:ctx.places.length,stopCount:ctx.plan.stops.length,createdAt:previous?.createdAt||savedAt,updatedAt:savedAt},...items.filter(item=>item.id!==ctx.historyId)];
+    }
     const restored={historyId:ctx.historyId,input:ctx.input,places:ctx.places,token:ctx.token,expires:ctx.expires,plan:ctx.plan||null,wanted:ctx.wanted||[],skipped:ctx.skipped||[],sample:ctx.sample===true,unavailablePlaceIds:ctx.unavailablePlaceIds||[],...result};
     if(restored.updatedAt){const row=th.items.find(item=>item.id===ctx.historyId);if(row)row.updatedAt=restored.updatedAt;}
     thRememberHydration(th,ctx.historyId,restored);

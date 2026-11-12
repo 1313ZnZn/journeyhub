@@ -82,7 +82,7 @@ function calEvents(){
     const care=supported.find(t=>t.sourceType==='history'&&t.sourceId===item.id);
     const live=pd.owner===owner&&pd.historyId===item.id?pd.plan:null,detail=cal.owner===owner?cal.details[item.id]?.plan:null;
     const hydrated=detail||live,effective=calCarePlan(care,hydrated,item.input);
-    addPlan('history:'+item.id,effective||item.input||{},effective?.stops,{id:item.id,manageKind:'history',hydrated:!!hydrated,savedAt:item.createdAt,sample:String(item.input?.prompt||'').startsWith('[Sample]')});seen.add('history:'+item.id);
+    addPlan('history:'+item.id,effective||item.input||{},effective?.stops,{id:item.id,manageKind:'history',hydrated:!!hydrated,savedAt:item.updatedAt||item.createdAt,sample:String(item.input?.prompt||'').startsWith('[Sample]')});seen.add('history:'+item.id);
   }
   for(const run of runs){
     const plan=agPlan(run);if(!plan)continue;

@@ -103,7 +103,10 @@ async function ptuOpenTask({retry=false}={}){
     if(!ptuCurrent(ctx)||!pdCurrent(discovery))return;
     if(ctx.task.status!=='completed')throw ptuError(ctx.task);
     await ptuApply(ctx.task,discovery);if(!pdCurrent(discovery))return;
-    if(['place-search','ai-picks'].includes(state.route))go(ctx.task.kind==='discover_plan'?'place-plan':'ai-picks');
+    if(['place-search','ai-picks'].includes(state.route)){
+      if(ctx.task.kind==='discover_plan'){go('orders');if(typeof calSelect==='function')calSelect(discovery.plan.date||discovery.input.date);}
+      else go('ai-picks');
+    }
   }catch(e){if(pdCurrent(discovery))discovery.error=agErrorText(e);}
   finally{if(pdCurrent(discovery)){discovery.busy=false;discovery.phase=null;render();}}
 }

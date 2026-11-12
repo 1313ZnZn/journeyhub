@@ -100,7 +100,7 @@ A.pdFinish=async()=>{
   ctx.busy=true;ctx.phase='plan';ctx.error='';render();
   try{if(typeof thFlushChoices==='function')await thFlushChoices(ctx);if(!pdCurrent(ctx))return;const result=await pdRequest({action:'discover_plan',token:ctx.token,wanted:ctx.wanted,skipped:ctx.skipped},ctx);if(!pdCurrent(ctx))return;if(!result.plan?.stops?.length)throw Error('No usable itinerary was returned. Please retry.');if(Number(result.plan.days)!==days||(!result.plan.agent?.checked&&!Array.from({length:days},(_,i)=>i+1).every(day=>result.plan.stops.some(s=>s.dayIndex===day))))throw Error('Your itinerary needs a stop on every day. Please try creating it again.');if(ctx.wanted.some(id=>!result.plan.stops.some(s=>s.id===id))||result.plan.stops.some(s=>ctx.skipped.includes(s.id)))throw Error('The itinerary did not respect your shortlist. Please try again.');ctx.plan=result.plan;ctx.day='all';if(typeof thSavedResult==='function')thSavedResult(ctx,result);if(typeof calWeatherPrefetch==='function')void calWeatherPrefetch({city:ctx.plan.city||ctx.input?.city,date:ctx.plan.date||ctx.input?.date,days:ctx.plan.days});if(state.route==='ai-picks')go('place-plan');}
   catch(e){if(pdCurrent(ctx))ctx.error=agErrorText(e);}
-  finally{if(pdCurrent(ctx)){ctx.busy=false;ctx.phase=null;render();}}
+  finally{if(pdCurrent(ctx)){ctx.busy=false;ctx.phase=null;if(ctx.plan&&!ctx.error&&state.route==='place-plan'){go('orders');if(typeof calSelect==='function')calSelect(ctx.plan.date||ctx.input.date);}else render();}}
 };
 A.pdDay=value=>{pd.mapStop=null;pd.day=value==='all'?'all':Number(value);render();};
 V['place-plan']=()=>{

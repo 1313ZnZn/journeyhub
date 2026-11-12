@@ -108,14 +108,16 @@ A.dwBook=async(type,id)=>{
   dwScope();const ctx=dw,source=type&&id?dwSource(type,id):dwSource(state.params?.sourceType,state.params?.sourceId);if(!ctx.owner||ctx.busy||!source)return;
   const record=ctx.quotes[dwKey(source.sourceType,source.sourceId)],quote=record?.quote;
   if(!quote||record.loading||quote.status==='booked'||quote.items.every(i=>i.kind==='unavailable')||quote.totalMinor>(ctx.wallet?.balanceMinor??-1))return;
-  const request=dwRequestId(ctx,'book',quote.id);ctx.busy=true;record.error='';ctx.version++;render();
+  const request=dwRequestId(ctx,'book',quote.id);ctx.busy=true;record.error='';record.errorCode='';ctx.version++;render();
   try{const result=await dwRequest({action:'demo_book',quoteId:quote.id,requestId:request.id},ctx);if(!dwCurrent(ctx))return;
     const saved=result.quote,receipts=result.bookings;
     const complete=Array.isArray(receipts)&&quote.items.every(item=>receipts.some(b=>(item.bookingId?b.bookingId===item.bookingId:b.quoteId===quote.id&&b.sourceType===quote.sourceType&&b.sourceId===quote.sourceId&&b.stopId===item.stopId)&&['simulated_confirmed','not_required','unavailable','cancelled'].includes(b.status)&&(!b.bookingId||b.canonicalStatus==='cancelled'||b.status==='cancelled'||(typeof b.checkinCode==='string'&&b.checkinCode.length>0))));
     if(saved?.id!==quote.id||saved?.status!=='booked'||saved.sourceType!==quote.sourceType||saved.sourceId!==quote.sourceId||!complete)throw Error('The demo confirmation is incomplete. Refresh the estimate to check your saved records before retrying.');
     dwStore(ctx,result);record.quote=saved;record.receipts=receipts;
     request.clear();if(result.trip&&typeof tcStore==='function')tcStore(tc,result.trip);else if(typeof tcLoad==='function')void tcLoad(true);
-    if(typeof jhRefresh==='function')await jhRefresh();
+    // The receipt is authoritative. A later catalogue refresh must not turn a
+    // successful debit into a payment error or encourage a second payment.
+    if(typeof jhRefresh==='function')try{await jhRefresh();}catch{if(dwCurrent(ctx))toast('Reservations saved. Refresh Calendar to update the display.');}
     if(source.sourceType==='run'&&typeof agLoadRun==='function')void agLoadRun(source.sourceId,{quiet:true});
     toast('Demo reservations saved. No real payment made.');
   }catch(error){if(dwCurrent(ctx)){record.error=dwErrorText(error);record.errorCode=error.code;}}

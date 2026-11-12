@@ -9,6 +9,7 @@
   const STAGES=[['💭','Idea'],['🃏','Choose'],['🗺️','Plan'],['🎒','Go'],['📸','Remember']];
   const ROUTE_STAGE={home:0,journey:0,'place-search':0,'ai-picks':1,'place-plan':2,orders:3,memories:4,'memory-trip':4,'memory-photo':4};
   let openPref=true;try{openPref=localStorage.getItem('jh-pip-open')!=='0';}catch{}
+  let previousRoute=null;
   let dock=null,toggle=null,last={key:'',stage:-1,thread:'',live:'',chips:'',head:''},peekTimer=null,typingTimer=null;
 
   const stageOf=()=>ROUTE_STAGE[state.route]??-1;
@@ -41,7 +42,8 @@
     if(!live()||!pd.historyId||!pd.requestId)return;
     const from=storeKey('search:'+pd.requestId);let old=null;try{old=localStorage.getItem(from);}catch{}
     if(!old)return;
-    const merged=[...JSON.parse(old),...load(pd.historyId)];save(pd.historyId,merged);try{localStorage.removeItem(from);}catch{}
+    try{const messages=JSON.parse(old);if(Array.isArray(messages))save(pd.historyId,[...messages,...load(pd.historyId)]);}catch{}
+    try{localStorage.removeItem(from);}catch{}
   }
   function say(from,text,extra={},key=tripKey()){
     if(!key)return;
@@ -85,8 +87,8 @@
     const fix=(stage===1||stage===2)&&typeof window.jhPlanFixCard==='function'?window.jhPlanFixCard():'';
     if(fix)return '<div class="pip-card pip-fix">'+fix+'</div>';
     // After the trip is created Pip shows what can be booked and the total to pay.
-    const booking=stage===2&&typeof window.jhPipBookingCard==='function'?window.jhPipBookingCard():'';
-    if(booking)return booking;
+    const booking=(stage===2||stage===3)&&typeof window.jhPipBookingCard==='function'?window.jhPipBookingCard():'';
+    if(booking)return booking+(stage===3?weatherCard():'');
     if(stage===1&&live()&&!pd.busy){
       const maybe=typeof window.jhFanMaybe==='function'?window.jhFanMaybe().length:0,must=pd.wanted.length,cap=typeof jhPickCap==='function'?jhPickCap():8;
       return '<div class="pip-card pip-piles"><div class="pip-pile"><span>🧳</span><b>'+must+'</b><small>of '+cap+' Must go</small></div><div class="pip-pile"><span>🤔</span><b>'+maybe+'</b><small>Maybe</small></div><div class="pip-pile"><span>🙅</span><b>'+pd.skipped.length+'</b><small>Not this time</small></div></div>';
@@ -96,6 +98,7 @@
     if(stage===3){
       const t=window.jhCalendarAgent?.target?.();
       if(!t)return '<div class="pip-card"><small>Pick a day with a trip in the calendar and I’ll help you adjust it.</small></div>';
+      return weatherCard();
     }
     return '';
   }
@@ -125,7 +128,7 @@
     return null;
   }
   function headLine(){
-    const i=live()?pd.input:null;
+    const i=state.route==='journey'?ag.prefs:live()?pd.input:null;
     if(state.route==='orders')return 'Your trip companion';
     if(i?.city)return esc(i.city)+' · '+(Number(i.days)||1)+' day'+(Number(i.days)>1?'s':'')+(i.date?' · '+esc(typeof agDate==='function'?agDate(i.date):i.date):'');
     return 'Your trip companion';
@@ -168,6 +171,27 @@
   // On the AI Journey page Pip is the main conversation, in the centre; elsewhere it docks on
   // the right. Moving between the two animates from one place to the other.
   const centreRoute=()=>state.route==='journey';
+  A.pipNewTrip=()=>{
+    if(chatBusy)return;
+    // Retire only the local waiter; the saved trip and server task remain intact.
+    if(typeof ptu!=='undefined'&&typeof ptuRetire==='function'){ptuRetire(ptu);ptu.task=null;ptu.binding=null;}
+    if(typeof pdFresh==='function')pd=pdFresh();
+    try{localStorage.removeItem(storeKey('idea'));}catch{}
+    openPref=true;go('journey');sync();
+    dock?.querySelector('[data-pip-input]')?.focus();
+  };
+  function weatherCard(){
+    if(typeof cal==='undefined'||typeof calEvents!=='function'||typeof calWeatherCity!=='function')return '';
+    const city=calWeatherCity(calEvents().filter(e=>e.date===cal.date));if(!city)return '';
+    const report=calWeatherSaved(city),day=report?.days.find(d=>d.date===cal.date);
+    if(!report&&calWeatherInRange(city,cal.date,new Date())){
+      const date=cal.date,owner=jhUser?.id;
+      void calWeatherFetch(city).then(()=>{if(state.route==='orders'&&cal.date===date&&jhUser?.id===owner)sync();});
+    }
+    if(!day)return '<div class="pip-card"><small>Weather: '+(calWeatherInRange(city,cal.date,new Date())?'Forecast not available right now. Check again before setting out.':'Forecast not available for this date yet.')+'</small></div>';
+    const advice=['rain','storm','sleet'].includes(day.icon)?'Bring an umbrella and a waterproof layer.':day.icon==='sun'||day.tempC>=28?'Pack sunscreen, water and a hat.':day.icon==='snow'?'Wear warm layers and shoes with good grip.':'Bring water and a light layer.';
+    return '<div class="pip-card"><div class="pip-card-body"><strong>'+esc(day.condition)+(Number.isFinite(day.tempC)?' · '+day.tempC+'°C':'')+'</strong><small>'+esc(advice)+'</small></div></div>';
+  }
   function place(centre){
     const was=dock.classList.contains('is-center');
     if(was===centre)return;
@@ -179,10 +203,7 @@
     dock.querySelectorAll('.pip-thread,.pip-live,.pip-chips,.pip-trip,.pip-composer').forEach(el=>el.animate([{opacity:0},{opacity:0,offset:.35},{opacity:1}],{duration:620}));
   }
   function tripChips(){
-    const i=ag.prefs||{},days=Number(i.days)||1,date=i.date&&typeof agDate==='function'?agDate(i.date):i.date||'';
-    const budget=i.budgetAmount?(i.budgetCurrency||'CNY')+' '+i.budgetAmount:'No budget limit';
-    const items=[['📍',i.city||'Choose a city'],['📅',date],['👥',plural(Number(i.guests)||1,'guest')],['🕘',plural(days,'day')+' · '+(i.dayStart||'09:00')+'–'+(i.dayEnd||'21:00')],[i.transport==='walk'?'🚶':'🚕',i.transport==='walk'?'Walking':'Car / taxi'],['💰',budget]];
-    return '<span class="pip-trip-label">Your trip</span>'+items.filter(x=>x[1]).map(([e,t])=>'<button type="button" class="pip-trip-chip" data-act="pipTrip"><span aria-hidden="true">'+e+'</span>'+esc(t)+'</button>').join('')+'<button type="button" class="pip-trip-edit" data-act="pipTrip">'+ic('sliders',14)+'Edit</button>';
+    return '<button type="button" class="pip-trip-edit" data-act="pipTrip">'+ic('sliders',16)+' Edit trip details</button><button type="button" class="pip-trip-chip" data-act="pipNewTrip">New trip</button>';
   }
   // Earlier trips live here too: unfinished searches and saved plans, and travel memories.
   function libraryHTML(){
@@ -193,7 +214,10 @@
   A.pipTrip=()=>{const on=!document.body.classList.contains('pip-trip-open');document.body.classList.toggle('pip-trip-open',on);if(on)app.querySelector('.jl-home>.jl-details')?.scrollTo?.(0,0);};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('pip-trip-open'))document.body.classList.remove('pip-trip-open');});
   function sync(){
+    if(chatOwner!==(jhUser?.id||null)){chatOwner=jhUser?.id||null;chatBusy=false;chatVersion++;}
     const show=visible(),centre=show&&centreRoute();
+    if(centre&&previousRoute!=='journey'){openPref=true;try{localStorage.setItem('jh-pip-open','1');}catch{}}
+    previousRoute=state.route;
     document.body.classList.toggle('pip-on',show&&openPref&&!centre);
     document.body.classList.toggle('pip-center',centre&&openPref);
     if(!centre)document.body.classList.remove('pip-trip-open');
@@ -255,7 +279,7 @@
   });
   // Before a search: a real conversation with Pip. Pip fills in the trip settings the traveler
   // mentions and says when there is enough to start scouting.
-  let chatBusy=false;
+  let chatBusy=false,chatOwner=null,chatVersion=0;
   const SETTING_LABELS={city:v=>'📍 '+v,date:v=>'📅 '+(typeof agDate==='function'?agDate(v):v),days:v=>'🕘 '+plural(v,'day'),guests:v=>'👥 '+plural(v,'guest'),dayStart:v=>'🕘 starts '+v,dayEnd:v=>'🕘 ends '+v,transport:v=>v==='walk'?'🚶 Walking':'🚕 Car / taxi',budgetAmount:(v,u)=>v==null?'💰 No budget limit':'💰 '+(u.budgetCurrency||'CNY')+' '+v};
   async function pipPost(payload){
     const {data,error}=await sb.auth.getSession();if(error||!data.session)throw Error('Please sign in again.');
@@ -269,11 +293,14 @@
   }
   async function ideaChat(text){
     if(chatBusy)return;
+    const owner=jhUser?.id;if(!owner)return;
+    chatOwner=owner;const version=++chatVersion;
     const key='idea';say('me',text,{},key);chatBusy=true;sync();
     const history=load(key).filter(m=>m.text&&!m.kind).slice(-12).map(m=>({role:m.from==='me'?'user':'pip',text:String(m.text).slice(0,1200)}));
     const p=ag.prefs||{};
     try{
       const r=await pipPost({action:'pip_chat',messages:history,trip:{city:p.city,date:p.date,days:Number(p.days)||1,guests:Number(p.guests)||2,dayStart:p.dayStart,dayEnd:p.dayEnd,transport:p.transport,budgetAmount:p.budgetAmount??null,budgetCurrency:p.budgetCurrency,prompt:p.prompt}});
+      if(jhUser?.id!==owner||chatVersion!==version)return;
       const u=r.updates||{},changed=[];
       for(const [k,v] of Object.entries(u)){if(k==='budgetCurrency')continue;if(JSON.stringify(ag.prefs[k])!==JSON.stringify(v)){ag.prefs[k]=v;if(SETTING_LABELS[k])changed.push(SETTING_LABELS[k](v,u));}}
       if(u.budgetCurrency)ag.prefs.budgetCurrency=u.budgetCurrency;
@@ -281,8 +308,9 @@
       if(typeof jpSavePrefs==='function')jpSavePrefs();
       say('pip',r.reply,{quick:r.quick||[],ready:!!r.ready,changed},key);
     }catch(e){
+      if(jhUser?.id!==owner||chatVersion!==version)return;
       say('pip',(e.message||'Pip can’t chat right now.')+' You can still start scouting from your trip details.',{ready:true,kind:'error'},key);
-    }finally{chatBusy=false;render();}
+    }finally{if(jhUser?.id===owner&&chatVersion===version){chatBusy=false;render();}}
   }
   A.pipQuick=i=>{const m=load('idea').filter(x=>x.from==='pip').at(-1),q=m?.quick?.[+i];if(q)void ideaChat(q);};
   A.pipScout=()=>{void A.jpRequirements();};

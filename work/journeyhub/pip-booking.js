@@ -5,14 +5,19 @@
 (function(){
   const wide=window.matchMedia?.('(min-width:1024px)');
   const calm=window.matchMedia?.('(prefers-reduced-motion:reduce)');
-  const STEP_MS=700;
   const pay={}; // historyId -> {phase:'paying'|'done', step, error}
+  const paymentKey=src=>(dw.owner||'guest')+':'+src.sourceId;
   const laterKey=id=>'jh-book-later:'+(jhUser?.id||'guest')+':'+id;
   const isLater=id=>{try{return localStorage.getItem(laterKey(id))==='1';}catch{return false;}};
   const setLater=(id,on)=>{try{on?localStorage.setItem(laterKey(id),'1'):localStorage.removeItem(laterKey(id));}catch{}};
 
   // The trip on this page, once it has been created from the plan.
   function trip(){
+    if(wide?.matches&&state.route==='orders'&&typeof calEvents==='function'&&typeof cal!=='undefined'&&dw.owner===(jhUser?.id||null)&&dw.owner){
+      const plans=calEvents().filter(e=>e.date===cal.date&&e.manageKind==='history'&&e.manageId&&!e.sample&&e.tag!=='Cancelled');
+      const ids=[...new Set(plans.map(e=>e.manageId))];
+      return ids.length===1?{sourceType:'history',sourceId:ids[0]}:null;
+    }
     if(!wide?.matches||typeof pd==='undefined'||!pd.mode||pd.sample||!pd.plan||!pd.historyId||state.route!=='place-plan')return null;
     if(typeof tcFor!=='function'||!tcFor('history',pd.historyId))return null;
     if(typeof dw==='undefined'||!dw.owner||pd.owner!==dw.owner)return null;
@@ -38,7 +43,7 @@
   function cardHTML(){
     const src=trip();if(!src)return '';
     ensureLoaded(src);
-    const record=recordOf(src),quote=record?.quote,p=pay[src.sourceId];
+    const record=recordOf(src),quote=record?.quote,p=pay[paymentKey(src)];
     if(!record||record.loading)return '<div class="pip-card pb-card"><div class="pip-card-body"><strong>🎟️ Preparing your bookings…</strong><div class="pip-bar is-indet"><i></i></div><small>Checking tickets, tables and the total for your group.</small></div></div>';
     if(record.error&&p?.phase!=='paying')return '<div class="pip-card pb-card"><div class="pip-card-body"><strong>Bookings couldn’t load</strong><small>'+esc(record.error)+'</small><div class="pb-actions"><button type="button" class="pb-pay" data-act="pbRetry">Try again</button></div></div></div>';
     if(!quote)return '';
@@ -55,9 +60,9 @@
     if(booked)foot='<div class="pb-actions"><button type="button" class="pb-pay" data-act="pbCalendar">📅 See it in Calendar</button></div>';
     else if(p?.phase!=='paying'){
       foot='<div class="pb-total"><span>Total</span><b>'+dwMoney(quote.totalMinor)+'</b></div><div class="pb-wallet"><span>Demo wallet</span><span>'+(balance==null?'—':dwMoney(balance))+'</span></div>'+
-        (short>0?'<p class="pb-note">'+dwMoney(topupFor(short)||short)+' in demo credits will be added first.</p>':'')+
+        (short>0?'<p class="pb-note">Add '+dwMoney(short)+' in demo credits from Wallet before paying.</p>':'')+
         (p?.error?'<p class="pb-error" role="alert">'+esc(p.error)+'</p>':'')+
-        '<div class="pb-actions"><button type="button" class="pb-pay" data-act="pbPay"'+(balance==null?' disabled':'')+'>💳 Pay '+dwMoney(quote.totalMinor)+' now</button><button type="button" class="pb-later" data-act="pbLater">Later</button></div>';
+        '<div class="pb-actions"><button type="button" class="pb-pay" data-act="pbPay"'+(balance==null?' disabled':'')+'>💳 Pay '+dwMoney(quote.totalMinor)+' now</button><button type="button" class="pb-later" data-act="pbLater">Later</button><button type="button" class="pb-later" data-act="dwWallet">Wallet</button></div>';
     }
     return '<div class="pip-card pb-card'+(booked?' is-booked':'')+(p?.phase==='paying'?' is-paying':'')+'"><div class="pip-card-body">'+head+
       '<div class="pip-bar pb-bar"><i style="width:'+progress+'%"></i></div><ol class="pb-list">'+items.map((item,i)=>rowHTML(item,src,i,p,booked)).join('')+'</ol>'+foot+
@@ -80,7 +85,6 @@
   function follow(){const row=document.querySelector('.pb-list .pb-row.is-now'),list=row?.parentElement;if(!row||!list)return;
     const top=row.offsetTop-list.offsetTop,bottom=top+row.offsetHeight;
     if(top<list.scrollTop||bottom>list.scrollTop+list.clientHeight)list.scrollTo({top:Math.max(0,top-list.clientHeight/2+row.offsetHeight/2),behavior:calm?.matches?'auto':'smooth'});}
-  const topupFor=short=>[10000,50000,100000].find(a=>a>=short)||null;
 
   window.jhPipBookingCard=()=>{
     const html=cardHTML(),src=trip();
@@ -108,31 +112,25 @@
   A.pbPay=async()=>{
     const src=trip();if(!src||dw.busy)return;
     const id=src.sourceId,record=recordOf(src),quote=record?.quote;if(!quote||isBooked(quote))return;
-    if(pay[id]?.phase==='paying')return;
+    const ctx=dw,key=paymentKey(src),current=()=>dwCurrent(ctx)&&recordOf(src)===record;
+    if(pay[key]?.phase==='paying')return;
     setLater(id,false);
     const short=Math.max(0,quote.totalMinor-(dw.wallet?.balanceMinor??0));
-    pay[id]={phase:'paying',step:0,error:''};window.jhPipSync?.();
-    const fail=message=>{pay[id]={phase:null,step:0,error:message};render();window.jhPipSync?.();};
-    if(short>0){
-      const amount=topupFor(short);if(!amount)return fail('This trip costs more than one demo top-up. Put a few places back, or book from the Calendar.');
-      await A.dwTopup(amount);if(dw.error)return fail(dw.error);
-    }
-    // One request books everything; the card ticks items off at a readable pace meanwhile.
-    const items=quote.items.length,request=A.dwBook('history',id);
-    const ticker=new Promise(resolve=>{
-      if(calm?.matches){pay[id].step=items;resolve();return;}
-      const tick=()=>{const p=pay[id];if(!p||p.phase!=='paying')return resolve();
-        if(p.step<items-1){p.step++;paint(p,items);setTimeout(tick,STEP_MS);}else resolve();};
-      setTimeout(tick,STEP_MS);
-    });
-    await Promise.all([request,ticker]);
-    if(record.error||recordOf(src)?.quote?.status!=='booked')return fail(record.error||'The booking didn’t complete. Check the Calendar before trying again.');
-    pay[id].step=items;paint(pay[id],items);
-    await new Promise(r=>setTimeout(r,calm?.matches?0:450));
-    pay[id]={phase:'done',step:items,paid:quote.totalMinor};
-    const reserved=(recordOf(src).receipts||[]).filter(dwPaid).length;
-    window.jhPipOnce?.('paid:'+id,'Paid ✅ **'+dwMoney(quote.totalMinor)+'** in demo credits — '+reserved+' reservation'+(reserved===1?'':'s')+' confirmed. Your Calendar now shows each one with its booking status.');
-    render();window.jhPipSync?.();
+    const fail=message=>{pay[key]={phase:null,step:0,error:message};if(current()){render();window.jhPipSync?.();}};
+    if(dw.wallet==null)return fail('Your wallet is still loading. Try again in a moment.');
+    if(short>0)return fail('Your wallet needs '+dwMoney(short)+' more in demo credits. Open Wallet, add credits, then return to pay.');
+    pay[key]={phase:'paying',step:0,error:''};window.jhPipSync?.();
+    try{
+      // Nothing is marked paid until the server returns the saved receipt.
+      await A.dwBook('history',id);
+      if(!current()){delete pay[key];return;}
+      if(record.quote?.status!=='booked')return fail(record.error||'The booking didn’t complete. Check the Calendar before trying again.');
+      const items=quote.items.length;pay[key].step=items;paint(pay[key],items);
+      pay[key]={phase:'done',step:items,paid:quote.totalMinor};
+      const reserved=(record.receipts||[]).filter(dwPaid).length;
+      if(paymentKey(trip()||{})===key)window.jhPipOnce?.('paid:'+id,'Paid ✅ **'+dwMoney(quote.totalMinor)+'** in demo credits — '+reserved+' reservation'+(reserved===1?'':'s')+' confirmed. Your Calendar now shows each one with its booking status.');
+    }catch(error){fail(error.message||'Payment could not be confirmed. Check Calendar before trying again.');}
+    finally{if(current()){if(pay[key]?.phase==='paying')delete pay[key];render();window.jhPipSync?.();}}
   };
 
   // With Pip as the booking agent, the page's own booking-agent invite would say the same thing twice.

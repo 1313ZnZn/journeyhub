@@ -188,7 +188,7 @@
  .pip-trip-label{margin-right:4px;color:var(--ink-3);font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
  .pip-trip-chip,.pip-trip-edit{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid rgba(255,255,255,.12);border-radius:999px;background:rgba(255,255,255,.04);color:var(--ink);font:650 12px var(--font);cursor:pointer}
  .pip-trip-chip:hover,.pip-trip-edit:hover{border-color:rgba(197,255,72,.5)}
- .pip-trip-edit{margin-left:auto;border-color:rgba(197,255,72,.45);color:var(--forest)}
+ .pip-trip-edit{margin-right:auto;border-color:rgba(197,255,72,.6);background:rgba(197,255,72,.08);color:var(--forest);font-size:14px;padding:9px 14px}
  .pip.is-center .pip-composer{margin:0 18px 18px;padding:8px 8px 8px 18px;border-radius:22px}
  .pip.is-center .pip-composer textarea{font-size:15.5px;min-height:46px}
  .pip.is-center .pip-send{width:44px;height:44px;border-radius:15px}

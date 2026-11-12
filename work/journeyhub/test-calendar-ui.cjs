@@ -18,6 +18,9 @@ async function boot(initial=alice,storage={},cloud={}){
   cloud.personal||={};cloud.removed||={};cloud.receipts||={};cloud.bookings||={[alice.id]:copy(fixture.bookings)};
   const requests=[],commands=[],management=[],errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));vc.on('error',e=>errors.push(String(e)));
   const dom=new JSDOM(html,{url:'http://localhost:4173/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:vc}),w=dom.window;windows.push(w);
+  // A companion can queue a redraw just before a fixture closes. Do not run
+  // that redraw against jsdom's disposed document; live-window errors still report normally.
+  const queue=w.queueMicrotask.bind(w);w.queueMicrotask=fn=>queue(()=>{if(w.document)fn();});
   Object.assign(w,{indexedDB:new IDBFactory(),Blob,Headers,Request,Response,TextEncoder,TextDecoder,AbortController,WebSocket});Object.defineProperty(w,'crypto',{value:webcrypto});w.URL.createObjectURL=()=> 'blob:calendar-'+webcrypto.randomUUID();w.URL.revokeObjectURL=()=>{};
   for(const [key,value]of Object.entries(storage))w.sessionStorage.setItem(key,value);
   w.fixtureSession=()=>user?{user,access_token:'mock-calendar-'+user.id}:null;

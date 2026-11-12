@@ -345,6 +345,10 @@
   // conversation and send the message there, so travelers can start talking right away.
   let dkAgentDraft='',dkAgentTarget=null,dkAgentTimer=null;
   const dkAgentPrompts=[['clock','Check timing','Check whether the times on {day} work, including opening hours and travel between stops.'],['map','Optimise route','Reorder {day} so there is less travel between places.'],['food','Add local food','Add a well-rated local food stop to {day} that fits the route.'],['leaf','Slower pace','Make {day} more relaxed, with fewer stops and longer breaks.'],['wallet','Save money','Find ways to lower the cost of {day} without losing the highlights.']];
+  dkAgentPrompts.push(
+    ['map','Less walking','Suggest a route for {day} with less walking. Keep my must-visit places and existing reservations. Show the proposed changes before applying them.'],
+    ['leaf','Indoor route','Suggest an indoor alternative for {day}, keeping existing reservations. Explain any must-visit places that cannot fit and show a proposal before changing the plan.']
+  );
   function dkAgentPanel(open){
     const day=open.dataset.act==='tchStart'?open.dataset.c:open.dataset.b,label=day?'Day '+day:'this day',busy=open.disabled;
     dkAgentTarget={act:open.dataset.act,a:open.dataset.a,b:open.dataset.b,c:open.dataset.c,day:label};

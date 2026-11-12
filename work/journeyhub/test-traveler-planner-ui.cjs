@@ -38,7 +38,7 @@ if(require.main===module)(async()=>{
   h.live={...h.live,message:'Checking travel time between selected places.',events:[{kind:'tool_result',tool:'check_hours',summary:'Checked saved opening hours.'}]};await f.poll();assert(f.getHTML().includes('Checked saved opening hours.'));assert(f.getHTML().includes('Checking travel time between selected places.'));assert(h.w.document.querySelector('.pd-generation-progress'),'the existing progress bar remains in the second phase');
   const planResult={historyId:'plan-history',plan:{city:'Shanghai',date:input.date,days:2,summary:'Food and museums',notice:'',stops:[0,1,2,3].map((i)=>({...place(i),dayIndex:Math.floor(i/2)+1,start:i%2?'13:00':'09:00',end:i%2?'14:30':'11:00',reason:'A selected visit'}))}};
   h.live={...h.live,status:'completed',result:planResult};await f.poll();await plan;
-  assert.equal(f.state.route,'place-plan');assert.equal(f.pd.plan.stops.length,4);assert(!h.calls.some(c=>/book|pay|topup|care_/.test(c.action)));
+  assert.equal(f.state.route,'orders');assert.equal(f.pd.plan.stops.length,4);assert(!h.calls.some(c=>/book|pay|topup|care_/.test(c.action)));
   h.close();
 
   // Boot restoration only reads the account-owned task; it neither starts a second
@@ -48,7 +48,7 @@ if(require.main===module)(async()=>{
   const text=r.w.document.getElementById('ag-prompt');text.focus();text.value='Do not lose my new prompt';const renders=rf.renders;await rf.poll();assert.equal(rf.renders,renders);assert.equal(text.value,'Do not lose my new prompt');
   const open=rf.A.ptuOpen();await tick();assert.equal(rf.state.route,'ai-picks');assert(rf.pd.busy);assert(!r.calls.some(c=>c.action==='planner_start'));
   r.live={...pending,status:'completed',result:planResult};await rf.poll();await open;
-  assert.equal(rf.state.route,'place-plan');assert.equal(rf.pd.token,'restored-token');assert.equal(rf.pd.places.length,12);assert.equal(rf.pd.plan.stops.length,4);assert(r.calls.some(c=>c.action==='history_open'),'reuses saved search media on refresh');
+  assert.equal(rf.state.route,'orders');assert.equal(rf.pd.token,'restored-token');assert.equal(rf.pd.places.length,12);assert.equal(rf.pd.plan.stops.length,4);assert(r.calls.some(c=>c.action==='history_open'),'reuses saved search media on refresh');
   r.close();
 
   const e=harness(),ef=e.f;const first=ef.A.jpRequirements();await tick();e.live={...e.live,status:'needs_input',message:'No verified matcha options were found.',error:{code:'MISSING_INTEREST',message:'No verified matcha options were found.'}};await ef.poll();await first;

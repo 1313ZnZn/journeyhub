@@ -217,8 +217,8 @@
  .pip.is-center .pip-thread{order:1;padding:14px 4px 12px;scrollbar-gutter:stable}
  .pip.is-center .pip-live{order:2;padding:0 4px 10px}
  .pip.is-center .pip-chips{order:3;display:flex;justify-content:center;padding:0 4px 10px}
- .pip.is-center .pip-trip{order:4;justify-content:center;margin:0 4px 10px;padding:0;border:0;background:none}
- .pip.is-center .pip-trip-edit{margin-left:0}
+ .pip.is-center .pip-trip{order:4;justify-content:center;gap:10px;margin:0 4px 10px;padding:0;border:0;background:none}
+ .pip.is-center .pip-trip-edit{margin:0}
  .pip.is-center .pip-composer{order:5;margin:0 0 22px;padding:10px 10px 10px 22px;border-radius:28px;background:rgba(30,27,42,.92);border-color:rgba(255,255,255,.16);box-shadow:0 24px 60px rgba(0,0,0,.35)}
  .pip.is-center .pip-composer textarea{min-height:52px;font-size:16px;padding:14px 0}
  .pip.is-center .pip-send{width:46px;height:46px;border-radius:16px}

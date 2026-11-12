@@ -49,18 +49,19 @@
     app.insertAdjacentHTML('beforebegin','<div class="dx-bg" aria-hidden="true"><div class="dx-bg-scene"></div><div class="dx-fog">'+fog+'</div></div>');
   }
   // The golden-hour film is one layer shared by the landing page and sign-in, so moving
-  // between them never cuts the film: sign-in blurs and dims it, other pages fade it out.
-  let dkFilmTimer=null;
+  // between them never cuts the film: sign-in blurs and dims it; app pages hide it.
   function dkFilm(route){
     let film=document.querySelector('.gh-film');
     if(!film){app.insertAdjacentHTML('beforebegin','<div class="gh-film" aria-hidden="true"><video src="./media/golden-hour.mp4" poster="./media/golden-hour.jpg" muted loop playsinline preload="auto"></video><div class="gh-film-shade"></div></div>');film=document.querySelector('.gh-film');}
     const on=route==='welcome'||route==='login',video=film.querySelector('video');
+    // The welcome film must never cover the app's city backdrop while fading out.
+    // Keep the node for welcome/sign-in continuity, but remove it from app painting.
+    film.hidden=!on;
     document.body.classList.toggle('gh-on',on);
     document.body.classList.toggle('gh-blur',route==='login');
     if(on)document.body.classList.remove('gh-out');
-    clearTimeout(dkFilmTimer);
     if(on){video.muted=true;if(calm?.matches)video.pause();else video.play()?.catch?.(()=>{});}
-    else dkFilmTimer=setTimeout(()=>video.pause(),900);
+    else video.pause();
   }
   // Nav highlight that glides from the previous tab to the current one.
   let dkInkLast=null;

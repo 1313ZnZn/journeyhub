@@ -99,13 +99,19 @@ async function initialize(task,ctx){
   s.input=s.selection.input;s.choices=historyChoices(s.selection.ids,payload.wanted||[],payload.skipped||[]);s.dayPlan=dayPlanFor(payload.dayPlan,s.choices.wanted,s.input.days);s.selected=s.selection.ids.filter(id=>!s.choices.skipped.includes(id));
   if(!s.selected.length||s.choices.wanted.length>16)fail('INSUFFICIENT_PLACES','Keep at least one place available and choose at most sixteen must-visit places.',409);
   s.root=await searchHistoryId(s.selection,payload.token);s.revision=await revisionHistoryId(s.root,s.choices.wanted,s.choices.skipped);s.useAmap=s.selected.every(isAmap);
-  const available=await ctx.rpc('journeyhub_plan_dates_check',{p_user_id:owner,p_input:s.input,p_kind:'history',p_id:s.revision});if(available?.available!==true)fail('WORKFLOW_UNAVAILABLE','Your travel dates could not be checked. Please retry.',503);
   // A plan with changed trip details reads its places from the original search.
   const base=s.selection.baseHistoryId?historyId(s.selection.baseHistoryId):s.root;
-  const prior=await ctx.rpc('journeyhub_planner_search_result',{p_user_id:owner,p_history_id:base});
+  // Independent, account-scoped reads share one round trip window. Do not start
+  // model/provider work until ALL reads and the date-conflict guard succeed.
+  const [available,prior,facts]=await Promise.all([
+   ctx.rpc('journeyhub_plan_dates_check',{p_user_id:owner,p_input:s.input,p_kind:'history',p_id:s.revision}),
+   ctx.rpc('journeyhub_planner_search_result',{p_user_id:owner,p_history_id:base}),
+   ctx.rpc('journeyhub_planner_visit_facts',{p_user_id:owner,p_place_ids:s.selected,p_dates:Array.from({length:s.input.days},(_,i)=>dateAt(s.input,i+1))})
+  ]);
+  if(available?.available!==true)fail('WORKFLOW_UNAVAILABLE','Your travel dates could not be checked. Please retry.',503);
   let labels=[];if(!prior?.places?.length){const row=await getHistory(ctx.rpc,owner,base,false);if(row)labels=(await getDisplaySnapshot(ctx.rpc,owner,row))?.payload?.places||[];}
   s.places=s.selected.map(id=>{const p=prior?.places?.find(p=>p.id===id)||labels.find(p=>p.id===id);return p?{...p,detailsPending:![p.lat,p.lng].every(Number.isFinite)}:{id,name:s.selection.englishNames?.[id]||'Selected place',detailsPending:true};});
-  s.facts=await ctx.rpc('journeyhub_planner_visit_facts',{p_user_id:owner,p_place_ids:s.selected,p_dates:Array.from({length:s.input.days},(_,i)=>dateAt(s.input,i+1))})||[];
+  s.facts=facts||[];
  }else fail('INVALID_INPUT','Choose a supported traveler planning task.');
  if(!(s.useAmap?ctx.env('AMAP_WEB_SERVICE_KEY'):ctx.env('GOOGLE_PLACES_API_KEY')))fail('PLACES_NOT_CONFIGURED','Live place search is not configured.',503);
  return s;
@@ -166,7 +172,12 @@ async function select(s,args,ctx){
  if(retryCategories.length&&s.searched.length<12&&s.decisions<s.limit-3)return issue(s,'select_cards','Try a different search for the missing interests, then return any suitable results even if coverage is partial.',[{target:s.target,selected:curated.places.length,missingCategories:retryCategories}]);
  const missingPhotos=curated.places.filter(p=>!p.photo&&isAmap(p.id));
  if(missingPhotos.length&&s.inspectionCount<8&&!s.observation?.photoCheckAttempted){return outcome(s,'select_cards','Some selected places need their available photos checked.',{ok:false,photoCheckAttempted:true,ids:missingPhotos.slice(0,4).map(p=>p.id),message:'Use inspect_places for these IDs before selecting again; do not invent venue photos.'});}
- for(const p of curated.places){if(!p.photo&&p.photoReference)p.photo=await placePhoto(p.photoReference,ctx.env('GOOGLE_PLACES_API_KEY'),ctx.fetcher);delete p.photoReference;}
+ // Resolve independent Google photo URLs in batches of three, retaining card
+ // order and every result. A missing photo still uses the existing fallback.
+ for(let i=0;i<curated.places.length;i+=3)await Promise.all(curated.places.slice(i,i+3).map(async p=>{
+  if(!p.photo&&p.photoReference)p.photo=await placePhoto(p.photoReference,ctx.env('GOOGLE_PLACES_API_KEY'),ctx.fetcher);
+  delete p.photoReference;
+ }));
  const expires=ctx.now.getTime()+3600000,token=await signSelection(withEnglishNames({owner:s.owner,input:s.input,ids:curated.places.map(p=>p.id),historyId:s.root,expires},curated.places),ctx.secret);
  const row=await saveHistory({rpc:ctx.rpc,userId:s.owner,id:s.root,input:s.input,placeIds:curated.places.map(p=>p.id)});await persistDisplaySnapshot(ctx.rpc,s.owner,row,curated.places);
  const result={places:curated.places,token,expires,historyId:s.root,missingCategories:curated.missingCategories,targetCardCount:s.target,cardCountShortfall:s.target-curated.places.length,source:s.useAmap?'Amap':'Google Maps',agent:{decisions:s.decisions,searches:s.searched.length,categories:s.queries.map(q=>q.category)}};

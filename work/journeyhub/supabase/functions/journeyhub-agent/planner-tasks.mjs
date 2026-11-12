@@ -100,7 +100,10 @@ export async function runPlannerTask(kickoff,context={}){
  if(!task)return {processed:0,claimed:false};
  const lease=task.leaseToken;let processed=0;
  try{
-  for(let i=0;i<4&&(i===0||deadlineAt-clock()>=45000);i++){
+  // Keep short tool steps on the current lease instead of forcing a polling /
+  // worker wake-up after four steps. The same 85s deadline, 45s headroom and
+  // per-step durable checkpoints still bound execution and protect retries.
+  for(let i=0;i<8&&(i===0||deadlineAt-clock()>=45000);i++){
    let outcome;
    try{
     outcome=await step(task,{...context,env,fetcher,rpc,now:dateOf(context.now),user:{id:task.userId},secret:context.secret||env('JOURNEYHUB_DISCOVERY_SIGNING_KEY')||key(env,'SUPABASE_SECRET_KEYS','SUPABASE_SERVICE_ROLE_KEY'),deadlineAt});

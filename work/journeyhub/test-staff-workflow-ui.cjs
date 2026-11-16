@@ -10,7 +10,7 @@ const data={staff:{id:'TM-1002',name:'TEST Duty Manager',role:'duty_manager'},st
 function plan(id,exp,status='submitted',date=future){return {plan_id:id,experience_id:exp,session_date:date,start_time:'10:00',capacity:20,price_thb:1400,promo_budget_thb:0,reason:'TEST independent workflow verification',status,created_by:'TC-1001',submitted_by:'TC-1001',submittedName:'TEST Coordinator',submitted_at:new Date().toISOString(),created_at:new Date().toISOString(),version:1,events:[],assumptions,startsAt:date+'T03:00:00Z'};}
 data.sessionPlans=[plan('PLAN-TEST0001','craft'),plan('PLAN-TEST0002','food','withdrawn'),plan('PLAN-TEST0003','culture','draft'),plan('PLAN-EXPIRED0','craft','submitted',old)];data.sessionPlans[1].return_reason='Please review the materials assumption.';
 const boot=`
-window.STAFF_TEST={A,V,get state(){return state},get sf(){return sf},get db(){return DBC},get user(){return jhUser},set staff(v){state.auth.staff=v},pending:swPending,status:swStatus,projection:sfProjection,validate:sfValidate,restore:snRestoreWorkspace,remember:snRememberWorkspace,select:sfSelect,plan:sfPlan,go,render,apply:jhApply,change:sfChange,flush:sfFlush,roles(user,employee){jhUser={id:user};state.auth.staff=employee;sfScope();}};
+window.STAFF_TEST={A,V,guest(){jhUser=null;state.auth.staff=null;},get state(){return state},get sf(){return sf},get db(){return DBC},get user(){return jhUser},set staff(v){state.auth.staff=v},pending:swPending,status:swStatus,projection:sfProjection,validate:sfValidate,restore:snRestoreWorkspace,remember:snRememberWorkspace,select:sfSelect,plan:sfPlan,go,render,apply:jhApply,change:sfChange,flush:sfFlush,roles(user,employee){jhUser={id:user};state.auth.staff=employee;sfScope();}};
 jhUser={id:'test-manager'};jhPersonalReady=true;jhLoading=false;state.role='staff';state.route='s-approvals';state.params={};
 jhApply(window.STAFF_FIXTURE);jhRefresh=async()=>{jhApply(window.STAFF_FIXTURE);};
 saLoad=async()=>{};state.guestOk=true;render();
@@ -19,7 +19,7 @@ let code=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>
 const vc=new VirtualConsole(),errors=[];vc.on('jsdomError',e=>errors.push(e.message));vc.on('error',e=>errors.push(String(e)));
 const dom=new JSDOM(html,{url:'http://localhost:4178/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:vc}),w=dom.window;
 const queue=w.queueMicrotask.bind(w);w.queueMicrotask=fn=>queue(()=>{if(w.document)fn();});
-w.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener(){}});w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};
+w.matchMedia=query=>({get matches(){return !!w.testWide&&query.includes('min-width');},addEventListener(){},removeEventListener(){}});w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};
 w.fetch=async()=>Response.json({});Object.assign(w,{TextEncoder,TextDecoder,Headers,Request,Response,AbortController});
 w.eval(fs.readFileSync(path.join(out,'vendor/supabase.js'),'utf8'));w.JOURNEYHUB_CONFIG={url:'https://test.supabase.co',publishableKey:'sb_publishable_test_fixture'};w.STAFF_FIXTURE=data;
 (async()=>{try{
@@ -36,6 +36,12 @@ w.eval(fs.readFileSync(path.join(out,'vendor/supabase.js'),'utf8'));w.JOURNEYHUB
  assert.equal(t.projection({cap:10,price:100,promo:0,assumptions:{}}),null,'unknown costs never zero');
  const p=t.plan();assert.equal(t.validate({...p,date:old}), 'Choose a valid date within the next year.');
  t.go('s-approvals');t.state.swFilter={status:'all',exp:'culture',date:future,submitter:'TC-1001'};t.remember();t.state.swFilter={};t.restore();assert.equal(t.state.swFilter.exp,'culture');
+ w.testWide=true;t.guest();t.state.role='traveler';t.go('journey');
+ assert(w.document.body.classList.contains('pip-center'),'Guest uses the same centred Pip home');
+ assert(w.document.querySelector('.jl-home.is-pip'),'Old two-column form is adapted for guests');
+ const guestInput=w.document.querySelector('[data-pip-input]');assert(guestInput);guestInput.value='Shanghai museums';
+ guestInput.form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ assert.equal(t.state.route,'login','Guest submission still requires authentication');
  assert.equal(errors.length,0,errors.join('\n'));console.log('PASS production-bundle approvals, real count semantics, missing-ID handling, record/filter restoration, Host routing, activity selection, submitter permissions and unknown-cost forecast. Transport mocked.');
  // A local, visibly labeled fixture for manual browser screenshots; never part of deployment.
  const fixtureDir=path.join(root,'outputs/staff-workflow');fs.mkdirSync(fixtureDir,{recursive:true});

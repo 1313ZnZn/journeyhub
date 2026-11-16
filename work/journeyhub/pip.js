@@ -13,7 +13,7 @@
   let dock=null,toggle=null,last={key:'',stage:-1,thread:'',live:'',chips:'',head:''},peekTimer=null,typingTimer=null;
 
   const stageOf=()=>ROUTE_STAGE[state.route]??-1;
-  const visible=()=>!!wide?.matches&&state.role==='traveler'&&!!(typeof jhUser!=='undefined'&&jhUser)&&stageOf()>=0;
+  const visible=()=>!!wide?.matches&&state.role==='traveler'&&(state.route==='journey'||!!(typeof jhUser!=='undefined'&&jhUser))&&stageOf()>=0;
   // Pip is the companion whenever it is available, open or tucked away.
   window.jhPipShowing=()=>visible();
   const live=()=>typeof pd!=='undefined'&&pd.mode;
@@ -261,6 +261,7 @@
   document.addEventListener('submit',e=>{
     const form=e.target.closest?.('[data-pip-form]');if(!form)return;e.preventDefault();
     const input=form.querySelector('textarea'),text=input.value.trim();if(!text)return;
+    if(!jhUser){ag.prefs.prompt=text;void A.jpRequirements();return;}
     input.value='';input.style.height='';
     if(form.dataset.mode==='idea'){void ideaChat(text);}
     else if(form.dataset.mode==='memory'){window.jhMemoryAnswer?.(text);}

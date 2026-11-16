@@ -1,7 +1,7 @@
 # Staff workflow migration — awaiting approval
 
 Target existing project: `hmnbrqykvjvplrsarsta`, schema `journey_hub`.
-Proposed file: `work/journeyhub/supabase/migrations/20261116080425_staff_approval_workflow.sql`.
+Proposed file: `work/journeyhub/supabase/migrations/20261116083047_staff_approval_workflow.sql`.
 This document is a review plan, not confirmation of application.
 
 ## Proposed database changes

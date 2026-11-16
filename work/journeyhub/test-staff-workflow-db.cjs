@@ -12,7 +12,7 @@ async function run(){
  await db.exec(`ALTER TABLE venues ADD COLUMN city text DEFAULT 'Bangkok',ADD COLUMN time_zone text DEFAULT 'Asia/Bangkok';ALTER TABLE experiences ADD COLUMN details jsonb DEFAULT '{}',ADD COLUMN demo_owner_id uuid;ALTER TABLE sessions ADD COLUMN demo_owner_id uuid;`);
  await db.exec(read('backend.sql'));
  await db.exec(read('feature3.sql'));
- await db.exec(read('supabase/migrations/20261116080425_staff_approval_workflow.sql'));
+ await db.exec(read('supabase/migrations/20261116083047_staff_approval_workflow.sql'));
  // Independent test records only: three activity kinds and separate role identities.
  const users=['00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000003','00000000-0000-4000-8000-000000000004'];
  for(const id of users)await db.query('INSERT INTO auth.users VALUES($1)',[id]);

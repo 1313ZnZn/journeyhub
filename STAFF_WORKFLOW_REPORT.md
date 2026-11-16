@@ -11,7 +11,7 @@ Date: 2026-11-16. Branch: `feat/staff-workflow-20261116`, isolated from the orig
 - `staff-agent.js`: suppresses expired opportunities in returned tasks. Existing assistant architecture is unchanged.
 - `staff-desktop.js`: approval instructions name a different authorized Duty Manager.
 - `build.cjs`: loads the new module last; replaces the hard-coded craft capacity description with session-specific capacity guidance.
-- `supabase/migrations/20261116080425_staff_approval_workflow.sql`: additive ownership, return reasons, submission timestamps and assumptions; authenticated role/ownership checks, future-time validation, version checks, atomic/idempotent publication, activity settings and scoped snapshots. **Prepared only, not executed on Supabase.**
+- `supabase/migrations/20261116083047_staff_approval_workflow.sql`: additive ownership, return reasons, submission timestamps and assumptions; authenticated role/ownership checks, future-time validation, version checks, atomic/idempotent publication, activity settings and scoped snapshots. **Prepared only, not executed on Supabase.**
 - Tests: new PostgreSQL and compiled-UI regression suites; updated navigation and assistant fixtures. PGlite 0.3.14 is a pinned development-only dependency in `work/journeyhub/package.json` and lockfile.
 
 ## Actual verification

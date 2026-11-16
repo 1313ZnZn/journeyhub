@@ -3,15 +3,17 @@ const snKey=()=>jhUser?'journeyhub-workspace-'+jhUser.id:null;
 const snRoutes=new Set(['journey','home','shop','orders','me','s-today','s-orders','s-sessions','s-insights','s-compare','s-plan','s-session']);
 function snRememberWorkspace(){
   if(!jhUser||!me()||jhLoading||!jhPersonalReady||!snRoutes.has(state.route))return;
-  try{sessionStorage.setItem(snKey(),JSON.stringify({mode:state.role,route:state.route,params:state.route==='s-plan'&&state.params?.id?{id:state.params.id}:{}}));}catch{}
+  try{sessionStorage.setItem(snKey(),JSON.stringify({mode:state.role,route:state.route,params:state.params||{},sessionDate:sfSessionDate,filters:{swFilter:state.swFilter,ubBookingQuery:state.ubBookingQuery,ubBookingDate:state.ubBookingDate,ubBookingFilter:state.ubBookingFilter,sessQuery:state.sessQuery,sessFilter:state.sessFilter,ubOrderSection:state.ubOrderSection}}));}catch{}
 }
 function snRestoreWorkspace(){
   if(!jhUser||!me())return;
   let saved;try{saved=JSON.parse(sessionStorage.getItem(snKey())||'null');}catch{}
-  const travelerMode=saved?.mode==='traveler',fallback=me().role==='host'?'s-session':'s-today';
+  const travelerMode=saved?.mode==='traveler',fallback='s-today';
   state.role=travelerMode?'traveler':'staff';
-  state.route=saved&&snRoutes.has(saved.route)&&saved.route.startsWith('s-')===!travelerMode?saved.route:travelerMode?'journey':fallback;
-  state.params=state.route==='s-plan'&&typeof saved?.params?.id==='string'?{id:saved.params.id}:{};
+  state.route=saved&&snRoutes.has(saved.route)&&(saved.route==='ticket'||saved.route.startsWith('s-')===!travelerMode)?saved.route:travelerMode?'journey':fallback;
+  state.params=saved?.params&&typeof saved.params==='object'?saved.params:{};
+  sfSessionDate=typeof saved?.sessionDate==='string'?saved.sessionDate:'';
+  for(const key of ['swFilter','ubBookingQuery','ubBookingDate','ubBookingFilter','sessQuery','sessFilter','ubOrderSection'])if(saved?.filters?.[key]!==undefined)state[key]=saved.filters[key];
 }
 const snPreviousRole=A.role;
 A.role=async function(mode){await snPreviousRole(mode);snRememberWorkspace();};

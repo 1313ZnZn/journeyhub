@@ -4,7 +4,8 @@ let sa=saFresh(null);
 const saOwner=()=>jhUser?.id&&me()?jhUser.id+':'+me().id:null;
 const saCurrent=ctx=>sa===ctx&&ctx.owner===saOwner();
 function saScope(){const owner=saOwner();if(sa.owner!==owner)sa=saFresh(owner);return sa;}
-const saRows=()=>sa.tasks.filter(t=>!t.acknowledgedUntil||Date.parse(t.acknowledgedUntil)<=Date.now());
+const saExpired=t=>{const p=DBC.sessionPlans?.[t.planId],o=t.evidence?.outcome||t.proposal||{};if(p&&typeof swExpired==='function')return swExpired(p);if(!['suggested','draft','approval','attention'].includes(t.status)||!o.date)return false;const zone=EXPS[o.exp||'craft']?.timeZone||'Asia/Bangkok';const today=sfDateAtZone(zone),hm=new Intl.DateTimeFormat('en-GB',{timeZone:zone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());return o.date<today||(o.date===today&&String(o.startTime||'00:00').slice(0,5)<=hm);};
+const saRows=()=>sa.tasks.filter(t=>(!t.acknowledgedUntil||Date.parse(t.acknowledgedUntil)<=Date.now())&&!saExpired(t));
 const saNeeds=t=>['suggested','draft','approval','attention'].includes(t.status);
 const saLabel=t=>({suggested:'Opportunity',draft:'Draft ready',approval:'Approval needed',tracking:'Published · tracking',completed:'Outcome ready',attention:'Needs attention',resolved:'Resolved'}[t.status]||'Review');
 const saMoney=value=>'THB '+Number(value||0).toLocaleString('en-GB',{maximumFractionDigits:0});
@@ -13,7 +14,7 @@ async function saLoad(force=false){
  ctx.loading=true;ctx.error='';const request=(async()=>{
   try{const {data,error}=await sb.rpc('journeyhub_staff_agent',{p_action:force?'refresh':'list',p_id:null});if(error)throw error;if(!saCurrent(ctx))return;
    if(!data||!Array.isArray(data.tasks))throw Error('Staff assistant returned an incomplete response.');
-   ctx.tasks=data.tasks;ctx.counts=data.counts||null;ctx.totalCount=Number(data.totalCount??data.tasks.length);ctx.returnedCount=Number(data.returnedCount??data.tasks.length);ctx.checkedAt=data.checkedAt;ctx.monitoring=data.monitoring||'';ctx.loaded=true;ctx.last=Date.now();
+   ctx.tasks=data.tasks;ctx.counts=data.counts?{...data.counts,opportunities:Math.max(0,Number(data.counts.opportunities||0)-data.tasks.filter(t=>t.kind==='opportunity'&&saExpired(t)&&(!t.acknowledgedUntil||Date.parse(t.acknowledgedUntil)<=Date.now())).length)}:null;ctx.totalCount=Number(data.totalCount??data.tasks.length);ctx.returnedCount=Number(data.returnedCount??data.tasks.length);ctx.checkedAt=data.checkedAt;ctx.monitoring=data.monitoring||'';ctx.loaded=true;ctx.last=Date.now();
   }catch(error){if(saCurrent(ctx)){ctx.error=jhError(error);ctx.last=Date.now();}}
   finally{if(saCurrent(ctx)){ctx.loading=false;ctx.pending=null;const editing=/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'');if(!editing&&state.role==='staff'&&['s-today','s-insights','s-assistant','s-session'].includes(state.route))render();}}
  })();ctx.pending=request;return request;

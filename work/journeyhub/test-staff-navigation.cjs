@@ -30,6 +30,8 @@ const fixture = {
   ],
   metrics:activities.flatMap(id=>[1,2,3,4].map(week=>({experience_id:id,month:'2026-09-01',week,seats_offered:30,booked:25,cancelled:2,attended:21,price:1400,cost:250})))
 };
+fixture.staffWorkflowVersion=1;fixture.planningSettings=Object.fromEntries(activities.map(id=>[id,{timeZone:'Asia/Bangkok',duration:150,maxCapacity:40,price:1400,hostRate:.5,materialCost:250}]));
+for(const p of fixture.sessionPlans)Object.assign(p,{created_by:'NAV-COORD',startsAt:p.session_date+'T03:00:00Z',assumptions:{bookingRate:.8,cancellationRate:.1,attendanceRate:.9,hostRate:.5,materialCost:250,basis:'Navigation fixture assumptions'}});
 const windows = [], personal = new Map();
 async function boot({person=null,storage={}}={}) {
   const errors=[], posts=[], commands=[], logins=[], authEvents=[], localFixture=copy(fixture), vc=new VirtualConsole();
@@ -118,7 +120,7 @@ async function boot({person=null,storage={}}={}) {
   const foreignPrefs=Object.fromEntries(Object.entries(saved).filter(([key])=>key.includes(people.manager.id)));
   h=await boot({person:people.coordinator,storage:foreignPrefs});assert.equal(h.t.state.role,'staff','Another account cannot inherit traveler workspace preference');assert.equal(h.t.state.route,'s-today');await h.close();
 
-  h=await boot({person:people.host});assert.equal(h.t.state.role,'staff');assert.equal(h.t.state.route,'s-session','Host default is session workspace');h.screen('Host workspace');await h.close();
+  h=await boot({person:people.host});assert.equal(h.t.state.role,'staff');assert.equal(h.t.state.route,'s-today','Host default is the operational dashboard');h.screen('Host workspace');await h.close();
 
   h=await boot();t=h.t;t.go('login',{mode:'traveler',view:'signin'});await h.login('coordinator','traveler-signin');assert.equal(t.state.role,'staff','Server staff role determines workspace even via generic sign-in');assert.equal(t.state.route,'s-today');await h.close();
 

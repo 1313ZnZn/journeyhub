@@ -12,15 +12,16 @@ function arClearStorage(owner){
 A.arOpen=async()=>{
   if(!jhUser||!traveler()||(arCurrent(ar)&&ar?.busy))return;
   if(arBusy()){toast('Finish the current operation before resetting your account.');return;}
-  const ctx=ar={owner:jhUser.id,revision:jhRevision,items:[],bookings:[],walletRequest:crypto.randomUUID(),walletDone:false,busy:true,ready:false,error:'',done:0,memories:false,localDone:false,personalDone:false,finished:false};
+  const ctx=ar={owner:jhUser.id,revision:jhRevision,items:[],bookings:[],retained:[],walletRequest:crypto.randomUUID(),walletDone:false,busy:true,ready:false,error:'',done:0,memories:false,localDone:false,personalDone:false,finished:false};
   go('account-reset');
   try{
     await jhFlush();if(!arCurrent(ctx))return;
     const readiness=await agRPC('journeyhub_reset_virtual_wallet',{p_commit:false,p_request_id:ctx.walletRequest});
     if(!arCurrent(ctx))return;if(!readiness?.ready)throw Error('Account reset is not enabled on this server yet.');
     await jhRefresh();if(!arCurrent(ctx))return;
-    ctx.bookings=Object.values(DBC.bookings).filter(b=>isMine(b)&&b.demo&&b.status==='confirmed').map(b=>({id:b.id,requestId:crypto.randomUUID(),done:false,cancellable:cmCanCancel(b)}));
-    if(ctx.bookings.some(b=>!b.cancellable))throw Error('An existing simulated reservation has started or was checked in. Review it before resetting; no records were changed.');
+    ctx.retained=Array.isArray(readiness.retainedBookingIds)?readiness.retainedBookingIds:[];
+    ctx.bookings=Object.values(DBC.bookings).filter(b=>isMine(b)&&b.demo&&b.status==='confirmed'&&!ctx.retained.includes(b.id)).map(b=>({id:b.id,requestId:crypto.randomUUID(),done:false,cancellable:cmCanCancel(b)}));
+    if(ctx.bookings.some(b=>!b.cancellable))throw Error('Reservation details could not be verified. Refresh the account check; no records were changed.');
     cmScope();await cmLoad(true);if(!arCurrent(ctx))return;
     if(cm.error||!cm.loaded)throw Error(cm.error||'Calendar settings could not load.');
     thScope();const history=th,seen=new Set(),cursors=new Set();let cursor=null;
@@ -48,6 +49,10 @@ A.arConfirm=async()=>{
   ctx.started=true;ctx.busy=true;ctx.error='';render();
   try{
     await jhFlush();if(!arCurrent(ctx))return;
+    const latest=await agRPC('journeyhub_reset_virtual_wallet',{p_commit:false,p_request_id:ctx.walletRequest});
+    if(!arCurrent(ctx))return;
+    ctx.retained=Array.isArray(latest?.retainedBookingIds)?latest.retainedBookingIds:ctx.retained;
+    ctx.bookings=ctx.bookings.filter(b=>b.done||!ctx.retained.includes(b.id));
     for(const booking of ctx.bookings){
       if(!arCurrent(ctx))return;if(booking.done)continue;
       const result=await agRPC('journeyhub_calendar_manage',{p_kind:'booking',p_id:booking.id,p_action:'cancel',p_request_id:booking.requestId});
@@ -88,13 +93,13 @@ V['account-reset']=()=>{
   const ctx=ar;
   if(!ctx||!arCurrent(ctx))return {bar:bar({title:'Reset account content'}),tabs:true,body:'<div class="content"><p>Sign in to reset your own account content.</p></div>'};
   let body='<main class="content"><h2>Reset account content</h2><p>'+esc(jhUser.email||'Your account')+'</p>';
-  if(ctx.finished)body+='<div role="status"><h3>Account content reset</h3><p>'+ctx.done+' trip/search records moved to Removed items. Favorites and personal preferences cleared.'+(ctx.memories?' Memories on this browser removed.':' Memories kept.')+'</p><p>'+ctx.bookings.length+' simulated reservations cancelled. Virtual balance reset to zero. Your account, staff access, product orders and audit/payment records are kept.</p></div><button class="btn btn-primary" data-act="arFinish">Done · reload account</button>';
+  if(ctx.finished)body+='<div role="status"><h3>Account content reset</h3><p>'+ctx.done+' trip/search records moved to Removed items. Favorites and personal preferences cleared.'+(ctx.memories?' Memories on this browser removed.':' Memories kept.')+'</p><p>'+ctx.bookings.length+' simulated reservations cancelled. '+ctx.retained.length+' started or checked-in reservations kept without refunds or seat changes. Virtual balance reset to zero. Your account, staff access, product orders and audit/payment records are kept.</p></div><button class="btn btn-primary" data-act="arFinish">Done · reload account</button>';
   else{
-    body+='<p>Move all saved trips and searches to Removed items, pause linked trip support, and clear favorites, personal preferences and this browser’s Pip conversation cache. Trips and searches can be restored from Removed items.</p><p><strong>Cancel simulated reservations and reset virtual balance:</strong> release seats and invalidate tickets, refund virtual credits, then clear the remaining virtual balance. Cancelled bookings cannot be restored; booking again creates a new reservation.</p><p><strong>Keep:</strong> login account, staff permissions, product orders, non-simulated reservations and payment/audit history. No real payment is made.</p>';
+    body+='<p>Move all saved trips and searches to Removed items, pause linked trip support, and clear favorites, personal preferences and this browser’s Pip conversation cache. Trips and searches can be restored from Removed items.</p><p><strong>Cancel simulated reservations and reset virtual balance:</strong> cancel only future, unchecked reservations, release their seats and invalidate their tickets, refund virtual credits, then clear the remaining virtual balance. Cancelled bookings cannot be restored; booking again creates a new reservation.</p><p><strong>Keep:</strong> started or checked-in reservations (no refund or seat release), login account, staff permissions, product orders, non-simulated reservations and payment/audit history. No real payment is made.</p>';
     body+='<button class="btn btn-soft" data-act="go" data-a="memories"'+(ctx.busy?' disabled':'')+'>Open Travel Memories to export backups</button><p><label><input type="checkbox" data-act="arMemories"'+(ctx.memories?' checked':'')+(ctx.busy||ctx.started?' disabled':'')+'> Also permanently delete my Travel Memories and photos stored in this browser</label></p><p>Memories on other devices are not removed. Export any memories you want to keep before selecting this option.</p>';
     if(ctx.error)body+='<p class="cal-error" role="alert">'+esc(ctx.error)+'</p>';
     if(ctx.busy)body+='<p role="status">'+(ctx.started?'Resetting '+ctx.done+' of '+ctx.items.length+' trip/search records…':'Checking all account records…')+'</p>';
-    if(ctx.ready)body+='<p>'+ctx.items.length+' trip/search records and '+ctx.bookings.length+' simulated reservations found.</p><label for="ar-confirm">Type RESET to confirm</label><input id="ar-confirm" autocomplete="off"'+(ctx.busy?' disabled':'')+'><button class="btn cm-danger" data-act="arConfirm"'+(ctx.busy?' disabled':'')+'>'+(ctx.error?'Retry remaining steps':'Reset my account content')+'</button>';
+    if(ctx.ready)body+='<p>'+ctx.items.length+' trip/search records and '+ctx.bookings.length+' simulated reservations to cancel; '+ctx.retained.length+' started or checked-in reservations to keep.</p><label for="ar-confirm">Type RESET to confirm</label><input id="ar-confirm" autocomplete="off"'+(ctx.busy?' disabled':'')+'><button class="btn cm-danger" data-act="arConfirm"'+(ctx.busy?' disabled':'')+'>'+(ctx.error?'Retry remaining steps':'Reset my account content')+'</button>';
     else if(!ctx.busy)body+='<button class="btn btn-soft" data-act="arOpen">Retry account check</button>';
     body+='<button class="btn btn-soft" data-act="go" data-a="me"'+(ctx.busy?' disabled':'')+'>Back to Me</button>';
   }

@@ -1,0 +1,32 @@
+BEGIN;
+DO $$
+DECLARE u uuid; root uuid:=gen_random_uuid(); h uuid:=gen_random_uuid(); q jsonb; bid text; snap jsonb; checks jsonb; denied boolean:=false; prefs jsonb:=jsonb_build_object('city','Shanghai','date',(current_date+20)::text,'guests',1,'prompt','Rollback-only retained booking reset test','days',1,'dayStart','09:00','dayEnd','21:00','transport','walk');
+plan jsonb:='{"summary":"Rollback-only reset test","stops":[{"id":"amap_reset_past","dayIndex":1,"start":"09:00","end":"10:00","reason":"Test museum"},{"id":"amap_reset_checked","dayIndex":1,"start":"11:00","end":"12:00","reason":"Test museum"},{"id":"amap_reset_future","dayIndex":1,"start":"13:00","end":"14:00","reason":"Test museum"}]}';
+BEGIN
+SELECT id INTO STRICT u FROM auth.users WHERE email='coordinator.ecc364b0@example.com';
+IF u<>'fdcf2419-1e13-4811-b08b-8403db4881a5'::uuid THEN RAISE EXCEPTION 'Test account mismatch'; END IF;
+PERFORM set_config('request.jwt.claim.sub',u::text,true);
+PERFORM public.journeyhub_trip_history_save(u,root,prefs,ARRAY['amap_reset_past','amap_reset_checked','amap_reset_future'],'{}','{}',null,null);
+PERFORM public.journeyhub_trip_history_save(u,h,prefs,ARRAY['amap_reset_past','amap_reset_checked','amap_reset_future'],ARRAY['amap_reset_past','amap_reset_checked','amap_reset_future'],'{}',plan,root);
+PERFORM public.journeyhub_demo_wallet_topup(u,20000,gen_random_uuid());
+q:=public.journeyhub_demo_quote_save(u,'history',h,'[{"stopId":"amap_reset_past","kind":"ticket","unitMinor":4000},{"stopId":"amap_reset_checked","kind":"ticket","unitMinor":4000},{"stopId":"amap_reset_future","kind":"ticket","unitMinor":4000}]');
+PERFORM public.journeyhub_demo_book(u,(q->>'id')::uuid,gen_random_uuid());
+UPDATE journey_hub.sessions s SET starts_at=now()-interval '2 hours',ends_at=now()-interval '1 hour' FROM journey_hub.bookings b WHERE b.session_id=s.session_id AND b.source_id=h AND b.stop_id='amap_reset_past' AND s.demo_owner_id=u;
+UPDATE journey_hub.bookings SET checked_in_at=now() WHERE source_id=h AND stop_id='amap_reset_checked' AND demo=true;
+SELECT jsonb_agg(to_jsonb(b) ORDER BY booking_id) INTO snap FROM journey_hub.bookings b WHERE source_id=h AND stop_id<>'amap_reset_future';
+checks:=public.journeyhub_reset_virtual_wallet(false,gen_random_uuid());
+IF jsonb_array_length(checks->'retainedBookingIds')<>2 THEN RAISE EXCEPTION 'Retention classification failed'; END IF;
+BEGIN PERFORM public.journeyhub_reset_virtual_wallet(true,gen_random_uuid()); EXCEPTION WHEN OTHERS THEN denied:=SQLERRM LIKE 'Cancel active%'; END;
+IF NOT denied THEN RAISE EXCEPTION 'Future booking guard failed'; END IF;
+SELECT booking_id INTO bid FROM journey_hub.bookings WHERE source_id=h AND stop_id='amap_reset_future';
+PERFORM public.journeyhub_calendar_manage('booking',bid,'cancel',gen_random_uuid());
+PERFORM public.journeyhub_reset_virtual_wallet(true,gen_random_uuid());
+PERFORM public.journeyhub_calendar_manage('history',h::text,'remove',gen_random_uuid());
+PERFORM public.journeyhub_calendar_manage('history',root::text,'remove',gen_random_uuid());
+IF snap IS DISTINCT FROM (SELECT jsonb_agg(to_jsonb(b) ORDER BY booking_id) FROM journey_hub.bookings b WHERE source_id=h AND stop_id<>'amap_reset_future') THEN RAISE EXCEPTION 'Retained bookings changed'; END IF;
+IF (SELECT balance_minor FROM journey_hub.demo_wallets WHERE user_id=u)<>0 THEN RAISE EXCEPTION 'Wallet not cleared'; END IF;
+IF (SELECT count(*) FROM journey_hub.demo_ledger WHERE quote_id=(q->>'id')::uuid AND kind='refund')<>1 THEN RAISE EXCEPTION 'Incorrect refund count'; END IF;
+PERFORM set_config('test.reset_result',jsonb_build_object('passed',true,'retained_unchanged',2,'future_cancelled',1,'wallet',0,'archived',2,'rollback_only',true)::text,true);
+END $$;
+SELECT current_setting('test.reset_result')::jsonb AS result;
+ROLLBACK;

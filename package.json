@@ -5,7 +5,7 @@
     "setup": "npm ci --prefix work/journeyhub",
     "build": "node work/journeyhub/build.cjs",
     "build:preview": "node work/journeyhub/build-preview.cjs",
-    "test": "node work/journeyhub/test-calendar-weather.mjs && node work/journeyhub/test-calendar-weather-backend.mjs && node work/journeyhub/test-weather-generation.cjs && node work/journeyhub/test-calendar-ui.cjs"
+    "test": "node work/journeyhub/test-calendar-weather.mjs && node work/journeyhub/test-calendar-weather-backend.mjs && node work/journeyhub/test-weather-generation.cjs && node work/journeyhub/test-calendar-ui.cjs && node work/journeyhub/test-account-reset.mjs && node work/journeyhub/test-account-reset-db.mjs"
   },
   "engines": {
     "node": ">=22.12.0"

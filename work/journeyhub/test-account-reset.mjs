@@ -43,3 +43,19 @@ for(const initialCart of [{},{tote:3,scarf:2}]){
  assert.deepEqual(onboarding.cart,{tote:1,scarf:1},'onboarding defaults remain intact');
 }
 console.log('Account reset UI orchestration: PASS (scope, pagination, confirmation, readiness, retry, identity, memory opt-in, empty cart persistence)');
+// Server-classified past and checked-in reservations are retained, while future ones cancel.
+{
+ const {c,calls,get}=fixture({rpc:async(name,p)=>name==='journeyhub_agent_list'?[]:p.p_commit===false?{ready:true,retainedBookingIds:['past','checked']}:{ok:true}});
+ c.DBC.bookings.past={id:'past',owner:'u',demo:true,status:'confirmed',blocked:true};
+ c.DBC.bookings.checked={id:'checked',owner:'u',demo:true,status:'confirmed',blocked:true};
+ await c.A.arOpen();assert(get().ready);assert.equal(get().retained.length,2);
+ await c.A.arConfirm();assert(get().finished);
+ assert.deepEqual(calls.filter(x=>x.p?.p_action==='cancel').map(x=>x.p.p_id),['a']);
+ assert.match(c.V['account-reset']().body,/2 started or checked-in reservations kept/);
+}
+// A booking starting between preflight and confirmation is reclassified before cancellation.
+{
+ let checks=0;const {c,calls,get}=fixture({rpc:async(name,p)=>name==='journeyhub_agent_list'?[]:p.p_commit===false?{ready:true,retainedBookingIds:++checks>1?['a']:[]}:{ok:true}});
+ await c.A.arOpen();await c.A.arConfirm();assert(get().finished);assert(!calls.some(x=>x.p?.p_action==='cancel'));assert.equal(get().retained.length,1);
+}
+console.log('PASS: retained reservations and confirmation-time reclassification');

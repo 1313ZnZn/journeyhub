@@ -65,7 +65,7 @@ A.arConfirm=async()=>{
       cm.removed=cmRows(result);cm.loaded=true;cmRemovedPlan(cm,item);item.done=true;ctx.done++;render();
     }
     if(!ctx.personalDone){
-      const d=defaults(),body=Object.fromEntries(jhAllowed.map(key=>[key,d[key]]));
+      const d={...defaults(),cart:{}},body=Object.fromEntries(jhAllowed.map(key=>[key,d[key]]));
       await jhCommand('personal',{body},false);if(!arCurrent(ctx))return;
       jhAllowed.forEach(key=>state[key]=d[key]);lastPersonal=JSON.stringify(jhPersonal());jhPersonalDirty=false;ctx.personalDone=true;
     }

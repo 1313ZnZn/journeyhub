@@ -202,7 +202,7 @@
   function libraryHTML(){
     const n=typeof th!=='undefined'&&Array.isArray(th.items)?th.items.length:0;
     return '<button type="button" class="pip-lib-card" data-act="go" data-a="trip-history"><span class="pip-lib-ic" aria-hidden="true">🗂️</span><span><strong>Trip history</strong><small>'+(n?plural(n,'saved search')+' & plans · pick up where you left off':'Unfinished searches and saved plans')+'</small></span>'+ic('right',16)+'</button>'+
-      '<button type="button" class="pip-lib-card" data-act="jmMine"><span class="pip-lib-ic" aria-hidden="true">📸</span><span><strong>Travel memories</strong><small>Photos, stories and Pip’s recaps</small></span>'+ic('right',16)+'</button>';
+      '<button type="button" class="pip-lib-card" data-act="jmMine"><span class="pip-lib-ic" aria-hidden="true">📸</span><span><strong>Travel memories</strong><small>Photos, stories and Pip’s recaps</small></span>'+ic('right',16)+'</button>'+(typeof ptuTaskEntry==='function'?ptuTaskEntry():'');
   }
   A.pipTrip=()=>{const on=!document.body.classList.contains('pip-trip-open');document.body.classList.toggle('pip-trip-open',on);if(on)app.querySelector('.jl-home>.jl-details')?.scrollTo?.(0,0);};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('pip-trip-open'))document.body.classList.remove('pip-trip-open');});

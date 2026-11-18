@@ -1,0 +1,9 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(__dirname+'/trip-history.js','utf8').split('/* Saved recommendations are a library, not reservations or a second itinerary. */')[1];
+let resolve,removed=new Set();
+const c={TAB_OF:{},A:{},V:{'trip-history':()=>({body:'history'})},jhUser:{id:'one'},th:{owner:'one',items:[{id:'search',placeCount:3,input:{city:'Shanghai'}}],loaded:true},thScope(){this.th.owner=this.jhUser?.id||null},thRemoved:id=>removed.has(id),thHydrate:()=>new Promise(r=>resolve=r),render(){},esc:s=>String(s??''),ic:()=>'',bar:x=>x,thDate:()=>'',pdSafeURL:x=>x, pdSource:()=>'',agErrorText:e=>e.message,go(){},thCurrent:()=>true,thLoad(){}};
+// Bind scope explicitly because production functions use lexical globals.
+c.thScope=()=>{c.th.owner=c.jhUser?.id||null};vm.createContext(c);vm.runInContext(source,c);
+(async()=>{const pending=c.A.bpOpen('search');resolve({places:[{id:'a',name:'Museum'},{id:'b',name:'Cafe'},{id:'b',name:'Cafe'},{id:'c',name:'Park'}],wanted:['a'],skipped:['b']});await pending;let html=c.V['backup-places']().body;assert.equal((html.match(/class="bp-card"/g)||[]).length,3);assert.match(html,/Skipped · kept as backup/);assert.match(html,/Must visit/);assert.match(html,/Backup/);
+c.A.bpList();const old=c.A.bpOpen('search');c.jhUser={id:'two'};c.V['backup-places']();resolve({places:[{id:'secret',name:'Private old account'}]});await old;assert.doesNotMatch(c.V['backup-places']().body,/Private old account/);
+removed.add('search');assert.doesNotMatch(c.V['backup-places']().body,/data-act="bpOpen"/);console.log('PASS backup library: all choices retained, duplicate IDs deduplicated, account switching rejects stale responses, removed searches excluded.');})().catch(e=>{console.error(e);process.exitCode=1});

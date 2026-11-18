@@ -257,3 +257,30 @@ const thRender=render;render=function(){
   thConsumeSnapshot();
   thRender();thScope();
 };
+
+/* Saved recommendations are a library, not reservations or a second itinerary. */
+TAB_OF['backup-places']='journey';
+let bp={owner:null,id:null,result:null,loading:false,error:'',version:0};
+function bpScope(){thScope();if(bp.owner!==th.owner)bp={owner:th.owner,id:null,result:null,loading:false,error:'',version:bp.version+1};}
+A.bpOpen=async id=>{
+  bpScope();const ctx=bp;if(!ctx.owner||ctx.loading||thRemoved(id))return;
+  ctx.id=id;ctx.result=null;ctx.loading=true;ctx.error='';const version=++ctx.version;render();
+  try{const result=await thHydrate(id);if(bp===ctx&&ctx.owner===(jhUser?.id||null)&&ctx.version===version&&!thRemoved(id))ctx.result=result;}
+  catch(e){if(bp===ctx&&ctx.version===version)ctx.error=agErrorText(e);}
+  finally{if(bp===ctx&&ctx.version===version){ctx.loading=false;render();}}
+};
+A.bpList=()=>{bpScope();bp.version++;bp.id=null;bp.result=null;bp.loading=false;bp.error='';render();};
+A.bpReview=()=>{bpScope();if(bp.id&&!bp.loading&&!thRemoved(bp.id)){const id=bp.id;go('trip-history');void A.thOpen(id);}};
+const bpHistoryView=V['trip-history'];
+V['trip-history']=()=>{const view=bpHistoryView();view.body='<div class="content"><button class="btn btn-soft" data-act="go" data-a="backup-places">'+ic('globe',18)+' Backup places</button></div>'+view.body;return view;};
+V['backup-places']=()=>{
+  bpScope();const ctx=bp;
+  const head='<h1>Backup places</h1><p>All recommendations from your saved searches, including skipped and unselected places. Keeping a place here does not book it or add it to your itinerary.</p>';
+  if(!ctx.owner)return {bar:bar({title:'Backup places'}),tabs:true,body:'<div class="content">'+head+'<button class="btn btn-primary" data-act="thSignIn">Sign in</button></div>'};
+  if(ctx.id&&thRemoved(ctx.id)){ctx.version++;ctx.id=null;ctx.result=null;ctx.loading=false;}
+  const result=ctx.result;
+  const places=[...new Map((result?.places||[]).map(p=>[p.id,p])).values()];
+  const cards=places.map(p=>{const photo=pdSafeURL(p.photo?.url);const status=result.plan?.stops?.some(s=>s.id===p.id)?'In itinerary':result.wanted?.includes(p.id)?'Must visit':result.skipped?.includes(p.id)?'Skipped · kept as backup':'Backup';return '<article class="bp-card">'+(photo?'<img src="'+esc(photo)+'" alt="'+esc(p.name)+'" loading="lazy" referrerpolicy="no-referrer">':'<p class="bp-no-photo">Photo unavailable</p>')+'<div><small>'+esc(status)+'</small><h2>'+esc(p.name)+'</h2><p>'+esc(p.address||'Address unavailable')+'</p><p>'+esc(p.source||'')+'</p><details><summary>Place details</summary><p>'+esc(p.description||p.reason||'')+'</p>'+(p.openingHours||[]).map(h=>'<p>'+esc(h)+'</p>').join('')+pdSource(p)+'</details></div></article>';}).join('');
+  const rows=th.items.filter(item=>!thRemoved(item.id)).map(item=>'<button class="th-card" data-act="bpOpen" data-a="'+esc(item.id)+'"><span class="th-card-copy"><strong>'+esc(item.input?.city||'Saved search')+'</strong><span class="th-trip-date">'+esc(thDate(item.createdAt))+' · '+Number(item.placeCount||0)+' places</span><span class="th-prompt">'+esc(item.input?.prompt||'Travel ideas')+'</span></span>'+ic('right',18)+'</button>').join('');
+  return {bar:bar({title:'Backup places'}),tabs:true,body:'<div class="content bp-page">'+head+(ctx.id?'<button class="btn-text" data-act="bpList">All saved searches</button>':'')+(ctx.loading?'<p role="status">Loading saved recommendations…</p>':'')+(ctx.error?'<p role="alert">'+esc(ctx.error)+'</p><button class="btn btn-soft" data-act="bpOpen" data-a="'+esc(ctx.id)+'">Retry</button>':'')+(result?'<div class="bp-grid">'+cards+'</div><button class="btn btn-soft" data-act="bpReview">Open saved trip to review choices</button>':ctx.id?'':'<div class="th-list">'+rows+'</div>'+(th.loading?'<p role="status">Loading saved searches…</p>':th.error?'<p role="alert">'+esc(th.error)+'</p><button data-act="thRetry">Retry</button>':!rows?'<p>Your recommendations will appear here after your next saved search.</p>':'')+(th.cursor&&!th.loading?'<button class="btn btn-soft" data-act="thMore">Load older searches</button>':''))+'</div>',after:()=>{if(!th.loaded&&!th.loading&&!th.error&&thCurrent(th))void thLoad();}};
+};

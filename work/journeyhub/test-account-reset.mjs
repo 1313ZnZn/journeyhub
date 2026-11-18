@@ -28,4 +28,18 @@ function fixture(options={}){
 {
  const {c,calls,get}=fixture();await c.A.arOpen();c.A.arMemories();await c.A.arConfirm();assert(get().finished);assert(calls.includes('memory:u:memory'));
 }
-console.log('Account reset UI orchestration: PASS (scope, pagination, confirmation, readiness, retry, identity, memory opt-in)');
+// Reset must persist an empty cart even when onboarding defaults contain sample products.
+for(const initialCart of [{},{tote:3,scarf:2}]){
+ const {c,get}=fixture();let persisted;
+ const onboarding={cart:{tote:1,scarf:1},saved:{}};
+ c.defaults=()=>structuredClone(onboarding);
+ c.jhAllowed=['cart','saved'];c.state.cart=initialCart;
+ c.jhPersonal=()=>({cart:c.state.cart,saved:c.state.saved});
+ c.jhCommand=async(operation,payload)=>{assert.equal(operation,'personal');persisted=JSON.parse(JSON.stringify(payload.body));};
+ await c.A.arOpen();await c.A.arConfirm();assert(get().finished);
+ assert.deepEqual(persisted.cart,{},'saved cart stays empty after reload');
+ assert.equal(Object.keys(c.state.cart).length,0,'current bag is empty');
+ assert.deepEqual(JSON.parse(c.lastPersonal).cart,{},'autosave snapshot has no sample items');
+ assert.deepEqual(onboarding.cart,{tote:1,scarf:1},'onboarding defaults remain intact');
+}
+console.log('Account reset UI orchestration: PASS (scope, pagination, confirmation, readiness, retry, identity, memory opt-in, empty cart persistence)');

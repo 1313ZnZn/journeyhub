@@ -178,7 +178,7 @@
 
   // Command palette
   const travelerItems=[['AI Journey','journey','Plan a trip'],['Explore','home','Places and experiences'],['Shopping','shop','Local stores'],['Calendar','orders','Your schedule'],['Reservations','reserved-trips','Saved bookings'],['Trip history','trip-history','Searches and plans'],['Travel memories','memories','Photos and stories'],['Saved','saved','Places you liked'],['Purchases','purchases','Orders and delivery'],['Demo wallet','demo-wallet','Virtual credits'],['Display currency','currency','Prices and rates'],['Me','me','Profile and settings']];
-  const staffItems=[['Today','s-today','Live operations'],['Orders','s-orders','All orders'],['Bookings','s-bookings','Experience bookings'],['Sessions','s-sessions','Availability'],['Approvals','s-approvals','Plans and publication'],['Insights','s-insights','Performance'],['Assistant','s-assistant','Staff assistant']];
+  const staffItems=[['Today','s-today','Live operations'],['Orders','s-orders','All orders'],['Bookings','s-bookings','Experience bookings'],['Sessions','s-sessions','Availability'],['Session plans','s-approvals','Plans and publication'],['Insights','s-insights','Performance'],['Assistant','s-assistant','Staff assistant']];
   let palette=null,matches=[],active=0,returnFocus=null;
   const dkItems=()=>state.role==='staff'?staffItems:travelerItems;
   function dkPaint(){

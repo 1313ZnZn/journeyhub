@@ -97,7 +97,7 @@
       '</tbody></table></div></section>';
     const assist='<section class="sd-card sd-assist"><span class="sd-kicker">'+ic('sparkle',14)+'Staff assistant</span><p>Turn insights into a session plan.</p><small class="sd-assist-note">'+esc(as.text)+' '+(as.count?'<button type="button" class="sd-inline" data-act="go" data-a="s-assistant">Review</button>':'')+'</small>'+
       '<div class="sd-assist-actions"><button type="button" class="sd-primary" data-act="go" data-a="s-plan">'+ic('plus',16)+'Plan a session</button><button type="button" class="sd-ghost" data-act="sdRules" aria-expanded="'+!!state.sdRules+'">'+(state.sdRules?'Hide rules':'View rules')+'</button></div>'+
-      '<small class="sd-fine">'+ic('info',14)+'Approval by a different authorized Duty Manager publishes the session.</small></section>';
+      '<small class="sd-fine">'+ic('info',14)+'Review the Forecast and publish the session directly.</small></section>';
     let main;
     if(tab==='live'){
       main='<div class="sd-grid"><div class="sd-main">'+(upcomingHtml(keys).replace('class="card stack-12"','class="sd-card sd-upcoming stack-12"')||'<section class="sd-card"><p class="sd-empty">No sessions in the next 7 days for this activity.</p></section>')+'</div><aside class="sd-side">'+assist+'</aside></div>';

@@ -33,3 +33,7 @@
 .tch-header{gap:5px}.tch-header .bar-title{font-size:18px}.tch-speaker{display:flex;align-items:center;gap:7px}.tch-message .tch-avatar-message{margin-left:-3px}
 @media(max-width:380px){.tch-entry>button{gap:9px;padding:12px!important;min-height:90px}.tch-avatar-entry{width:56px;height:56px}.tch-entry-copy>strong{font-size:18px}.tch-entry-copy>span{font-size:12px}.tch-entry-cta{width:34px;padding:0}.tch-entry-cta>span{display:none}}
 @media(prefers-reduced-motion:reduce){.tch-avatar-hand{transition:none}.tch-entry>button:hover .tch-avatar-hand,.tch-entry>button:focus-visible .tch-avatar-hand{transform:none}}
+
+.tch-clear-tools{display:flex;justify-content:flex-end;padding:4px 0 12px}.tch-clear-tools .btn-text{font-size:13px;color:var(--ink-2)}.tch-clear-confirm{padding:16px;margin-bottom:16px;border:1px solid var(--line);border-radius:16px}.tch-clear-confirm p{font-size:14px;line-height:1.5;margin:8px 0 12px}
+
+.tch-clear-tools,.tch-clear-confirm{position:sticky;top:0;z-index:2;background:var(--surface)}

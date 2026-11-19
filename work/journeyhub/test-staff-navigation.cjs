@@ -122,7 +122,7 @@ async function boot({person=null,storage={}}={}) {
 
   h=await boot({person:people.host});assert.equal(h.t.state.role,'staff');assert.equal(h.t.state.route,'s-today','Host default is the operational dashboard');h.screen('Host workspace');await h.close();
 
-  h=await boot();t=h.t;t.go('login',{mode:'traveler',view:'signin'});await h.login('coordinator','traveler-signin');assert.equal(t.state.role,'staff','Server staff role determines workspace even via generic sign-in');assert.equal(t.state.route,'s-today');await h.close();
+  h=await boot();t=h.t;t.go('login',{mode:'traveler',view:'signin'});await h.login('coordinator','traveler-signin');assert.equal(t.state.role,'traveler','Traveler sign-in must not be overridden by staff membership');assert.equal(t.state.route,'journey');assert.equal(t.staff.role,'coordinator','Staff access is retained');t.A.staffEntry();await until(()=>t.state.role==='staff'&&t.settled,'explicit staff workspace switch');assert.equal(t.state.role,'staff');assert.equal(t.state.route,'s-today');await h.close();
 
   h=await boot();t=h.t;t.A.staffEntry();await h.login('traveler');
   assert.equal(t.staff,null,'Traveler never gains a staff role');assert.equal(t.state.route,'login','Unauthorized account remains on sign-in');assert.equal(t.state.params.mode,'staff');assert(t.ui.loginErr.includes('no staff role'));assert(!h.app().querySelector('nav[aria-label="Staff"]'),'Unauthorized user does not see staff tabs');assert.deepEqual(Object.keys(t.db.sessionPlans),[],'No internal plan snapshot leaked');

@@ -217,7 +217,8 @@ doLogin=async function(kind){
     }
     if(guestData&&!Object.keys(jhLastSnapshot?.personal||{}).length){jhAllowed.forEach(k=>state[k]=guestData[k]);normalizeState();if(traveler()){state.address.guest=state.address.guest||traveler().name;state.address.name=state.address.name||traveler().name;}await jhFlush();}
     if(staffMode&&!me())throw new Error('Signed in as a traveler. This account has no staff role.');
-    const staff=!!me(),validNext=next?.route&&typeof V[next.route]==='function'&&next.route.startsWith('s-')===staff;
+    // Staff membership grants access; only an explicit staff sign-in selects that workspace.
+    const staff=staffMode&&!!me(),validNext=next?.route&&typeof V[next.route]==='function'&&next.route.startsWith('s-')===staff;
     state.role=staff?'staff':'traveler';state.route=validNext?next.route:staff?'s-today':'journey';state.params=validNext?(next.params||{}):{};ui.loginDraft=null;if(typeof snRememberWorkspace==='function')snRememberWorkspace();toast('Signed in');
   }catch(e){ui.loginErr=jhError(e);if(state.route!=='login'&&staffMode){state.role='staff';state.route='login';state.params={mode:'staff'};}}
   finally{ui.loginBusy=false;render();}

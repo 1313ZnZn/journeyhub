@@ -65,7 +65,7 @@ function calLatestPlans(events){
 function calEvents(){
   const owner=jhUser?.id;if(!owner||!traveler())return [];
   const events=[],supported=(tc.owner===owner?tc.trips:[]).filter(t=>!cmHidden(t.sourceType,t.sourceId)),histories=(th.owner===owner?th.items:[]).filter(t=>!cmHidden('history',t.id)),runs=(ag.owner===owner?ag.runs:[]).filter(t=>!cmHidden('run',t.id));
-  const allBookings=Object.values(DBC.bookings).filter(isMine),activeBookings=allBookings.filter(b=>b.status==='confirmed'),booked=allBookings.filter(b=>!cmHidden('booking',b.id)),allBookedSlots=new Set(activeBookings.map(b=>b.slot)),plannedSlots=new Set(runs.flatMap(r=>agPlan(r)?.stops?.map(s=>s.sessionId)||[])),seen=new Set();
+  const allBookings=Object.values(DBC.bookings).filter(isMine),activeBookings=allBookings.filter(b=>b.status==='confirmed'),booked=allBookings.filter(b=>b.status!=='cancelled'&&!cmHidden('booking',b.id)),allBookedSlots=new Set(activeBookings.map(b=>b.slot)),plannedSlots=new Set(runs.flatMap(r=>agPlan(r)?.stops?.map(s=>s.sessionId)||[])),seen=new Set();
   function addPlan(key,input,stops,options={}){
     const date=calDate(input.date);if(!date)return;
     const days=Math.max(1,Math.min(31,Number(input.days)||1)),zone=calZone(input.city);

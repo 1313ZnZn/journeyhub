@@ -83,6 +83,7 @@ A.arConfirm=async()=>{
     arClearStorage(ctx.owner);
     clearTimeout(pd.historyTimer);pd=pdFresh();thForgetHydration(th);th=thFresh(ctx.owner);
     ag.prefs=jpNormalize();jpSavePrefs();
+    await jhRefresh();if(!arCurrent(ctx))return;
     ctx.finished=true;
   }catch(e){if(arCurrent(ctx))ctx.error=ctx.bookings.filter(b=>b.done).length+' of '+ctx.bookings.length+' reservations cancelled; '+ctx.done+' of '+ctx.items.length+' trip/search records reset. '+cmError(e)+' Retry to finish the remaining steps.';}
   finally{if(arCurrent(ctx)){ctx.busy=false;render();}}

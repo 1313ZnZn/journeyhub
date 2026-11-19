@@ -12,7 +12,7 @@ INSERT INTO journey_hub.trip_care VALUES('${trip}','${user}','{"canApply":true}'
 INSERT INTO journey_hub.care_chat_requests VALUES('${trip}','${user}','private prompt','private reply','{}','[]',NULL,'completed',now()-interval '1 day');
 INSERT INTO journey_hub.care_chat_place_cache VALUES('${trip}','${user}',false),('${trip}','${user}',true);
 INSERT INTO journey_hub.test_audit VALUES('${trip}','${user}',now()-interval '1 day','{"booking":"keep"}');`);
-await db.exec(fs.readFileSync(path.join(__dirname,'supabase/migrations/20261119125636_clear_trip_conversation.sql'),'utf8'));
+await db.exec(fs.readFileSync(path.join(__dirname,'supabase/migrations/20261119130324_clear_trip_conversation.sql'),'utf8'));
 const as=uid=>db.query("select set_config('request.jwt.claim.sub',$1,false)",[uid]);
 const clear=()=>db.query('select public.journeyhub_clear_trip_chat($1)',[trip]);
 await as(other);await assert.rejects(clear(),/not found/);await as('');await assert.rejects(clear(),/Sign in/);await as(user);

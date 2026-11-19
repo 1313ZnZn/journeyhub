@@ -95,8 +95,27 @@ function tchThreadHTML(ctx){
   const messages=ctx.messages.filter(m=>!ctx.day||!m.dayIndex||m.dayIndex===ctx.day||m.paymentAction||m.paymentReceipt||m.itineraries?.some(i=>i.dayIndex===ctx.day)).filter(m=>['user','assistant'].includes(m.role));
   const local=ctx.retry?.action==='care_chat'&&ctx.retry.message&&(!ctx.day||!ctx.retry.day||ctx.retry.day===ctx.day)&&!messages.some(m=>m.role==='user'&&m.text===ctx.retry.message)?ctx.retry.message:null;
   const status=ctx.busy&&ctx.retry?.action==='care_chat_pay'?'Saving your virtual payment…':ctx.busy&&ctx.retry?.action==='care_chat_apply'?'Saving your changes…':ctx.pending?.dayIndex&&ctx.day&&ctx.pending.dayIndex!==ctx.day?'The agent is finishing your Day '+ctx.pending.dayIndex+' request…':ctx.pending?.message||(!ctx.loaded?'Opening your conversation…':'The agent is checking your request…');
-  return '<div class="tch-messages" role="log" aria-label="Conversation" aria-live="polite">'+messages.map(m=>tchMessageHTML(m,ctx)).join('')+(local?'<article class="tch-message tch-user"><span class="tch-speaker">You</span><p>'+esc(local)+'</p></article>':'')+(!messages.length&&!local&&!ctx.loading?'<p class="tch-welcome">What would make this day work better for you?</p>':'')+'</div>'+tchProposalHTML(ctx)+(ctx.busy||tchRunning(ctx)||ctx.loading&&!ctx.loaded?'<p class="tch-status" role="status"><span aria-hidden="true"></span>'+esc(status)+'</p>':'')+(ctx.error?'<div class="tch-error" role="alert"><p>'+esc(ctx.error)+'</p>'+(ctx.pending?.canRetry===false&&ctx.retry?.action==='care_chat'?'<p>Please send a new message.</p>':'<button class="btn-text" data-act="tchRetry">'+(ctx.retry?'Retry saved request':'Try again')+'</button>')+'</div>':'');
+  return tchClearHTML(ctx)+'<div class="tch-messages" role="log" aria-label="Conversation" aria-live="polite">'+messages.map(m=>tchMessageHTML(m,ctx)).join('')+(local?'<article class="tch-message tch-user"><span class="tch-speaker">You</span><p>'+esc(local)+'</p></article>':'')+(!messages.length&&!local&&!ctx.loading?'<p class="tch-welcome">What would make this day work better for you?</p>':'')+'</div>'+tchProposalHTML(ctx)+(ctx.busy||tchRunning(ctx)||ctx.loading&&!ctx.loaded?'<p class="tch-status" role="status"><span aria-hidden="true"></span>'+esc(status)+'</p>':'')+(ctx.error?'<div class="tch-error" role="alert"><p>'+esc(ctx.error)+'</p>'+(ctx.pending?.canRetry===false&&ctx.retry?.action==='care_chat'?'<p>Please send a new message.</p>':'<button class="btn-text" data-act="tchRetry">'+(ctx.retry?'Retry saved request':'Try again')+'</button>')+'</div>':'');
 }
+function tchClearHTML(ctx){
+ const disabled=ctx.busy||ctx.loading||tchRunning(ctx)||!ctx.loaded;
+ if(ctx.confirmClear)return '<section class="tch-clear-confirm" role="group" aria-label="Clear conversation confirmation"><strong>Clear this trip’s conversation?</strong><p>Messages for all days and unapplied suggestions will be removed. Saved trips, reservations and payment records stay unchanged.</p><button class="btn btn-outline btn-sm" data-act="tchClearCancel">Keep conversation</button> <button class="btn btn-primary btn-sm" data-act="tchClearConfirm"'+(disabled?' disabled':'')+'>Clear conversation</button></section>';
+ return '<div class="tch-clear-tools"><button class="btn-text" data-act="tchClearAsk"'+(disabled?' disabled':'')+'>Clear conversation</button></div>';
+}
+A.tchClearAsk=()=>{const ctx=tchActive();if(!ctx||ctx.busy||ctx.loading||tchRunning(ctx)||!ctx.loaded)return;ctx.confirmClear=true;tchPaint(ctx);};
+A.tchClearCancel=()=>{const ctx=tchActive();if(ctx&&!ctx.busy){ctx.confirmClear=false;tchPaint(ctx);}};
+A.tchClearConfirm=async()=>{
+ const ctx=tchActive();if(!ctx?.confirmClear||ctx.busy||ctx.loading||tchRunning(ctx))return;
+ ctx.busy=true;ctx.error='';tchPaint(ctx);
+ try{
+  const result=await agRPC('journeyhub_clear_trip_chat',{p_care_id:ctx.id});
+  if(!tchCurrent(ctx))return;if(!result?.ok)throw Error('Conversation could not be cleared. Please retry.');
+  for(const entry of tchEntries.values())if(entry.owner===ctx.owner&&entry.id===ctx.id){clearTimeout(entry.timer);entry.version++;entry.messages=[];entry.pending=null;entry.retry=null;entry.draft='';entry.confirmClear=false;entry.error='';entry.scrollTop=0;entry.loaded=false;tchSave(entry);}
+  const trip=tchTrip(ctx);if(trip)trip.proposal=null;
+  const editor=document.getElementById('tch-message');if(editor){editor.value='';tchResize(editor);}
+ }catch(e){if(tchCurrent(ctx))ctx.error=agErrorText(e);}
+ finally{if(tchCurrent(ctx)){ctx.busy=false;tchPaint(ctx);if(!ctx.confirmClear)await tchLoad(ctx);}}
+};
 async function tchExecute(ctx,payload){
   if(!tchCurrent(ctx)||ctx.busy)return;ctx.busy=true;ctx.error='';ctx.retry=payload;tchSave(ctx);clearTimeout(ctx.timer);ctx.version++;tchPaint(ctx);
   try{const result=await tchRequest(ctx,payload);if(!result||!tchCurrent(ctx))return;tchApplyResponse(ctx,result);

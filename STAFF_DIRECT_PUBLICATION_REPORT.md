@@ -49,3 +49,11 @@ Security advisors unchanged: 10 existing RLS-without-policy informational findin
 - Workflow UI/navigation tests plus new PostgreSQL and rollback tests: meaningful state/association/security verification.
 
 No Agent architecture, traveler booking implementation, Forecast arithmetic or design system was rewritten. Main is not modified or merged by this task.
+
+## Vercel Preview
+
+PR: https://github.com/1313ZnZn/journeyhub/pull/36
+
+Verified deployment: https://journeyhub-preview-rdru7c13y-zicn.vercel.app/ . Source commit `1421dae`, branch `feat/staff-direct-publication`, Ready. Vercel API reports `target: null` (non-production Git Preview); only branch aliases are assigned. Cloud build ran `npm run build:preview`, produced 19 files, and completed successfully.
+
+Authenticated Vercel fetch checks: `/` and `/ai-plan.html` returned actual HTML with HTTP 200; the main bundle contains direct-publication UI and Session plans. `/config.js` returned JavaScript (HTTP 200, application/javascript) with the correct project URL and a Publishable Key. `/database.sql` and `/test-staff-direct-publication-rollback.sql` returned HTTP 404. Plain unauthenticated requests reached the Vercel protection page and were not counted as application passes. Browser login and interactive user-flow testing remain pending.

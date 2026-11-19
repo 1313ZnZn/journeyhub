@@ -723,7 +723,7 @@ const me = () => (state.auth && state.auth.staff) || null;
 const traveler = () => (state.auth && state.auth.traveler) || null;
 const staffName = () => (me() ? me().name : 'Staff');
 const isManager = () => !!(me() && me().role === 'duty_manager');
-const ROLE_LABEL = { coordinator: 'Coordinator', duty_manager: 'Duty manager', host: 'Host' };
+const ROLE_LABEL = { coordinator: 'Staff', duty_manager: 'Staff', host: 'Staff' };
 const initials = (n) => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
 /* each traveler account keeps its own bag, plan, address and checklist on this device */
 const TRAVELER_KEYS = ['cart', 'saved', 'planner', 'plan', 'address', 'passport', 'vatManual', 'expSel', 'method'];
@@ -2614,7 +2614,7 @@ function sheetView() {
     const s = me(); if (!s) return '';
     const can = [[true, 'Run orders and deliveries'], [true, 'Check guests in'], [true, 'See insights and suggestions'], [true, 'Draft and submit new sessions'], [s.role === 'duty_manager', 'Approve new sessions someone else submitted']];
     inner = '<div class="row-between"><span class="h2">Signed in</span><button class="icon-btn" data-act="closeSheet" aria-label="Close">' + ic('x', 20) + '</button></div>' +
-      '<div style="display:flex;gap:12px;align-items:center"><span class="tile-ic" style="width:48px;height:48px;border-radius:999px;background:var(--marigold);color:var(--on-marigold);font-weight:800">' + initials(s.name) + '</span><span class="stack"><span class="h3">' + esc(s.name) + '</span><span class="meta">' + esc(s.title || ROLE_LABEL[s.role]) + ' · ' + esc(s.id) + '</span></span></div>' +
+      '<div style="display:flex;gap:12px;align-items:center"><span class="tile-ic" style="width:48px;height:48px;border-radius:999px;background:var(--marigold);color:var(--on-marigold);font-weight:800">' + initials(s.name) + '</span><span class="stack"><span class="h3">' + esc(s.name) + '</span><span class="meta">' + esc(ROLE_LABEL[s.role] || 'Staff') + ' · ' + esc(s.id) + '</span></span></div>' +
       '<section class="card stack-8"><span class="label">Your role can</span>' + can.map((x) => '<span class="meta" style="display:flex;gap:8px;align-items:center;color:' + (x[0] ? 'var(--ink)' : 'var(--ink-3)') + '">' + ic(x[0] ? 'check' : 'x', 16) + x[1] + '</span>').join('') + '</section>' +
       '<button class="btn btn-outline btn-block" data-act="switchStaff">' + ic('swap', 18) + 'Switch staff account</button>' +
       '<button class="btn btn-soft btn-block" data-act="signOut" data-a="staff">' + ic('logout', 18) + 'Sign out</button>';

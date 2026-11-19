@@ -36,6 +36,15 @@ w.eval(fs.readFileSync(path.join(out,'vendor/supabase.js'),'utf8'));w.JOURNEYHUB
  assert.equal(t.projection({cap:10,price:100,promo:0,assumptions:{}}),null,'unknown costs never zero');
  const p=t.plan();assert.equal(t.validate({...p,date:old}), 'Choose a valid date within the next year.');
  t.go('s-approvals');t.state.swFilter={status:'all',exp:'culture',date:future,submitter:'TC-1001'};t.remember();t.state.swFilter={};t.restore();assert.equal(t.state.swFilter.exp,'culture');
+ // The migration supplies the same canonical role for each former staff identity.
+ for(const [id,name] of [['TC-1001','Former Coordinator'],['TH-1003','Former Host'],['TM-1002','Duty Manager']]){
+  t.roles('unified-'+id,{id,name,role:'duty_manager'});
+  t.state.swFilter={status:'all'};t.go('s-approvals');
+  assert.match(w.document.querySelector('#app').textContent,/Approvals/);
+  t.select('PLAN-TEST0001');t.go('s-plan',{id:'PLAN-TEST0001'});
+  assert.equal(!!w.document.querySelector('[data-act="splanApprove"]'),id!=='TC-1001','Independent approval rule applies equally');
+  assert.match(w.document.querySelector('#app').textContent,/different staff member/);
+ }
  w.testWide=true;t.guest();t.state.role='traveler';t.go('journey');
  assert(w.document.body.classList.contains('pip-center'),'Guest uses the same centred Pip home');
  assert(w.document.querySelector('.jl-home.is-pip'),'Old two-column form is adapted for guests');

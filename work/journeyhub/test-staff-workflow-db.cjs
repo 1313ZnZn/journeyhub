@@ -3,6 +3,7 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {PGlite}=require('@electric-sql/pglite');
 const read=n=>fs.readFileSync(path.join(__dirname,n),'utf8');
+const unified=process.argv.includes('--unified');
 async function run(){
  const db=new PGlite();
  try{
@@ -25,15 +26,33 @@ async function run(){
  const command=async payload=>(await db.query("select journey_hub.plan_command($1::jsonb) result",[JSON.stringify(payload)])).rows[0].result;
  const snapshot=async()=>(await db.query('select journey_hub.snapshot() result')).rows[0].result;
  const assertions=[];const pass=s=>{assertions.push(s);console.log('PASS '+s);};
+ if(unified){
+  await db.exec(read('supabase/migrations/20261119071829_unified_staff_capabilities.sql'));
+  assert.deepEqual((await db.query('select distinct role from journey_hub.staff')).rows,[{role:'duty_manager'}]);
+  assert.equal((await db.query('select count(*)::int n from journey_hub.staff_role_backup_20261119')).rows[0].n,3);
+  await db.exec("INSERT INTO staff(staff_id,display_name,role,pin_hash) VALUES('TN-1004','TEST future staff','host','disabled')");
+  assert.equal((await db.query("select role from staff where staff_id='TN-1004'")).rows[0].role,'duty_manager');
+  await db.exec("UPDATE staff SET role='coordinator' WHERE staff_id='TN-1004'");
+  assert.equal((await db.query("select role from staff where staff_id='TN-1004'")).rows[0].role,'duty_manager');
+  await assert.rejects(db.exec("UPDATE staff SET role='admin' WHERE staff_id='TN-1004'"),/Invalid staff role/);
+  await db.exec('SET ROLE authenticated');
+  await assert.rejects(db.query('select * from journey_hub.staff_role_backup_20261119'),/permission denied/);
+  await assert.rejects(db.query("INSERT INTO journey_hub.staff(staff_id,display_name,role,pin_hash) VALUES('TX-9999','Forbidden','host','disabled')"),/permission denied|row-level security/);
+  await db.exec('RESET ROLE');
+  for(let i=0;i<3;i++){await auth(i);assert((await snapshot()).planningSettings.other,'All staff can plan across venues');}
+  pass('Existing and future staff normalized; invalid roles, client self-provisioning and backup access denied; cross-venue planning identical');
+ }
  const date=new Date(Date.now()+10*86400000).toISOString().slice(0,10);
  const assumptions={bookingRate:.8,cancellationRate:.1,attendanceRate:.95,hostRate:.5,materialCost:100,basis:'TEST explicit assumptions'};
  const published=[];
  for(const [i,exp]of ['craft','food','culture'].entries()){
-  await auth(0);let p=await command({action:'create',exp});const first=p.id;
+  const author=unified?i:0,reviewer=unified?(i+1)%3:1;
+  await auth(author);let p=await command({action:'create',exp});const first=p.id;
   assert.equal((await command({action:'create',exp})).id,first,'Repeated blank draft returns same ID');
   p=await command({action:'save',id:p.id,version:p.version,date,startTime:`${10+i}:00`,cap:4,price:exp==='craft'?1400:450,promo:50,reason:'TEST independent session',assumptions});
   p=await command({action:'submit',id:p.id,version:p.version});
-  await auth(1);assert((await snapshot()).sessionPlans.some(x=>x.plan_id===first&&x.status==='submitted'));
+  if(unified)await assert.rejects(command({action:'approve',id:p.id,version:p.version}),/different authorized Duty Manager/);
+  await auth(reviewer);assert((await snapshot()).sessionPlans.some(x=>x.plan_id===first&&x.status==='submitted'));
   if(i===0){await assert.rejects(command({action:'return',id:p.id,version:p.version,returnReason:''}),/Explain/);p=await command({action:'return',id:p.id,version:p.version,returnReason:'TEST please revise capacity'});await auth(0);assert.equal((await snapshot()).sessionPlans.find(x=>x.plan_id===first).return_reason,'TEST please revise capacity');p=await command({action:'revise',id:p.id,version:p.version});p=await command({action:'submit',id:p.id,version:p.version});await auth(1);pass('Return → revise → resubmit with retained reason and fresh version');}
   const submittedVersion=p.version;await assert.rejects(command({action:'approve',id:p.id,version:p.version-1}),/Plan changed/);
   p=await command({action:'approve',id:p.id,version:p.version});assert(p.createdSessionId);
@@ -42,7 +61,16 @@ async function run(){
   published.push(s);pass(`${exp}: persistent draft → manager list → atomic publication, correct activity/duration, repeat publication idempotent`);
  }
  await auth(1);let own=await command({action:'create',exp:'craft'});own=await command({action:'save',id:own.id,version:own.version,date,startTime:'18:00',cap:4,price:1400,promo:0,reason:'TEST manager own draft',assumptions});own=await command({action:'submit',id:own.id,version:own.version});await assert.rejects(command({action:'approve',id:own.id,version:own.version}),/different authorized Duty Manager/);pass('Backend blocks manager self-approval');
+
+ await auth(2);
+ if(unified){
+  assert((await snapshot()).sessionPlans.some(x=>x.plan_id===own.id));
+  assert((await command({action:'create',exp:'other'})).id);
+  await assert.rejects(command({action:'save',id:own.id,version:own.version}),/Only the owner/);
+  pass('Former Host sees all plans and plans other venues; owner-only draft editing retained');
+ }else{
  await auth(2);assert.equal((await snapshot()).sessionPlans.length,0);let host=await command({action:'create',exp:'food'});assert(host.id);await assert.rejects(command({action:'create',exp:'other'}),/authorized scope/);await assert.rejects(command({action:'save',id:own.id,version:own.version}),/authorized scope/);pass('Host assigned-venue planning and owner isolation');
+ }
  await auth(0);let draft=await command({action:'create',exp:'culture'});await assert.rejects(command({action:'save',id:draft.id,version:draft.version,date:'2020-01-01',startTime:'10:00',cap:4,price:100,promo:0,reason:'TEST expired'}),/Needs rescheduling/);
  await db.query("update journey_hub.session_plans set session_date='2020-01-01',status='submitted',reason='TEST expired',submitted_by='TC-1001' where plan_id=$1",[draft.id]);await auth(1);await assert.rejects(command({action:'approve',id:draft.id,version:draft.version}),/Needs rescheduling/);pass('Expired save and approval blocked at database boundary');
  const duplicate=await command({action:'duplicate',id:own.id});const d=(await snapshot()).sessionPlans.find(x=>x.plan_id===duplicate.id);assert.equal(d.status,'draft');assert.equal(d.approved_by,null);assert.equal(d.submitted_by,null);assert.equal(d.events.length,1);assert.equal(d.return_reason,null);pass('Duplicate has fresh identity and approval history');

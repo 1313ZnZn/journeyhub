@@ -1,3 +1,5 @@
+> Superseded on 19 November 2026: the user now requires direct publication by any Staff member, including the creator. See STAFF_DIRECT_PUBLICATION_REPORT.md. The independent-approver policy below is historical.
+
 # Unified Staff capabilities — approval plan
 
 Status: approved by the user and implemented. See STAFF_UNIFICATION_REPORT.md for the applied migration and test evidence.

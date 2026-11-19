@@ -6,33 +6,33 @@ const html=fs.readFileSync(path.join(out,'index.html'),'utf8');
 const future=new Date(Date.now()+7*86400000).toISOString().slice(0,10),old='2020-01-01';
 const settings={currency:'THB',duration:150,timeZone:'Asia/Bangkok',price:1400,maxCapacity:40,capacitySource:'Existing session ceiling; manager must verify',hostRate:.5,materialCost:250,history:{source:'Historical sample: September 2026',bookingRate:.917,cancellationRate:.091,attendanceRate:.92}};
 const assumptions={bookingRate:.8,cancellationRate:.1,attendanceRate:.95,hostRate:.5,materialCost:100,basis:'TEST independent assumptions'};
-const data={staff:{id:'TM-1002',name:'TEST Duty Manager',role:'duty_manager'},staffWorkflowVersion:1,profile:null,personal:{},stores:[{store_id:'test-store',name:'TEST Store'}],products:[{product_id:'test-product',store_id:'test-store',name:'TEST Product',price_thb:100,categories:[]}],inventory:[],orders:[],bookings:[],metrics:[],liveMetrics:[],venues:[{venue_id:'test',name:'TEST Venue',city:'Bangkok',time_zone:'Asia/Bangkok'}],experiences:['craft','food','culture'].map((id,i)=>({experience_id:id,name:['Thai Craft Lab','Old Town Food Walk','Museum Culture Visit'][i],kind:['Workshop','Food','Culture'][i],price_thb:[1400,900,450][i],duration_min:[150,120,90][i],venue_id:'test',details:{}})),sessions:[{session_id:'TEST-SESSION',experience_id:'craft',starts_at:future+'T03:00:00Z',ends_at:future+'T05:30:00Z',capacity:30,seats_taken:0,seats_held_other_channels:0,price_thb:1400,status:'open'}],planningSettings:{craft:settings,food:{...settings,price:900,duration:120,history:null,materialCost:null},culture:{...settings,price:450,duration:90,history:null,materialCost:null}},sessionPlans:[]};
-function plan(id,exp,status='submitted',date=future){return {plan_id:id,experience_id:exp,session_date:date,start_time:'10:00',capacity:20,price_thb:1400,promo_budget_thb:0,reason:'TEST independent workflow verification',status,created_by:'TC-1001',submitted_by:'TC-1001',submittedName:'TEST Coordinator',submitted_at:new Date().toISOString(),created_at:new Date().toISOString(),version:1,events:[],assumptions,startsAt:date+'T03:00:00Z'};}
-data.sessionPlans=[plan('PLAN-TEST0001','craft'),plan('PLAN-TEST0002','food','withdrawn'),plan('PLAN-TEST0003','culture','draft'),plan('PLAN-EXPIRED0','craft','submitted',old)];data.sessionPlans[1].return_reason='Please review the materials assumption.';
+const data={staff:{id:'TM-1002',name:'TEST Duty Manager',role:'duty_manager'},staffWorkflowVersion:1,profile:null,personal:{},stores:[{store_id:'test-store',name:'TEST Store'}],products:[{product_id:'test-product',store_id:'test-store',name:'TEST Product',price_thb:100,categories:[]}],inventory:[],orders:[],bookings:[],metrics:[],liveMetrics:[],venues:[{venue_id:'test',name:'TEST Venue',city:'Bangkok',time_zone:'Asia/Bangkok'}],experiences:['craft','food','culture'].map((id,i)=>({experience_id:id,host_name:'TEST Local Host',languages:'English',rating:4.8,review_count:10,name:['Thai Craft Lab','Old Town Food Walk','Museum Culture Visit'][i],kind:['Workshop','Food','Culture'][i],price_thb:[1400,900,450][i],duration_min:[150,120,90][i],venue_id:'test',details:{}})),sessions:[{session_id:'TEST-SESSION',experience_id:'craft',starts_at:future+'T03:00:00Z',ends_at:future+'T05:30:00Z',capacity:30,seats_taken:0,seats_held_other_channels:0,price_thb:1400,status:'open'}],planningSettings:{craft:settings,food:{...settings,price:900,duration:120,history:null,materialCost:null},culture:{...settings,price:450,duration:90,history:null,materialCost:null}},sessionPlans:[]};
+function plan(id,exp,status='draft',date=future){return {plan_id:id,experience_id:exp,session_date:date,start_time:'10:00',capacity:20,price_thb:1400,promo_budget_thb:0,reason:'TEST independent workflow verification',status,created_by:'TC-1001',submitted_by:'TC-1001',submittedName:'TEST Coordinator',submitted_at:new Date().toISOString(),created_at:new Date().toISOString(),version:1,events:[],assumptions,startsAt:date+'T03:00:00Z'};}
+data.sessionPlans=[plan('PLAN-TEST0001','craft'),plan('PLAN-TEST0002','food','draft'),plan('PLAN-TEST0003','culture','draft'),plan('PLAN-EXPIRED0','craft','draft',old)];data.sessionPlans[1].return_reason='Please review the materials assumption.';
 const boot=`
-window.STAFF_TEST={A,V,guest(){jhUser=null;state.auth.staff=null;},get state(){return state},get sf(){return sf},get db(){return DBC},get user(){return jhUser},set staff(v){state.auth.staff=v},pending:swPending,status:swStatus,projection:sfProjection,validate:sfValidate,restore:snRestoreWorkspace,remember:snRememberWorkspace,select:sfSelect,plan:sfPlan,go,render,apply:jhApply,change:sfChange,flush:sfFlush,roles(user,employee){jhUser={id:user};state.auth.staff=employee;sfScope();}};
+window.STAFF_TEST={A,V,guest(){jhUser=null;state.auth.staff=null;},get state(){return state},get sf(){return sf},get db(){return DBC},get user(){return jhUser},set staff(v){state.auth.staff=v},pending:swPending,status:swStatus,projection:sfProjection,validate:sfValidate,restore:snRestoreWorkspace,remember:snRememberWorkspace,select:sfSelect,plan:sfPlan,go,render,apply:jhApply,change:sfChange,flush:sfFlush,set command(fn){jhCommand=fn},roles(user,employee){jhUser={id:user};state.auth.staff=employee;sfScope();}};
 jhUser={id:'test-manager'};jhPersonalReady=true;jhLoading=false;state.role='staff';state.route='s-approvals';state.params={};
 jhApply(window.STAFF_FIXTURE);jhRefresh=async()=>{jhApply(window.STAFF_FIXTURE);};
 saLoad=async()=>{};state.guestOk=true;render();
 `;
 let code=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(x=>x[1]).filter(Boolean).join('\n').replace('jhStart();',boot);
-const vc=new VirtualConsole(),errors=[];vc.on('jsdomError',e=>errors.push(e.message));vc.on('error',e=>errors.push(String(e)));
+const vc=new VirtualConsole(),errors=[];vc.on('jsdomError',e=>errors.push(e.cause?.stack||e.stack||e.message));vc.on('error',e=>errors.push(e?.stack||String(e)));
 const dom=new JSDOM(html,{url:'http://localhost:4178/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:vc}),w=dom.window;
 const queue=w.queueMicrotask.bind(w);w.queueMicrotask=fn=>queue(()=>{if(w.document)fn();});
 w.matchMedia=query=>({get matches(){return !!w.testWide&&query.includes('min-width');},addEventListener(){},removeEventListener(){}});w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};
 w.fetch=async()=>Response.json({});Object.assign(w,{TextEncoder,TextDecoder,Headers,Request,Response,AbortController});
 w.eval(fs.readFileSync(path.join(out,'vendor/supabase.js'),'utf8'));w.JOURNEYHUB_CONFIG={url:'https://test.supabase.co',publishableKey:'sb_publishable_test_fixture'};w.STAFF_FIXTURE=data;
 (async()=>{try{
- w.eval(code);const t=w.STAFF_TEST;assert.equal(t.pending().length,1,'expired plan excluded from actionable count');
- assert.match(w.document.querySelector('#app').textContent,/1 actionable approvals/);assert(!w.document.querySelector('#app').textContent.includes('PLAN-EXPIRED0'));
- t.A.swFilterStatus('all');assert.match(w.document.querySelector('#app').textContent,/Needs rescheduling/);
+ w.eval(code);const t=w.STAFF_TEST;assert.equal(t.pending().length,4,'All shared drafts, including ones needing rescheduling, remain visible');
+ assert.match(w.document.querySelector('#app').textContent,/4 shared drafts/);assert.match(w.document.querySelector('#app').textContent,/Needs rescheduling/);
+ t.A.swFilterStatus('drafts');assert.match(w.document.querySelector('#app').textContent,/Needs rescheduling/);
  // sfBeforeLeave completes asynchronously; directly position the record for synchronous rendering checks.
- t.select('PLAN-TEST0001');t.go('s-plan',{id:'PLAN-TEST0001'});assert(w.document.querySelector('[data-act="splanApprove"]'));assert.match(w.document.querySelector('#app').textContent,/Thai Craft Lab/);
+ t.select('PLAN-TEST0001');t.go('s-plan',{id:'PLAN-TEST0001'});assert(w.document.querySelector('[data-act="splanPublish"]'));assert.match(w.document.querySelector('#app').textContent,/Thai Craft Lab/);
  t.remember();t.state.params={id:'wrong'};t.restore();assert.equal(t.state.params.id,'PLAN-TEST0001');
  t.go('s-plan',{id:'missing'});assert.match(w.document.querySelector('#app').textContent,/does not exist/);assert.equal(t.plan(),null,'no first-record fallback');
  t.go('s-session',{id:'missing'});assert.match(w.document.querySelector('#app').textContent,/missing or unavailable/);
- t.roles('host-user',{id:'TH-1003',name:'TEST Host',role:'host'});t.go('s-insights');assert.equal(t.state.route,'s-insights');assert.match(w.document.querySelector('#app').textContent,/Host insights/);t.go('s-plan',{exp:'food'});assert(w.document.querySelector('[data-ch="swActivity"]'));assert.equal(w.document.querySelector('[data-ch="swActivity"]').value,'food');
- t.roles('coordinator-user',{id:'TC-1001',name:'TEST Coordinator',role:'coordinator'});t.select('PLAN-TEST0003');t.go('s-plan',{id:'PLAN-TEST0003'});assert(w.document.querySelector('[data-act="splanSubmit"]'));assert(!w.document.querySelector('[data-act="splanApprove"]'));assert.match(w.document.querySelector('#app').textContent,/No historical sample/);
+ t.roles('host-user',{id:'TH-1003',name:'TEST Host',role:'duty_manager'});t.go('s-plan',{exp:'food'});assert(w.document.querySelector('[data-ch="swActivity"]'));assert.equal(w.document.querySelector('[data-ch="swActivity"]').value,'food');
+ t.roles('coordinator-user',{id:'TC-1001',name:'TEST Coordinator',role:'duty_manager'});t.select('PLAN-TEST0003');t.go('s-plan',{id:'PLAN-TEST0003'});assert(w.document.querySelector('[data-act="splanPublish"]'));assert.match(w.document.querySelector('#app').textContent,/No historical sample/);
  assert.equal(t.projection({cap:10,price:100,promo:0,assumptions:{}}),null,'unknown costs never zero');
  const p=t.plan();assert.equal(t.validate({...p,date:old}), 'Choose a valid date within the next year.');
  t.go('s-approvals');t.state.swFilter={status:'all',exp:'culture',date:future,submitter:'TC-1001'};t.remember();t.state.swFilter={};t.restore();assert.equal(t.state.swFilter.exp,'culture');
@@ -40,18 +40,38 @@ w.eval(fs.readFileSync(path.join(out,'vendor/supabase.js'),'utf8'));w.JOURNEYHUB
  for(const [id,name] of [['TC-1001','Former Coordinator'],['TH-1003','Former Host'],['TM-1002','Duty Manager']]){
   t.roles('unified-'+id,{id,name,role:'duty_manager'});
   t.state.swFilter={status:'all'};t.go('s-approvals');
-  assert.match(w.document.querySelector('#app').textContent,/Approvals/);
+  assert.match(w.document.querySelector('#app').textContent,/Session plans/);
   t.select('PLAN-TEST0001');t.go('s-plan',{id:'PLAN-TEST0001'});
-  assert.equal(!!w.document.querySelector('[data-act="splanApprove"]'),id!=='TC-1001','Independent approval rule applies equally');
-  assert.match(w.document.querySelector('#app').textContent,/different staff member/);
+  assert(w.document.querySelector('[data-act="splanPublish"]'),'Every Staff member can publish any draft, including their own');
+  assert.match(w.document.querySelector('#app').textContent,/Any Staff member can edit a draft and publish it/);
  }
+ let publishCalls=0;
+ t.command=async(operation,payload)=>{
+  assert.equal(operation,'plan');const p=data.sessionPlans.find(x=>x.plan_id===payload.id);assert(p);
+  assert.equal(payload.version,p.version);
+  if(payload.action==='save'){Object.assign(p,{reason:payload.reason,capacity:payload.cap,price_thb:payload.price,assumptions:payload.assumptions});p.version++;return {id:p.plan_id,version:p.version};}
+  assert.equal(payload.action,'publish');publishCalls++;
+  Object.assign(p,{status:'approved',created_session_id:'TEST-PUBLISHED',published_by:'TM-1002',published_at:new Date().toISOString()});p.version++;
+  data.sessions.push({...data.sessions[0],session_id:'TEST-PUBLISHED',experience_id:p.experience_id,price_thb:p.price_thb,capacity:p.capacity});
+  return {id:p.plan_id,version:p.version,createdSessionId:'TEST-PUBLISHED'};
+ };
+ t.change('reason','TEST changed immediately before publish');
+ await Promise.all([t.A.splanPublish(),t.A.splanPublish()]);
+ assert.equal(publishCalls,1,'Double click produces only one publication request');
+ assert.equal(data.sessionPlans[0].reason,'TEST changed immediately before publish','Pending edits saved before publication');
+ assert.match(w.document.querySelector('#app').textContent,/Session published successfully/);
+ assert(w.document.querySelector('[data-act="viewSlot"]'));assert(!w.document.querySelector('[data-act="splanPublish"]'));
+ t.apply(data);t.go('s-plan',{id:'PLAN-TEST0001'});assert.match(w.document.querySelector('#app').textContent,/Published by TM-1002/);
+ t.go('s-approvals');t.A.swFilterStatus('published');assert.match(w.document.querySelector('#app').textContent,/Thai Craft Lab/);
+ assert(!/Pending approval|Approve & publish|Waiting for duty manager|Submit for approval/.test(w.document.querySelector('#app').textContent));
+ await t.A.viewSlot();assert.equal(t.state.route,'exp');assert.equal(t.state.params.id,'craft');assert.equal(t.state.expSel.craft.slot,'TEST-PUBLISHED');
  w.testWide=true;t.guest();t.state.role='traveler';t.go('journey');
  assert(w.document.body.classList.contains('pip-center'),'Guest uses the same centred Pip home');
  assert(w.document.querySelector('.jl-home.is-pip'),'Old two-column form is adapted for guests');
  const guestInput=w.document.querySelector('[data-pip-input]');assert(guestInput);guestInput.value='Shanghai museums';
  guestInput.form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
  assert.equal(t.state.route,'login','Guest submission still requires authentication');
- assert.equal(errors.length,0,errors.join('\n'));console.log('PASS production-bundle approvals, real count semantics, missing-ID handling, record/filter restoration, Host routing, activity selection, submitter permissions and unknown-cost forecast. Transport mocked.');
+ assert.equal(errors.length,0,errors.join('\n'));console.log('PASS production-bundle direct publication, shared drafts, double-click protection, persisted publisher, traveler slot link, real count semantics, missing-ID handling, record/filter restoration, Host routing, activity selection, submitter permissions and unknown-cost forecast. Transport mocked.');
  // A local, visibly labeled fixture for manual browser screenshots; never part of deployment.
  const fixtureDir=path.join(root,'outputs/staff-workflow');fs.mkdirSync(fixtureDir,{recursive:true});
  let page=html.replace(/<script src="\.\/config.js"><\/script>/,'<script>window.JOURNEYHUB_CONFIG={url:"https://test.supabase.co",publishableKey:"sb_publishable_test_fixture"};window.STAFF_FIXTURE='+JSON.stringify(data).replaceAll('<','\\u003c')+';</script>');

@@ -26,7 +26,7 @@ const fixture = {
   bookings:[],orders:[],liveMetrics:[],
   sessionPlans:[
     {plan_id:'PLAN-NAV-OTHER',experience_id:'craft',session_date:future,start_time:'10:00:00',capacity:30,price_thb:1400,promo_budget_thb:0,reason:'An unrelated draft must not replace the selected plan.',status:'draft',version:1,events:[]},
-    {plan_id:'PLAN-NAV-TARGET',experience_id:'craft',session_date:future,start_time:'14:00:00',capacity:25,price_thb:1500,promo_budget_thb:1000,reason:'The exact submitted plan to review.',status:'submitted',submitted_by:'NAV-COORD',version:4,events:[]}
+    {plan_id:'PLAN-NAV-TARGET',experience_id:'craft',session_date:future,start_time:'14:00:00',capacity:25,price_thb:1500,promo_budget_thb:1000,reason:'The exact submitted plan to review.',status:'draft',submitted_by:'NAV-COORD',version:4,events:[]}
   ],
   metrics:activities.flatMap(id=>[1,2,3,4].map(week=>({experience_id:id,month:'2026-09-01',week,seats_offered:30,booked:25,cancelled:2,attended:21,price:1400,cost:250})))
 };
@@ -108,7 +108,7 @@ async function boot({person=null,storage={}}={}) {
   // Multiple plans deliberately exist: switching approvers must retain this exact plan.
   t.go('s-plan',{id:'PLAN-NAV-TARGET'});assert.equal(t.plan.id,'PLAN-NAV-TARGET');await t.A.switchToManager();
   assert.equal(t.state.params.next.route,'s-plan');assert.equal(t.state.params.next.params.id,'PLAN-NAV-TARGET');
-  await h.login('manager');assert.equal(t.state.route,'s-plan');assert.equal(t.state.params.id,'PLAN-NAV-TARGET');assert.equal(t.plan.id,'PLAN-NAV-TARGET');assert(app().querySelector('[data-act="splanApprove"]'),'Different manager sees approval control');
+  await h.login('manager');assert.equal(t.state.route,'s-plan');assert.equal(t.state.params.id,'PLAN-NAV-TARGET');assert.equal(t.plan.id,'PLAN-NAV-TARGET');assert(app().querySelector('[data-act="splanPublish"]'),'Staff sees direct publication control');
   let saved=h.exportStorage();await h.close();
 
   h=await boot({person:people.manager,storage:saved});t=h.t;app=h.app;

@@ -1,6 +1,7 @@
 // Durable traveler-only decision loop. The model chooses a registered tool;
 // tool results become the next observation. No booking/payment/staff tools exist.
-import {fail,WorkflowError,providerConfig,estimateTravel,transferMinutes} from './planner.mjs';
+import {fail,WorkflowError,estimateTravel,transferMinutes} from './planner.mjs';
+import {requestDecision} from './decision-runtime.mjs';
 import {validateDiscovery,validateFreePlan,readSelection,signSelection,withEnglishNames,planBudgetIssue,CITIES,fields,jsonFetch,placeRecord,placePhoto} from './discovery.mjs';
 import {demoPrice} from './demo-wallet.mjs';
 import {discoveryCardCount,searchQueries,mergeCandidates,selectCurated,englishName} from './curation.mjs';
@@ -69,10 +70,9 @@ function availableTools(s){
  return searchTools.filter(t=>t.function.name!=='inspect_places'||inspectable&&s.inspectionCount<8);
 }
 async function decide(state,context){
- const c=providerConfig(context.env);if(!c.ready||c.protocol!=='chat-completions')fail('AI_NOT_CONFIGURED','A chat-completions AI provider is required for traveler planning.',503);
  const extra=state.kind==='discover'?'Cover every explicit cuisine, drink and activity interest. Search each category separately, inspect coverage, then supplement weak categories before selecting. Search results ALREADY verify place identity and coordinates. Do NOT inspect every place. After targeted searches, call select_cards with suitable results even when some interests could not be matched. Inspect at most eight candidates, only for genuinely missing photos. Visit-day official hours are checked during itinerary planning, not card discovery. Do not select a museum as food. Use up to targetCardCount suitable places; never fill a gap with unrelated venues. Normally choose two or more per requested category. Prefer places with actual photos. Preserve branch identity in English names.':'Keep every must-visit place exactly once. Try to spread visits across all days; label unfilled days as free time. Add optional places only if they fit. Drop optional places first when timing, hours or the normalized CNY group budget conflict. Sum only supplied illustrative group costs; null means unknown and cannot establish that a budget fits. If a must-visit cannot fit, explain the constraint and ask the traveler to review it. Schedule restaurants at lunch/dinner and tea as breaks. Use official facts when available; regular map hours are advisory. Before finalizing, check routes, read actual duration conflicts, then propose a corrected schedule and check again. Move a closed must-visit place to a permissible day or ask the traveler to review it; omit a closed optional place if needed.';
  const tools=availableTools(state);
- const data=await jsonFetch(c.base+'/chat/completions',{method:'POST',headers:{Authorization:'Bearer '+c.key,'Content-Type':'application/json'},body:JSON.stringify({model:c.model,messages:[{role:'system',content:basePrompt+' '+extra},{role:'user',content:JSON.stringify(observation(state))}],tools,tool_choice:'auto',parallel_tool_calls:false,max_tokens:4000,...(c.provider==='deepseek'?{thinking:{type:'disabled'}}:{})})},context.fetcher);
+ const data=await requestDecision({env:context.env,fetcher:context.fetcher,agent:state.kind,system:basePrompt+' '+extra,observation:observation(state),tools,maxTokens:4000});
  state.usage={inputTokens:(state.usage?.inputTokens||0)+(Number(data.usage?.prompt_tokens)||0),outputTokens:(state.usage?.outputTokens||0)+(Number(data.usage?.completion_tokens)||0)};
  const calls=data.choices?.[0]?.message?.tool_calls;
  if(!Array.isArray(calls)||!calls.length||calls.length>8||data.choices?.[0]?.finish_reason==='length')return{invalid:'Choose one registered tool call; the previous response did not contain a complete tool call.'};

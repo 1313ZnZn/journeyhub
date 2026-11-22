@@ -1,0 +1,30 @@
+[project]
+name = "journeyhub-agent-api"
+version = "0.1.0"
+description = "LangChain/LangGraph decision service for JourneyHub's existing durable agents"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "fastapi==0.165.0",
+  "uvicorn==0.54.0",
+  "langchain==1.5.2",
+  "langchain-openai==1.8.5",
+  "langgraph==1.2.24",
+  "pydantic-settings==2.16.3",
+  "jsonschema==4.26.0",
+]
+
+[dependency-groups]
+dev = ["pytest==9.2.0", "pytest-asyncio==1.5.0", "httpx==0.28.1", "ruff==0.17.6"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]

@@ -1,4 +1,5 @@
-import {WorkflowError,fail,providerConfig} from './planner.mjs';
+import {WorkflowError,fail} from './planner.mjs';
+import {decisionConfig} from './decision-runtime.mjs';
 import {validateDiscovery,readSelection} from './discovery.mjs';
 import {historyId,historyChoices,searchHistoryId,stableHistoryId} from './history.mjs';
 import {plannerStep,dayPlanFor} from './traveler-planner.mjs';
@@ -74,7 +75,7 @@ export async function plannerTaskAction(context){
    const dayPlan=dayPlanFor(raw.dayPlan,wanted,input.days);
    payload={action:'discover_plan',token:raw.token,wanted,skipped,selection,...(dayPlan?{dayPlan}:{})};
   }
-  if(!providerConfig(env).ready)fail('AI_NOT_CONFIGURED','The AI service is not configured.',503);
+  if(!decisionConfig(env).ready)fail('AI_NOT_CONFIGURED','The AI service is not configured.',503);
   const useAmap=input.city==='Shanghai'&&!!env('AMAP_WEB_SERVICE_KEY');
   if(!(useAmap?env('AMAP_WEB_SERVICE_KEY'):env('GOOGLE_PLACES_API_KEY')))fail('PLACES_NOT_CONFIGURED','Live place search is not configured.',503);
   try{task=await rpc('journeyhub_planner_start',{p_user_id:user.id,p_request_id:requestId,p_kind:kind,p_payload:payload,p_input:input});}catch(error){throw plannerRPCError(error)||error;}

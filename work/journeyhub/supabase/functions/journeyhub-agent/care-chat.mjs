@@ -1,6 +1,7 @@
 // Traveler-only natural-language trip adjustments. Model tools can read saved
 // evidence and prepare a validated preview; only the explicit Apply RPC saves it.
-import {fail,WorkflowError,providerConfig,estimateTravel} from './planner.mjs';
+import {fail,WorkflowError,estimateTravel} from './planner.mjs';
+import {decisionConfig,requestDecision} from './decision-runtime.mjs';
 import {historyId} from './history.mjs';
 import {presentCare,careStops} from './care.mjs';
 import {savedPlaces,protectedStopIds,factFor,hoursAssessment,assessCare,visitDate} from './care-readiness.mjs';
@@ -84,7 +85,7 @@ export async function careChatAction(context){
   else if(value.action==='care_chat'){
    const requestId=historyId(value.requestId),message=clean(value.message,2001),day=value.day??null;
    if(!message||message.length>2000||day!==null&&(!Number.isInteger(day)||day<1||day>7))fail('INVALID_INPUT','Enter a message up to 2,000 characters and choose a valid trip day.');
-   if(!providerConfig(env).ready)fail('AI_NOT_CONFIGURED','The Trip Agent is not configured.',503);
+   if(!decisionConfig(env).ready)fail('AI_NOT_CONFIGURED','The Trip Agent is not configured.',503);
    result=await rpc('journeyhub_care_chat_start',{p_user_id:user.id,p_care_id:id,p_request_id:requestId,p_message:message,p_day_index:day});
   }else if(value.action==='care_chat_apply')result=await rpc('journeyhub_care_chat_apply',{p_user_id:user.id,p_care_id:id,p_request_id:historyId(value.requestId),p_proposal_id:historyId(value.proposalId)});
   else if(value.action==='care_chat_pay')result=await rpc('journeyhub_care_chat_payment',{p_user_id:user.id,p_care_id:id,p_request_id:historyId(value.requestId),p_quote_id:historyId(value.quoteId)});
@@ -111,9 +112,8 @@ function observe(s,remaining){
   recentObservations:s.observations.slice(-3),decisionsRemaining:remaining};
 }
 async function decide(s,ctx,remaining){
- const c=providerConfig(ctx.env);if(!c.ready||c.protocol!=='chat-completions')fail('AI_NOT_CONFIGURED','The Trip Agent requires a chat-completions AI provider.',503);
  const available=s.proposal||s.payment?tools.filter(t=>['respond','ask_follow_up'].includes(t.function.name)):tools;
- const data=await jsonFetch(c.base+'/chat/completions',{method:'POST',headers:{Authorization:'Bearer '+c.key,'Content-Type':'application/json'},body:JSON.stringify({model:c.model,messages:[{role:'system',content:system},{role:'user',content:JSON.stringify(observe(s,remaining))}],tools:available,tool_choice:'auto',parallel_tool_calls:false,max_tokens:2600,...(c.provider==='deepseek'?{thinking:{type:'disabled'}}:{})})},ctx.fetcher);
+ const data=await requestDecision({env:ctx.env,fetcher:ctx.fetcher,agent:'trip_chat',system,observation:observe(s,remaining),tools:available,maxTokens:2600});
  s.usage.inputTokens+=Number(data.usage?.prompt_tokens)||0;s.usage.outputTokens+=Number(data.usage?.completion_tokens)||0;
  if(data.choices?.[0]?.finish_reason==='length')return null;
  const calls=data.choices?.[0]?.message?.tool_calls;

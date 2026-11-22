@@ -13,3 +13,7 @@ outputs/
 **/*history-seed*
 .DS_Store
 .vercel/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/

@@ -25,6 +25,13 @@ Serve outputs/JourneyHub-Supabase with a local static web server (for example py
 - work/journeyhub/supabase/migrations: ordered database migration history.
 - work/journeyhub/.env.example: server configuration names; all secrets must stay outside Git.
 - outputs/JourneyHub-Supabase: generated build, ignored by Git.
+- services/agent-api: Python/FastAPI LangChain + LangGraph decision runtime for the durable planner and Trip Agent. See its [setup and migration guide](services/agent-api/README.md).
+- docs/AGENT_INTERVIEW_GUIDE.md: [architecture walkthrough and interview notes](docs/AGENT_INTERVIEW_GUIDE.md).
+
+The Python runtime is an opt-in backend migration. Run `npm run test:agent` with
+Python 3.12 and uv installed to verify the service and existing Edge callers
+without cloud credentials. It does not replace all AI helpers or enable itself
+through a frontend deployment.
 
 ## Backend setup
 
@@ -34,6 +41,6 @@ The original.html prototype still includes legacy mock accounts which the build 
 
 ## Collaboration and release
 
-The owner invites contributors through repository Settings > Collaborators. Work on a branch and open a pull request, review and run the relevant tests before merging. No automatic production deployment is configured: merging code does not change the live website. The owner publishes the reviewed build and any required backend migration separately.
+The owner invites contributors through repository Settings > Collaborators. Work on a branch and open a pull request, review and run the relevant tests before merging. The connected Vercel project builds the frontend from Git. Supabase functions, migrations and the Python agent service have separate release steps; merging frontend code does not deploy those backends. The owner reviews and merges pull requests.
 
 This initial export preserves the existing application behaviour; packaging changes only add local configuration, documentation and prevent frontend builds from rewriting migrations. Third-party assets retain their bundled licenses.

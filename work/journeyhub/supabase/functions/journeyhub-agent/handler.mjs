@@ -1,5 +1,6 @@
 import {amapBrowserConfig,amapBrowserProxy} from './amap-browser.mjs';
 import {WorkflowError,fail,validateInput,providerConfig,generatePlan} from './planner.mjs';
+import {decisionConfig} from './decision-runtime.mjs';
 import {getMailReadiness} from '../_shared/agent-mail.mjs';
 import {discoveryAction,historyAction} from './discovery.mjs';
 import {careAction} from './care.mjs';
@@ -81,9 +82,9 @@ export function createAgentHandler({envGet,fetchImpl=fetch,rpc:injectedRPC,authe
         return reply({browserKey:key,ready:!!key});
       }
       if(req.method==='GET'&&new URL(req.url).searchParams.get('action')==='health'){
-        const ai=providerConfig(env),mail=getMailReadiness(env);let worker={ready:false};
+        const ai=providerConfig(env),decision=decisionConfig(env),mail=getMailReadiness(env);let worker={ready:false};
         try{const config=await rpc('journeyhub_agent_worker_config',{});worker={ready:!!config?.scheduled};}catch{}
-        return reply({ai:{ready:ai.ready,provider:ai.provider,model:ai.model},discovery:{ready:!!(env('GOOGLE_PLACES_API_KEY')||env('AMAP_WEB_SERVICE_KEY'))&&ai.ready,provider:'Amap (Shanghai) / Google Places (overseas)',amap:!!env('AMAP_WEB_SERVICE_KEY'),google:!!env('GOOGLE_PLACES_API_KEY')},email:{ready:mail.ready,provider:mail.provider||'Not configured'},worker,booking:{mode:'journeyhub_catalog',sample:true}});
+        return reply({ai:{ready:ai.ready,provider:ai.provider,model:ai.model},agentRuntime:{configured:decision.ready,runtime:decision.runtime},discovery:{ready:!!(env('GOOGLE_PLACES_API_KEY')||env('AMAP_WEB_SERVICE_KEY'))&&decision.ready,provider:'Amap (Shanghai) / Google Places (overseas)',amap:!!env('AMAP_WEB_SERVICE_KEY'),google:!!env('GOOGLE_PLACES_API_KEY')},email:{ready:mail.ready,provider:mail.provider||'Not configured'},worker,booking:{mode:'journeyhub_catalog',sample:true}});
       }
       if(req.method!=='POST')return reply({error:{code:'METHOD_NOT_ALLOWED',message:'Use POST to create an itinerary.'}},405);
       const user=await measure('auth',()=>authenticate(req)),value=await boundedJSON(req);timing.action(value?.action);
